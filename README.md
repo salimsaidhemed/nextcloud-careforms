@@ -1,2 +1,3 @@
-# nextcloud-careforms
-Secure form-based field data collection and reporting for Nextcloud
+# CareForms
+
+Nextcloud app for secure form-based field data collection and reporting.
