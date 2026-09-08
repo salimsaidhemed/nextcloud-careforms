@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>careforms</id>
+    <name>CareForms</name>
+    <summary>
+        Secure field data collection and reporting
+    </summary>
+    <description>
+        Provides centralized form-based data collection,
+        submission management and reporting within Nextcloud.
+    </description>
+    <version>0.1.0</version>
+    <licence>agpl</licence>
+    <author>TCADC</author>
+    <namespace>CareForms</namespace>
+    <category>organization</category>
+    <navigation>
+        <name>CareForms</name>
+        <route>careforms.page.index</route>
+        <order>30</order>
+    </navigation>
+    <dependencies>
+        <nextcloud min-version="31" max-version="31"/>
+    </dependencies>
+    <settings>
+        <admin>OCA\CareForms\Settings\Admin</admin>
+        <admin-section>OCA\CareForms\Sections\CareFormsSection</admin-section>
+    </settings>
+</info>
