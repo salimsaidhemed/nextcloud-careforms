@@ -1,12 +1,13 @@
 <?php
 
+script('careforms', 'forms/home-health-aide');
+script('careforms', 'form-renderer');
 script('careforms', 'page');
 style('careforms', 'page');
 
 ?>
 
 <div id="careforms-app">
-
     <header class="careforms-header">
         <div>
             <h1>CareForms</h1>
@@ -15,39 +16,30 @@ style('careforms', 'page');
     </header>
 
     <nav class="careforms-tabs" aria-label="CareForms">
-        <button
-            type="button"
-            class="careforms-tab active"
-            data-view="work">
-            My Work
-        </button>
-
-        <button
-            type="button"
-            class="careforms-tab"
-            data-view="forms">
-            Forms
-        </button>
-
-        <button
-            type="button"
-            class="careforms-tab"
-            data-view="reports">
-            Reports
-        </button>
+        <button type="button" class="careforms-tab active" data-view="work">My Work</button>
+        <button type="button" class="careforms-tab" data-view="forms">Forms</button>
+        <button type="button" class="careforms-tab" data-view="reports">Reports</button>
     </nav>
 
     <main id="careforms-content">
-
-        <section id="careforms-work-view">
+        <section class="careforms-view active" data-view-panel="work">
             <h2>My Work</h2>
-
-            <p>
-                Drafts, returned forms and recent submissions
-                will appear here.
-            </p>
+            <div class="careforms-empty-state">
+                <h3>No assigned work yet</h3>
+                <p>Drafts, returned forms and recent submissions will appear here.</p>
+            </div>
         </section>
 
-    </main>
+        <section class="careforms-view" data-view-panel="forms" hidden>
+            <div id="careforms-forms-browser"></div>
+        </section>
 
+        <section class="careforms-view" data-view-panel="reports" hidden>
+            <h2>Reports</h2>
+            <div class="careforms-empty-state">
+                <h3>Reports are not enabled yet</h3>
+                <p>Reporting will be added after the form and submission workflows are in place.</p>
+            </div>
+        </section>
+    </main>
 </div>
