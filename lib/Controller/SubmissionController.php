@@ -8,9 +8,10 @@ use OCA\CareForms\Db\Submission;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Db\MultipleObjectsReturnedException;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\Http\Response;
 use OCP\IRequest;
 use OCP\IUserSession;
 
@@ -30,7 +31,7 @@ class SubmissionController extends Controller
     {
         $userId = $this->getUserId();
         if ($userId === null) {
-            return new JSONResponse(['message' => 'Authentication required.'], Response::STATUS_UNAUTHORIZED);
+            return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         }
 
         return new JSONResponse(array_map(
@@ -55,11 +56,11 @@ class SubmissionController extends Controller
     {
         $userId = $this->getUserId();
         if ($userId === null) {
-            return new JSONResponse(['message' => 'Authentication required.'], Response::STATUS_UNAUTHORIZED);
+            return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         }
 
         if ($formId === '' || $formVersion === '') {
-            return new JSONResponse(['message' => 'formId and formVersion are required.'], Response::STATUS_BAD_REQUEST);
+            return new JSONResponse(['message' => 'formId and formVersion are required.'], Http::STATUS_BAD_REQUEST);
         }
 
         $now = time();
@@ -73,7 +74,7 @@ class SubmissionController extends Controller
         $submission->setUpdatedAt($now);
 
         $saved = $this->mapper->insert($submission);
-        return new JSONResponse($saved->jsonSerialize(), Response::STATUS_CREATED);
+        return new JSONResponse($saved->jsonSerialize(), Http::STATUS_CREATED);
     }
 
     #[NoAdminRequired]
@@ -85,7 +86,7 @@ class SubmissionController extends Controller
         }
 
         if ($submission->getStatus() !== 'draft') {
-            return new JSONResponse(['message' => 'Submitted forms are read-only.'], Response::STATUS_CONFLICT);
+            return new JSONResponse(['message' => 'Submitted forms are read-only.'], Http::STATUS_CONFLICT);
         }
 
         $submission->setData($this->encodeData($data));
@@ -104,7 +105,7 @@ class SubmissionController extends Controller
         }
 
         if ($submission->getStatus() !== 'draft') {
-            return new JSONResponse(['message' => 'This form has already been submitted.'], Response::STATUS_CONFLICT);
+            return new JSONResponse(['message' => 'This form has already been submitted.'], Http::STATUS_CONFLICT);
         }
 
         $now = time();
@@ -126,13 +127,13 @@ class SubmissionController extends Controller
     {
         $userId = $this->getUserId();
         if ($userId === null) {
-            return new JSONResponse(['message' => 'Authentication required.'], Response::STATUS_UNAUTHORIZED);
+            return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         }
 
         try {
             return $this->mapper->findByIdAndUser($id, $userId);
-        } catch (DoesNotExistException) {
-            return new JSONResponse(['message' => 'Submission not found.'], Response::STATUS_NOT_FOUND);
+        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
+            return new JSONResponse(['message' => 'Submission not found.'], Http::STATUS_NOT_FOUND);
         }
     }
 
