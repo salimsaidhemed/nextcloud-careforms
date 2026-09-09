@@ -1,0 +1,61 @@
+.careforms-audit-controls {
+    margin: 0 0 16px;
+}
+
+.careforms-audit-controls input[type="search"] {
+    width: min(520px, 100%);
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.careforms-audit-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    background: var(--color-main-background);
+}
+
+.careforms-audit-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+}
+
+.careforms-audit-table th,
+.careforms-audit-table td {
+    padding: 11px 14px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.careforms-audit-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-weight: 600;
+    background: var(--color-main-background);
+}
+
+.careforms-audit-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.careforms-audit-table tbody tr:hover {
+    background: var(--color-background-hover);
+}
+
+.careforms-audit-outcome {
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.careforms-audit-outcome-success {
+    color: var(--color-success-text, var(--color-main-text));
+}
+
+.careforms-audit-outcome-denied,
+.careforms-audit-outcome-failure {
+    color: var(--color-error-text, var(--color-main-text));
+}
