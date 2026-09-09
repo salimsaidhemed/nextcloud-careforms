@@ -18,12 +18,11 @@ use OCP\IUserSession;
 class SubmissionController extends Controller
 {
     public function __construct(
-        string $appName,
         IRequest $request,
         private SubmissionMapper $mapper,
         private IUserSession $userSession,
     ) {
-        parent::__construct($appName, $request);
+        parent::__construct('careforms', $request);
     }
 
     #[NoAdminRequired]
