@@ -1,0 +1,80 @@
+.careforms-report-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin: 16px 0 24px;
+}
+
+.careforms-report-card-grid.compact {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.careforms-report-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 18px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    background: var(--color-main-background);
+}
+
+.careforms-report-card strong {
+    font-size: 28px;
+    line-height: 1.1;
+}
+
+.careforms-report-card small,
+.careforms-report-label {
+    color: var(--color-text-maxcontrast);
+}
+
+.careforms-report-label {
+    font-weight: 600;
+}
+
+.careforms-report-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.careforms-report-group > h2 {
+    margin-bottom: 8px;
+}
+
+.careforms-report-panel {
+    margin-top: 16px;
+    padding: 18px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    background: var(--color-main-background);
+}
+
+.careforms-report-panel h3 {
+    margin-top: 0;
+}
+
+.careforms-report-pairs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.careforms-report-pairs > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.careforms-report-pairs > div:last-child {
+    border-bottom: 0;
+}
+
+@media (max-width: 900px) {
+    .careforms-report-columns {
+        grid-template-columns: 1fr;
+    }
+}
