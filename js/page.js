@@ -4,6 +4,7 @@
     window.CareForms = window.CareForms || {};
 
     var activeSubmission = null;
+    var accessState = null;
 
     function apiUrl(path) {
         return OC.generateUrl('/apps/careforms' + path);
@@ -43,7 +44,33 @@
             .find(function (definition) { return definition.id === formId; });
     }
 
+    function canUseForm(formId) {
+        return accessState && Array.isArray(accessState.forms)
+            && accessState.forms.indexOf(formId) !== -1;
+    }
+
+    function applyAccessToNavigation() {
+        var formsTab = document.querySelector('.careforms-tab[data-view="forms"]');
+        var reportsTab = document.querySelector('.careforms-tab[data-view="reports"]');
+
+        if (formsTab) {
+            formsTab.hidden = !accessState || !accessState.forms || accessState.forms.length === 0;
+        }
+
+        if (reportsTab) {
+            reportsTab.hidden = !accessState || !accessState.canViewReports;
+        }
+    }
+
     function showView(viewName) {
+        if (viewName === 'forms' && (!accessState || !accessState.forms || accessState.forms.length === 0)) {
+            viewName = 'work';
+        }
+
+        if (viewName === 'reports' && (!accessState || !accessState.canViewReports)) {
+            viewName = 'work';
+        }
+
         document.querySelectorAll('.careforms-tab').forEach(function (tab) {
             tab.classList.toggle('active', tab.dataset.view === viewName);
         });
@@ -76,6 +103,14 @@
         mountNode.appendChild(heading);
 
         var definition = window.CareForms.formDefinitions.homeHealthAide;
+        if (!definition || !canUseForm(definition.id)) {
+            var empty = document.createElement('div');
+            empty.className = 'careforms-empty-state';
+            empty.innerHTML = '<h3>No forms assigned</h3><p>Your CareForms role does not currently provide access to a form.</p>';
+            mountNode.appendChild(empty);
+            return;
+        }
+
         var category = document.createElement('section');
         category.className = 'careforms-form-category';
 
@@ -183,6 +218,11 @@
     }
 
     function openNewForm(definition, mountNode) {
+        if (!canUseForm(definition.id)) {
+            notify('You do not have permission to use this form.');
+            return;
+        }
+
         activeSubmission = null;
         window.CareForms.FormRenderer.render(definition, mountNode, {
             onSaveDraft: function (data, button) {
@@ -195,6 +235,12 @@
     }
 
     function renderSubmission(definition, submission, mountNode) {
+        if (!canUseForm(definition.id)) {
+            notify('You no longer have permission to access this form.');
+            showView('work');
+            return;
+        }
+
         activeSubmission = submission;
         window.CareForms.FormRenderer.render(definition, mountNode, {
             values: submission.data || {},
@@ -238,10 +284,18 @@
             heading.innerHTML = '<div><h2>My Work</h2><p class="careforms-muted">Drafts and your recent submissions.</p></div>';
             mountNode.appendChild(heading);
 
+            if (!accessState || (!accessState.forms.length && !accessState.canViewReports)) {
+                var denied = document.createElement('div');
+                denied.className = 'careforms-empty-state';
+                denied.innerHTML = '<h3>No CareForms role assigned</h3><p>Ask an administrator to assign you to an appropriate CareForms group.</p>';
+                mountNode.appendChild(denied);
+                return;
+            }
+
             if (!submissions.length) {
                 var empty = document.createElement('div');
                 empty.className = 'careforms-empty-state';
-                empty.innerHTML = '<h3>No assigned work yet</h3><p>Start a form and save it as a draft. It will appear here.</p>';
+                empty.innerHTML = '<h3>No assigned work yet</h3><p>Start a permitted form and save it as a draft. It will appear here.</p>';
                 mountNode.appendChild(empty);
                 return;
             }
@@ -251,7 +305,7 @@
 
             submissions.forEach(function (submission) {
                 var definition = getDefinition(submission.formId);
-                if (!definition) {
+                if (!definition || !canUseForm(submission.formId)) {
                     return;
                 }
 
@@ -304,6 +358,17 @@
             }
         });
 
-        renderMyWork();
+        request('/api/access', { method: 'GET' }).then(function (access) {
+            accessState = access;
+            applyAccessToNavigation();
+            renderMyWork();
+        }).catch(function (error) {
+            notify(error.message);
+            var mountNode = document.getElementById('careforms-work-browser');
+            if (mountNode) {
+                mountNode.innerHTML = '<div class="careforms-empty-state"><h3>Could not load permissions</h3><p></p></div>';
+                mountNode.querySelector('p').textContent = error.message;
+            }
+        });
     });
 }());
