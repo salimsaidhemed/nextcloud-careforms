@@ -29,9 +29,9 @@ class Version000202Date20260910001000 extends SimpleMigrationStep
             $table->addColumn('created_at', 'bigint', ['notnull' => true]);
 
             $table->setPrimaryKey(['id']);
-            $table->addIndex(['user_id', 'created_at'], 'careforms_audit_user_time_idx');
-            $table->addIndex(['action', 'created_at'], 'careforms_audit_action_time_idx');
-            $table->addIndex(['resource_type', 'resource_id'], 'careforms_audit_resource_idx');
+            $table->addIndex(['user_id', 'created_at'], 'cf_audit_user_time');
+            $table->addIndex(['action', 'created_at'], 'cf_audit_action_time');
+            $table->addIndex(['resource_type', 'resource_id'], 'cf_audit_resource');
         }
 
         return $schema;
