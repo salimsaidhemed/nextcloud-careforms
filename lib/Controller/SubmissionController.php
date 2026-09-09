@@ -7,6 +7,7 @@ namespace OCA\CareForms\Controller;
 use OCA\CareForms\Db\Submission;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
+use OCA\CareForms\Service\AuditService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -23,6 +24,7 @@ class SubmissionController extends Controller
         private SubmissionMapper $mapper,
         private IUserSession $userSession,
         private AccessService $accessService,
+        private AuditService $auditService,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -54,6 +56,11 @@ class SubmissionController extends Controller
             return $submission;
         }
 
+        $userId = $this->getUserId();
+        if ($userId !== null) {
+            $this->auditService->log($userId, 'SUBMISSION_VIEW', 'submission', $id, $submission->getFormId());
+        }
+
         return new JSONResponse($submission->jsonSerialize());
     }
 
@@ -66,6 +73,7 @@ class SubmissionController extends Controller
         }
 
         if (!$this->accessService->canAccessForm($formId, $userId)) {
+            $this->auditService->log($userId, 'SUBMISSION_CREATE', 'submission', null, $formId, 'denied', ['reason' => 'form_access']);
             return new JSONResponse(['message' => 'You do not have permission to use this form.'], Http::STATUS_FORBIDDEN);
         }
 
@@ -86,6 +94,8 @@ class SubmissionController extends Controller
         $submission->setUpdatedAt($now);
 
         $saved = $this->mapper->insert($submission);
+        $this->auditService->log($userId, 'SUBMISSION_CREATE', 'submission', $saved->getId(), $formId);
+
         return new JSONResponse($saved->jsonSerialize(), Http::STATUS_CREATED);
     }
 
@@ -97,13 +107,21 @@ class SubmissionController extends Controller
             return $submission;
         }
 
+        $userId = $this->getUserId();
         if ($submission->getStatus() !== 'draft') {
+            if ($userId !== null) {
+                $this->auditService->log($userId, 'SUBMISSION_UPDATE', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'submitted_read_only']);
+            }
             return new JSONResponse(['message' => 'Submitted forms are read-only.'], Http::STATUS_CONFLICT);
         }
 
         $submission->setData($this->encodeData($data));
         $submission->setUpdatedAt(time());
         $saved = $this->mapper->update($submission);
+
+        if ($userId !== null) {
+            $this->auditService->log($userId, 'SUBMISSION_UPDATE', 'submission', $id, $submission->getFormId());
+        }
 
         return new JSONResponse($saved->jsonSerialize());
     }
@@ -116,7 +134,11 @@ class SubmissionController extends Controller
             return $submission;
         }
 
+        $userId = $this->getUserId();
         if ($submission->getStatus() !== 'draft') {
+            if ($userId !== null) {
+                $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'already_submitted']);
+            }
             return new JSONResponse(['message' => 'This form has already been submitted.'], Http::STATUS_CONFLICT);
         }
 
@@ -126,6 +148,10 @@ class SubmissionController extends Controller
         $submission->setUpdatedAt($now);
         $submission->setSubmittedAt($now);
         $saved = $this->mapper->update($submission);
+
+        if ($userId !== null) {
+            $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId());
+        }
 
         return new JSONResponse($saved->jsonSerialize());
     }
@@ -149,6 +175,7 @@ class SubmissionController extends Controller
         }
 
         if (!$this->accessService->canAccessForm($submission->getFormId(), $userId)) {
+            $this->auditService->log($userId, 'SUBMISSION_VIEW', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'form_access']);
             return new JSONResponse(['message' => 'You no longer have permission to access this form.'], Http::STATUS_FORBIDDEN);
         }
 
