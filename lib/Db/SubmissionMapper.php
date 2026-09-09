@@ -16,9 +16,7 @@ class SubmissionMapper extends QBMapper
         parent::__construct($db, 'careforms_submissions', Submission::class);
     }
 
-    /**
-     * @return Submission[]
-     */
+    /** @return Submission[] */
     public function findAllByUser(string $userId): array
     {
         $qb = $this->db->getQueryBuilder();
@@ -26,6 +24,18 @@ class SubmissionMapper extends QBMapper
             ->from($this->getTableName())
             ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)))
             ->orderBy('updated_at', 'DESC');
+
+        return $this->findEntities($qb);
+    }
+
+    /** @return Submission[] */
+    public function findAllSubmitted(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('status', $qb->createNamedParameter('submitted')))
+            ->orderBy('submitted_at', 'DESC');
 
         return $this->findEntities($qb);
     }
