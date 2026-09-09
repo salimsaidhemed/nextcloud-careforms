@@ -12,6 +12,11 @@ return [
             'verb' => 'GET',
         ],
         [
+            'name' => 'audit#index',
+            'url' => '/api/audit',
+            'verb' => 'GET',
+        ],
+        [
             'name' => 'submission#index',
             'url' => '/api/submissions',
             'verb' => 'GET',
