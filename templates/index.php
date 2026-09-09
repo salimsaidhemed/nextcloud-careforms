@@ -5,6 +5,7 @@ script('careforms', 'forms/nurses-progress-note');
 script('careforms', 'form-renderer');
 script('careforms', 'page');
 style('careforms', 'page');
+style('careforms', 'nurses');
 
 ?>
 
