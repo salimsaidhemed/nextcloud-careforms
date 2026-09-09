@@ -15,10 +15,10 @@
         wrapper.className = 'careforms-field';
         var savedValue = valueForField(field, values);
 
-        if (field.type === 'checkbox-group') {
+        if (field.type === 'checkbox-group' || field.type === 'choice-group') {
             var groupLabel = document.createElement('div');
             groupLabel.className = 'careforms-field-label';
-            groupLabel.textContent = field.label;
+            groupLabel.textContent = field.label + (field.required ? ' *' : '');
             wrapper.appendChild(groupLabel);
 
             var grid = document.createElement('div');
@@ -28,18 +28,22 @@
                 var optionLabel = document.createElement('label');
                 optionLabel.className = 'careforms-checkbox-option';
 
-                var checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.name = field.id + '[]';
-                checkbox.value = option;
-                checkbox.id = field.id + '-' + index;
-                checkbox.checked = Array.isArray(savedValue) && savedValue.indexOf(option) !== -1;
-                checkbox.disabled = readOnly;
+                var input = document.createElement('input');
+                input.type = field.type === 'choice-group' ? 'radio' : 'checkbox';
+                input.name = field.type === 'choice-group' ? field.id : field.id + '[]';
+                input.value = option;
+                input.id = field.id + '-' + index;
+                input.checked = field.type === 'choice-group'
+                    ? savedValue === option
+                    : Array.isArray(savedValue) && savedValue.indexOf(option) !== -1;
+                input.disabled = readOnly;
+                if (field.required && index === 0) {
+                    input.required = true;
+                }
 
                 var text = document.createElement('span');
                 text.textContent = option;
-
-                optionLabel.appendChild(checkbox);
+                optionLabel.appendChild(input);
                 optionLabel.appendChild(text);
                 grid.appendChild(optionLabel);
             });
@@ -130,6 +134,12 @@
                     return;
                 }
 
+                if (field.type === 'choice-group') {
+                    var selected = form.querySelector('input[name="' + field.id + '"]:checked');
+                    data[field.id] = selected ? selected.value : '';
+                    return;
+                }
+
                 var input = form.elements[field.id];
                 if (!input) {
                     return;
@@ -184,6 +194,27 @@
             ? 'Submitted record. This form is read-only.'
             : 'Drafts are saved securely to CareForms. Submit when the entry is complete.';
         mountNode.appendChild(notice);
+
+        var layout = document.createElement('div');
+        layout.className = 'careforms-form-layout';
+
+        if (definition.fields.length > 8) {
+            var sectionNav = document.createElement('nav');
+            sectionNav.className = 'careforms-section-nav';
+            sectionNav.setAttribute('aria-label', 'Form sections');
+
+            var navTitle = document.createElement('strong');
+            navTitle.textContent = 'Sections';
+            sectionNav.appendChild(navTitle);
+
+            definition.fields.forEach(function (section) {
+                var link = document.createElement('a');
+                link.href = '#' + section.id;
+                link.textContent = section.label;
+                sectionNav.appendChild(link);
+            });
+            layout.appendChild(sectionNav);
+        }
 
         var form = document.createElement('form');
         form.className = 'careforms-rendered-form';
@@ -248,7 +279,8 @@
             form.appendChild(actions);
         }
 
-        mountNode.appendChild(form);
+        layout.appendChild(form);
+        mountNode.appendChild(layout);
     }
 
     window.CareForms.FormRenderer = {
