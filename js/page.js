@@ -2,373 +2,133 @@
     'use strict';
 
     window.CareForms = window.CareForms || {};
-
     var activeSubmission = null;
     var accessState = null;
 
-    function apiUrl(path) {
-        return OC.generateUrl('/apps/careforms' + path);
-    }
-
-    function notify(message) {
-        if (OC.Notification && OC.Notification.showTemporary) {
-            OC.Notification.showTemporary(message);
-        } else {
-            window.alert(message);
-        }
-    }
-
+    function apiUrl(path) { return OC.generateUrl('/apps/careforms' + path); }
+    function notify(message) { if (OC.Notification && OC.Notification.showTemporary) OC.Notification.showTemporary(message); else window.alert(message); }
     function request(path, options) {
         options = options || {};
         options.credentials = 'same-origin';
-        options.headers = Object.assign({
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'requesttoken': OC.requestToken
-        }, options.headers || {});
-
+        options.headers = Object.assign({'Accept':'application/json','Content-Type':'application/json','requesttoken':OC.requestToken}, options.headers || {});
         return fetch(apiUrl(path), options).then(function (response) {
             return response.json().catch(function () { return {}; }).then(function (body) {
-                if (!response.ok) {
-                    throw new Error(body.message || 'CareForms request failed.');
-                }
+                if (!response.ok) throw new Error(body.message || 'CareForms request failed.');
                 return body;
             });
         });
     }
-
-    function getDefinition(formId) {
-        var definitions = window.CareForms.formDefinitions || {};
-        return Object.keys(definitions)
-            .map(function (key) { return definitions[key]; })
-            .find(function (definition) { return definition.id === formId; });
-    }
-
-    function canUseForm(formId) {
-        return accessState && Array.isArray(accessState.forms)
-            && accessState.forms.indexOf(formId) !== -1;
-    }
+    function definitions() { return Object.keys(window.CareForms.formDefinitions || {}).map(function (key) { return window.CareForms.formDefinitions[key]; }); }
+    function getDefinition(formId) { return definitions().find(function (d) { return d.id === formId; }); }
+    function canUseForm(formId) { return accessState && Array.isArray(accessState.forms) && accessState.forms.indexOf(formId) !== -1; }
 
     function applyAccessToNavigation() {
         var formsTab = document.querySelector('.careforms-tab[data-view="forms"]');
         var reportsTab = document.querySelector('.careforms-tab[data-view="reports"]');
-
-        if (formsTab) {
-            formsTab.hidden = !accessState || !accessState.forms || accessState.forms.length === 0;
-        }
-
-        if (reportsTab) {
-            reportsTab.hidden = !accessState || !accessState.canViewReports;
-        }
+        if (formsTab) formsTab.hidden = !accessState || !accessState.forms || accessState.forms.length === 0;
+        if (reportsTab) reportsTab.hidden = !accessState || !accessState.canViewReports;
     }
 
     function showView(viewName) {
-        if (viewName === 'forms' && (!accessState || !accessState.forms || accessState.forms.length === 0)) {
-            viewName = 'work';
-        }
-
-        if (viewName === 'reports' && (!accessState || !accessState.canViewReports)) {
-            viewName = 'work';
-        }
-
-        document.querySelectorAll('.careforms-tab').forEach(function (tab) {
-            tab.classList.toggle('active', tab.dataset.view === viewName);
-        });
-
+        if (viewName === 'forms' && (!accessState || !accessState.forms.length)) viewName = 'work';
+        if (viewName === 'reports' && (!accessState || !accessState.canViewReports)) viewName = 'work';
+        document.querySelectorAll('.careforms-tab').forEach(function (tab) { tab.classList.toggle('active', tab.dataset.view === viewName); });
         document.querySelectorAll('[data-view-panel]').forEach(function (panel) {
             var active = panel.dataset.viewPanel === viewName;
             panel.hidden = !active;
             panel.classList.toggle('active', active);
         });
-
-        if (viewName === 'forms') {
-            renderFormsBrowser();
-        } else if (viewName === 'work') {
-            renderMyWork();
-        }
+        if (viewName === 'forms') renderFormsBrowser();
+        if (viewName === 'work') renderMyWork();
     }
 
     function renderFormsBrowser() {
         activeSubmission = null;
-        var mountNode = document.getElementById('careforms-forms-browser');
-        if (!mountNode) {
+        var mount = document.getElementById('careforms-forms-browser');
+        if (!mount) return;
+        mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Forms</h2><p class="careforms-muted">Select a form to begin a new entry.</p></div></div>';
+        var allowed = definitions().filter(function (d) { return canUseForm(d.id); });
+        if (!allowed.length) {
+            mount.innerHTML += '<div class="careforms-empty-state"><h3>No forms assigned</h3><p>Your CareForms role does not currently provide access to a form.</p></div>';
             return;
         }
-
-        mountNode.innerHTML = '';
-
-        var heading = document.createElement('div');
-        heading.className = 'careforms-section-heading';
-        heading.innerHTML = '<div><h2>Forms</h2><p class="careforms-muted">Select a form to begin a new entry.</p></div>';
-        mountNode.appendChild(heading);
-
-        var definition = window.CareForms.formDefinitions.homeHealthAide;
-        if (!definition || !canUseForm(definition.id)) {
-            var empty = document.createElement('div');
-            empty.className = 'careforms-empty-state';
-            empty.innerHTML = '<h3>No forms assigned</h3><p>Your CareForms role does not currently provide access to a form.</p>';
-            mountNode.appendChild(empty);
-            return;
-        }
-
-        var category = document.createElement('section');
-        category.className = 'careforms-form-category';
-
-        var categoryTitle = document.createElement('h3');
-        categoryTitle.textContent = definition.category;
-        category.appendChild(categoryTitle);
-
-        var grid = document.createElement('div');
-        grid.className = 'careforms-form-card-grid';
-
-        var card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'careforms-form-card';
-        card.dataset.formId = definition.id;
-
-        var icon = document.createElement('span');
-        icon.className = 'careforms-form-card-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = '▤';
-
-        var cardBody = document.createElement('span');
-        cardBody.className = 'careforms-form-card-body';
-
-        var cardTitle = document.createElement('strong');
-        cardTitle.textContent = definition.name;
-
-        var cardDescription = document.createElement('span');
-        cardDescription.textContent = definition.description;
-
-        cardBody.appendChild(cardTitle);
-        cardBody.appendChild(cardDescription);
-        card.appendChild(icon);
-        card.appendChild(cardBody);
-        grid.appendChild(card);
-        category.appendChild(grid);
-        mountNode.appendChild(category);
-
-        card.addEventListener('click', function () {
-            openNewForm(definition, mountNode);
-        });
-    }
-
-    function saveDraft(definition, data, button, mountNode) {
-        button.disabled = true;
-        button.textContent = 'Saving…';
-
-        var promise;
-        if (activeSubmission && activeSubmission.id) {
-            promise = request('/api/submissions/' + activeSubmission.id, {
-                method: 'PUT',
-                body: JSON.stringify({ data: data })
+        var categories = {};
+        allowed.forEach(function (d) { (categories[d.category] = categories[d.category] || []).push(d); });
+        Object.keys(categories).sort().forEach(function (categoryName) {
+            var section = document.createElement('section');
+            section.className = 'careforms-form-category';
+            var title = document.createElement('h3'); title.textContent = categoryName; section.appendChild(title);
+            var grid = document.createElement('div'); grid.className = 'careforms-form-card-grid';
+            categories[categoryName].forEach(function (definition) {
+                var card = document.createElement('button'); card.type='button'; card.className='careforms-form-card';
+                var icon = document.createElement('span'); icon.className='careforms-form-card-icon'; icon.textContent='▤'; icon.setAttribute('aria-hidden','true');
+                var body = document.createElement('span'); body.className='careforms-form-card-body';
+                var strong=document.createElement('strong'); strong.textContent=definition.name;
+                var desc=document.createElement('span'); desc.textContent=definition.description;
+                body.appendChild(strong); body.appendChild(desc); card.appendChild(icon); card.appendChild(body);
+                card.addEventListener('click', function () { openNewForm(definition, mount); });
+                grid.appendChild(card);
             });
-        } else {
-            promise = request('/api/submissions', {
-                method: 'POST',
-                body: JSON.stringify({
-                    formId: definition.id,
-                    formVersion: definition.version,
-                    data: data
-                })
-            });
-        }
-
-        promise.then(function (submission) {
-            activeSubmission = submission;
-            notify('Draft saved.');
-            renderSubmission(definition, submission, mountNode);
-        }).catch(function (error) {
-            notify(error.message);
-            button.disabled = false;
-            button.textContent = 'Save Draft';
+            section.appendChild(grid); mount.appendChild(section);
         });
     }
 
-    function submitForm(definition, data, button, mountNode) {
-        button.disabled = true;
-        button.textContent = 'Submitting…';
-
-        var ensureDraft = activeSubmission && activeSubmission.id
-            ? Promise.resolve(activeSubmission)
-            : request('/api/submissions', {
-                method: 'POST',
-                body: JSON.stringify({
-                    formId: definition.id,
-                    formVersion: definition.version,
-                    data: data
-                })
-            });
-
-        ensureDraft.then(function (submission) {
-            activeSubmission = submission;
-            return request('/api/submissions/' + submission.id + '/submit', {
-                method: 'POST',
-                body: JSON.stringify({ data: data })
-            });
-        }).then(function (submission) {
-            activeSubmission = submission;
-            notify('Form submitted.');
-            renderSubmission(definition, submission, mountNode);
-        }).catch(function (error) {
-            notify(error.message);
-            button.disabled = false;
-            button.textContent = 'Submit';
-        });
+    function saveDraft(definition, data, button, mount) {
+        button.disabled=true; button.textContent='Saving…';
+        var promise = activeSubmission && activeSubmission.id
+            ? request('/api/submissions/' + activeSubmission.id, {method:'PUT', body:JSON.stringify({data:data})})
+            : request('/api/submissions', {method:'POST', body:JSON.stringify({formId:definition.id, formVersion:definition.version, data:data})});
+        promise.then(function (s) { activeSubmission=s; notify('Draft saved.'); renderSubmission(definition,s,mount); })
+            .catch(function (e) { notify(e.message); button.disabled=false; button.textContent='Save Draft'; });
     }
 
-    function openNewForm(definition, mountNode) {
-        if (!canUseForm(definition.id)) {
-            notify('You do not have permission to use this form.');
-            return;
-        }
-
-        activeSubmission = null;
-        window.CareForms.FormRenderer.render(definition, mountNode, {
-            onSaveDraft: function (data, button) {
-                saveDraft(definition, data, button, mountNode);
-            },
-            onSubmit: function (data, button) {
-                submitForm(definition, data, button, mountNode);
-            }
-        });
+    function submitForm(definition, data, button, mount) {
+        button.disabled=true; button.textContent='Submitting…';
+        var ensureDraft = activeSubmission && activeSubmission.id ? Promise.resolve(activeSubmission)
+            : request('/api/submissions', {method:'POST', body:JSON.stringify({formId:definition.id, formVersion:definition.version, data:data})});
+        ensureDraft.then(function (s) { activeSubmission=s; return request('/api/submissions/' + s.id + '/submit', {method:'POST', body:JSON.stringify({data:data})}); })
+            .then(function (s) { activeSubmission=s; notify('Form submitted.'); renderSubmission(definition,s,mount); })
+            .catch(function (e) { notify(e.message); button.disabled=false; button.textContent='Submit'; });
     }
 
-    function renderSubmission(definition, submission, mountNode) {
-        if (!canUseForm(definition.id)) {
-            notify('You no longer have permission to access this form.');
-            showView('work');
-            return;
-        }
-
-        activeSubmission = submission;
-        window.CareForms.FormRenderer.render(definition, mountNode, {
-            values: submission.data || {},
-            readOnly: submission.status === 'submitted',
-            backLabel: 'Back to My Work',
-            onSaveDraft: function (data, button) {
-                saveDraft(definition, data, button, mountNode);
-            },
-            onSubmit: function (data, button) {
-                submitForm(definition, data, button, mountNode);
-            }
-        });
+    function openNewForm(definition, mount) {
+        if (!canUseForm(definition.id)) { notify('You do not have permission to use this form.'); return; }
+        activeSubmission=null;
+        window.CareForms.FormRenderer.render(definition,mount,{onSaveDraft:function(data,b){saveDraft(definition,data,b,mount);},onSubmit:function(data,b){submitForm(definition,data,b,mount);}});
     }
 
-    function displayDate(timestamp) {
-        if (!timestamp) {
-            return '—';
-        }
-        return new Date(timestamp * 1000).toLocaleString();
-    }
-
-    function submissionLabel(submission) {
-        var patient = submission.data && submission.data.patient_name;
-        return patient ? patient : 'Untitled entry';
+    function renderSubmission(definition, submission, mount) {
+        if (!canUseForm(definition.id)) { notify('You no longer have permission to access this form.'); showView('work'); return; }
+        activeSubmission=submission;
+        window.CareForms.FormRenderer.render(definition,mount,{values:submission.data||{},readOnly:submission.status==='submitted',backLabel:'Back to My Work',onSaveDraft:function(data,b){saveDraft(definition,data,b,mount);},onSubmit:function(data,b){submitForm(definition,data,b,mount);}});
     }
 
     function renderMyWork() {
-        activeSubmission = null;
-        var mountNode = document.getElementById('careforms-work-browser');
-        if (!mountNode) {
-            return;
-        }
-
-        mountNode.innerHTML = '<div class="careforms-section-heading"><div><h2>My Work</h2><p class="careforms-muted">Drafts and your recent submissions.</p></div></div><p class="careforms-muted">Loading…</p>';
-
-        request('/api/submissions', { method: 'GET' }).then(function (submissions) {
-            mountNode.innerHTML = '';
-
-            var heading = document.createElement('div');
-            heading.className = 'careforms-section-heading';
-            heading.innerHTML = '<div><h2>My Work</h2><p class="careforms-muted">Drafts and your recent submissions.</p></div>';
-            mountNode.appendChild(heading);
-
-            if (!accessState || (!accessState.forms.length && !accessState.canViewReports)) {
-                var denied = document.createElement('div');
-                denied.className = 'careforms-empty-state';
-                denied.innerHTML = '<h3>No CareForms role assigned</h3><p>Ask an administrator to assign you to an appropriate CareForms group.</p>';
-                mountNode.appendChild(denied);
-                return;
-            }
-
-            if (!submissions.length) {
-                var empty = document.createElement('div');
-                empty.className = 'careforms-empty-state';
-                empty.innerHTML = '<h3>No assigned work yet</h3><p>Start a permitted form and save it as a draft. It will appear here.</p>';
-                mountNode.appendChild(empty);
-                return;
-            }
-
-            var list = document.createElement('div');
-            list.className = 'careforms-submission-list';
-
-            submissions.forEach(function (submission) {
-                var definition = getDefinition(submission.formId);
-                if (!definition || !canUseForm(submission.formId)) {
-                    return;
-                }
-
-                var item = document.createElement('button');
-                item.type = 'button';
-                item.className = 'careforms-submission-item';
-
-                var main = document.createElement('span');
-                main.className = 'careforms-submission-main';
-                main.innerHTML = '<strong></strong><span></span>';
-                main.querySelector('strong').textContent = submissionLabel(submission);
-                main.querySelector('span').textContent = definition.name + ' · Updated ' + displayDate(submission.updatedAt);
-
-                var status = document.createElement('span');
-                status.className = 'careforms-status careforms-status-' + submission.status;
-                status.textContent = submission.status === 'submitted' ? 'Submitted' : 'Draft';
-
-                item.appendChild(main);
-                item.appendChild(status);
-                item.addEventListener('click', function () {
-                    renderSubmission(definition, submission, mountNode);
-                });
-                list.appendChild(item);
+        activeSubmission=null;
+        var mount=document.getElementById('careforms-work-browser'); if(!mount) return;
+        mount.innerHTML='<div class="careforms-section-heading"><div><h2>My Work</h2><p class="careforms-muted">Drafts and your recent submissions.</p></div></div><p class="careforms-muted">Loading…</p>';
+        request('/api/submissions',{method:'GET'}).then(function(submissions){
+            mount.innerHTML='<div class="careforms-section-heading"><div><h2>My Work</h2><p class="careforms-muted">Drafts and your recent submissions.</p></div></div>';
+            if(!accessState || (!accessState.forms.length && !accessState.canViewReports)){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No CareForms role assigned</h3><p>Ask an administrator to assign you to an appropriate CareForms group.</p></div>'; return; }
+            if(!submissions.length){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No assigned work yet</h3><p>Start a permitted form and save it as a draft. It will appear here.</p></div>'; return; }
+            var list=document.createElement('div'); list.className='careforms-submission-list';
+            submissions.forEach(function(s){
+                var d=getDefinition(s.formId); if(!d || !canUseForm(s.formId)) return;
+                var item=document.createElement('button'); item.type='button'; item.className='careforms-submission-item';
+                var main=document.createElement('span'); main.className='careforms-submission-main';
+                var patient=s.data && s.data.patient_name ? s.data.patient_name : 'Untitled entry';
+                main.innerHTML='<strong></strong><span></span>'; main.querySelector('strong').textContent=patient;
+                main.querySelector('span').textContent=d.name+' · Updated '+(s.updatedAt ? new Date(s.updatedAt*1000).toLocaleString() : '—');
+                var status=document.createElement('span'); status.className='careforms-status careforms-status-'+s.status; status.textContent=s.status==='submitted'?'Submitted':'Draft';
+                item.appendChild(main); item.appendChild(status); item.addEventListener('click',function(){renderSubmission(d,s,mount);}); list.appendChild(item);
             });
-
-            mountNode.appendChild(list);
-        }).catch(function (error) {
-            mountNode.innerHTML = '<div class="careforms-empty-state"><h3>Could not load My Work</h3><p></p></div>';
-            mountNode.querySelector('p').textContent = error.message;
-        });
+            mount.appendChild(list);
+        }).catch(function(e){ mount.innerHTML='<div class="careforms-empty-state"><h3>Could not load My Work</h3><p></p></div>'; mount.querySelector('p').textContent=e.message; });
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.careforms-tab').forEach(function (tab) {
-            tab.addEventListener('click', function () {
-                showView(tab.dataset.view);
-            });
-        });
-
-        document.addEventListener('click', function (event) {
-            var target = event.target.closest('[data-action="back-to-forms"]');
-            if (!target) {
-                return;
-            }
-
-            if (activeSubmission) {
-                showView('work');
-            } else {
-                renderFormsBrowser();
-            }
-        });
-
-        request('/api/access', { method: 'GET' }).then(function (access) {
-            accessState = access;
-            applyAccessToNavigation();
-            renderMyWork();
-        }).catch(function (error) {
-            notify(error.message);
-            var mountNode = document.getElementById('careforms-work-browser');
-            if (mountNode) {
-                mountNode.innerHTML = '<div class="careforms-empty-state"><h3>Could not load permissions</h3><p></p></div>';
-                mountNode.querySelector('p').textContent = error.message;
-            }
-        });
+    document.addEventListener('DOMContentLoaded',function(){
+        document.querySelectorAll('.careforms-tab').forEach(function(tab){tab.addEventListener('click',function(){showView(tab.dataset.view);});});
+        document.addEventListener('click',function(event){var target=event.target.closest('[data-action="back-to-forms"]'); if(!target)return; if(activeSubmission)showView('work');else renderFormsBrowser();});
+        request('/api/access',{method:'GET'}).then(function(access){accessState=access;applyAccessToNavigation();renderMyWork();}).catch(function(e){notify(e.message);});
     });
 }());
