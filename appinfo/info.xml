@@ -15,11 +15,16 @@
     <author>TCADC</author>
     <namespace>CareForms</namespace>
     <category>organization</category>
-    <navigation>
-        <name>CareForms</name>
-        <route>careforms.page.index</route>
-        <order>30</order>
-    </navigation>
+    <navigations>
+        <navigation>
+            <id>careforms</id>
+            <name>CareForms</name>
+            <route>careforms.page.index</route>
+            <order>30</order>
+            <icon>app.svg</icon>
+            <type>link</type>
+        </navigation>
+    </navigations>
     <dependencies>
         <nextcloud min-version="31" max-version="31"/>
     </dependencies>
