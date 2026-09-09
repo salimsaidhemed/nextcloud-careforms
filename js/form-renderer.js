@@ -3,9 +3,17 @@
 
     window.CareForms = window.CareForms || {};
 
-    function createInput(field) {
+    function valueForField(field, values) {
+        if (!values || values[field.id] === undefined || values[field.id] === null) {
+            return field.type === 'checkbox-group' ? [] : '';
+        }
+        return values[field.id];
+    }
+
+    function createInput(field, values, readOnly) {
         var wrapper = document.createElement('div');
         wrapper.className = 'careforms-field';
+        var savedValue = valueForField(field, values);
 
         if (field.type === 'checkbox-group') {
             var groupLabel = document.createElement('div');
@@ -25,6 +33,8 @@
                 checkbox.name = field.id + '[]';
                 checkbox.value = option;
                 checkbox.id = field.id + '-' + index;
+                checkbox.checked = Array.isArray(savedValue) && savedValue.indexOf(option) !== -1;
+                checkbox.disabled = readOnly;
 
                 var text = document.createElement('span');
                 text.textContent = option;
@@ -60,6 +70,8 @@
             singleCheckbox.type = 'checkbox';
             singleCheckbox.id = field.id;
             singleCheckbox.name = field.id;
+            singleCheckbox.checked = savedValue === true;
+            singleCheckbox.disabled = readOnly;
 
             var checkboxText = document.createElement('span');
             checkboxText.textContent = field.label;
@@ -80,14 +92,17 @@
         if (field.type === 'textarea') {
             input = document.createElement('textarea');
             input.rows = field.rows || 4;
+            input.value = savedValue;
         } else {
             input = document.createElement('input');
             input.type = field.type || 'text';
+            input.value = savedValue;
         }
 
         input.id = field.id;
         input.name = field.id;
         input.required = Boolean(field.required);
+        input.disabled = readOnly;
 
         if (field.min !== undefined) {
             input.min = field.min;
@@ -100,7 +115,42 @@
         return wrapper;
     }
 
-    function renderForm(definition, mountNode) {
+    function collectData(form, definition) {
+        var data = {};
+
+        definition.fields.forEach(function (section) {
+            section.fields.forEach(function (field) {
+                if (field.type === 'signature-placeholder') {
+                    return;
+                }
+
+                if (field.type === 'checkbox-group') {
+                    data[field.id] = Array.from(form.querySelectorAll('input[name="' + field.id + '[]"]:checked'))
+                        .map(function (input) { return input.value; });
+                    return;
+                }
+
+                var input = form.elements[field.id];
+                if (!input) {
+                    return;
+                }
+
+                if (field.type === 'checkbox') {
+                    data[field.id] = input.checked;
+                } else {
+                    data[field.id] = input.value;
+                }
+            });
+        });
+
+        return data;
+    }
+
+    function renderForm(definition, mountNode, options) {
+        options = options || {};
+        var values = options.values || {};
+        var readOnly = Boolean(options.readOnly);
+
         mountNode.innerHTML = '';
 
         var header = document.createElement('div');
@@ -110,7 +160,7 @@
         backButton.type = 'button';
         backButton.className = 'careforms-secondary-button';
         backButton.dataset.action = 'back-to-forms';
-        backButton.textContent = 'Back to Forms';
+        backButton.textContent = options.backLabel || 'Back to Forms';
 
         var titleBlock = document.createElement('div');
         var title = document.createElement('h2');
@@ -130,7 +180,9 @@
 
         var notice = document.createElement('div');
         notice.className = 'careforms-info-banner';
-        notice.textContent = 'Prototype renderer only. Data entered here is not saved yet.';
+        notice.textContent = readOnly
+            ? 'Submitted record. This form is read-only.'
+            : 'Drafts are saved securely to CareForms. Submit when the entry is complete.';
         mountNode.appendChild(notice);
 
         var form = document.createElement('form');
@@ -150,41 +202,57 @@
             fieldGrid.className = 'careforms-field-grid';
 
             section.fields.forEach(function (field) {
-                fieldGrid.appendChild(createInput(field));
+                fieldGrid.appendChild(createInput(field, values, readOnly));
             });
 
             sectionElement.appendChild(fieldGrid);
             form.appendChild(sectionElement);
         });
 
-        var actions = document.createElement('div');
-        actions.className = 'careforms-form-actions';
+        if (!readOnly) {
+            var actions = document.createElement('div');
+            actions.className = 'careforms-form-actions';
 
-        var clearButton = document.createElement('button');
-        clearButton.type = 'reset';
-        clearButton.className = 'careforms-secondary-button';
-        clearButton.textContent = 'Clear';
+            var clearButton = document.createElement('button');
+            clearButton.type = 'reset';
+            clearButton.className = 'careforms-secondary-button';
+            clearButton.textContent = 'Clear';
 
-        var draftButton = document.createElement('button');
-        draftButton.type = 'button';
-        draftButton.disabled = true;
-        draftButton.title = 'Submission persistence will be added in the next milestone.';
-        draftButton.textContent = 'Save Draft';
+            var draftButton = document.createElement('button');
+            draftButton.type = 'button';
+            draftButton.className = 'careforms-secondary-button';
+            draftButton.textContent = 'Save Draft';
 
-        var submitButton = document.createElement('button');
-        submitButton.type = 'button';
-        submitButton.disabled = true;
-        submitButton.title = 'Submission workflow will be added in the next milestone.';
-        submitButton.textContent = 'Submit';
+            var submitButton = document.createElement('button');
+            submitButton.type = 'button';
+            submitButton.textContent = 'Submit';
 
-        actions.appendChild(clearButton);
-        actions.appendChild(draftButton);
-        actions.appendChild(submitButton);
-        form.appendChild(actions);
+            draftButton.addEventListener('click', function () {
+                if (options.onSaveDraft) {
+                    options.onSaveDraft(collectData(form, definition), draftButton);
+                }
+            });
+
+            submitButton.addEventListener('click', function () {
+                if (!form.reportValidity()) {
+                    return;
+                }
+                if (options.onSubmit) {
+                    options.onSubmit(collectData(form, definition), submitButton);
+                }
+            });
+
+            actions.appendChild(clearButton);
+            actions.appendChild(draftButton);
+            actions.appendChild(submitButton);
+            form.appendChild(actions);
+        }
+
         mountNode.appendChild(form);
     }
 
     window.CareForms.FormRenderer = {
-        render: renderForm
+        render: renderForm,
+        collectData: collectData
     };
 }());
