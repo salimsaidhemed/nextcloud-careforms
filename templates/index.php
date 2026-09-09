@@ -23,11 +23,7 @@ style('careforms', 'page');
 
     <main id="careforms-content">
         <section class="careforms-view active" data-view-panel="work">
-            <h2>My Work</h2>
-            <div class="careforms-empty-state">
-                <h3>No assigned work yet</h3>
-                <p>Drafts, returned forms and recent submissions will appear here.</p>
-            </div>
+            <div id="careforms-work-browser"></div>
         </section>
 
         <section class="careforms-view" data-view-panel="forms" hidden>
