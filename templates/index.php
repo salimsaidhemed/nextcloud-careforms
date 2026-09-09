@@ -1,6 +1,7 @@
 <?php
 
 script('careforms', 'forms/home-health-aide');
+script('careforms', 'forms/nurses-progress-note');
 script('careforms', 'form-renderer');
 script('careforms', 'page');
 style('careforms', 'page');
@@ -23,20 +24,11 @@ style('careforms', 'page');
         </nav>
 
         <main id="careforms-content">
-            <section class="careforms-view active" data-view-panel="work">
-                <div id="careforms-work-browser"></div>
-            </section>
-
-            <section class="careforms-view" data-view-panel="forms" hidden>
-                <div id="careforms-forms-browser"></div>
-            </section>
-
+            <section class="careforms-view active" data-view-panel="work"><div id="careforms-work-browser"></div></section>
+            <section class="careforms-view" data-view-panel="forms" hidden><div id="careforms-forms-browser"></div></section>
             <section class="careforms-view" data-view-panel="reports" hidden>
                 <h2>Reports</h2>
-                <div class="careforms-empty-state">
-                    <h3>Reports are not enabled yet</h3>
-                    <p>Reporting will be added after the form and submission workflows are in place.</p>
-                </div>
+                <div class="careforms-empty-state"><h3>Reports are not enabled yet</h3><p>Reporting will be added after the form and submission workflows are in place.</p></div>
             </section>
         </main>
     </div>
