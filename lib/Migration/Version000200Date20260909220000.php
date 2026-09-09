@@ -42,7 +42,6 @@ class Version000200Date20260909220000 extends SimpleMigrationStep
             ]);
             $table->addColumn('data', 'text', [
                 'notnull' => true,
-                'default' => '{}',
             ]);
             $table->addColumn('created_at', 'bigint', [
                 'notnull' => true,
