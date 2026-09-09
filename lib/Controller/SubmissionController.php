@@ -6,6 +6,7 @@ namespace OCA\CareForms\Controller;
 
 use OCA\CareForms\Db\Submission;
 use OCA\CareForms\Db\SubmissionMapper;
+use OCA\CareForms\Service\AccessService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -21,6 +22,7 @@ class SubmissionController extends Controller
         IRequest $request,
         private SubmissionMapper $mapper,
         private IUserSession $userSession,
+        private AccessService $accessService,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -33,9 +35,14 @@ class SubmissionController extends Controller
             return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         }
 
+        $submissions = array_values(array_filter(
+            $this->mapper->findAllByUser($userId),
+            fn (Submission $submission): bool => $this->accessService->canAccessForm($submission->getFormId(), $userId),
+        ));
+
         return new JSONResponse(array_map(
             static fn (Submission $submission): array => $submission->jsonSerialize(),
-            $this->mapper->findAllByUser($userId),
+            $submissions,
         ));
     }
 
@@ -56,6 +63,10 @@ class SubmissionController extends Controller
         $userId = $this->getUserId();
         if ($userId === null) {
             return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if (!$this->accessService->canAccessForm($formId, $userId)) {
+            return new JSONResponse(['message' => 'You do not have permission to use this form.'], Http::STATUS_FORBIDDEN);
         }
 
         $formVersion = (string)$formVersion;
@@ -132,10 +143,16 @@ class SubmissionController extends Controller
         }
 
         try {
-            return $this->mapper->findByIdAndUser($id, $userId);
+            $submission = $this->mapper->findByIdAndUser($id, $userId);
         } catch (DoesNotExistException | MultipleObjectsReturnedException) {
             return new JSONResponse(['message' => 'Submission not found.'], Http::STATUS_NOT_FOUND);
         }
+
+        if (!$this->accessService->canAccessForm($submission->getFormId(), $userId)) {
+            return new JSONResponse(['message' => 'You no longer have permission to access this form.'], Http::STATUS_FORBIDDEN);
+        }
+
+        return $submission;
     }
 
     private function encodeData(array $data): string

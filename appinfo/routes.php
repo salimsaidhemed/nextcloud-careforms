@@ -7,6 +7,11 @@ return [
             'verb' => 'GET',
         ],
         [
+            'name' => 'access#me',
+            'url' => '/api/access',
+            'verb' => 'GET',
+        ],
+        [
             'name' => 'submission#index',
             'url' => '/api/submissions',
             'verb' => 'GET',
