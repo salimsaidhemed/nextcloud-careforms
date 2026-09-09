@@ -17,6 +17,11 @@ return [
             'verb' => 'GET',
         ],
         [
+            'name' => 'report#overview',
+            'url' => '/api/reports/overview',
+            'verb' => 'GET',
+        ],
+        [
             'name' => 'submission#index',
             'url' => '/api/submissions',
             'verb' => 'GET',
