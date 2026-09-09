@@ -227,6 +227,63 @@
     padding: 4px 0 28px;
 }
 
+.careforms-submission-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 980px;
+}
+
+.careforms-submission-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    text-align: left;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    background: var(--color-main-background);
+}
+
+.careforms-submission-item:hover,
+.careforms-submission-item:focus-visible {
+    background: var(--color-background-hover);
+    border-color: var(--color-primary-element);
+}
+
+.careforms-submission-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.careforms-submission-main strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.careforms-submission-main span {
+    color: var(--color-text-maxcontrast);
+}
+
+.careforms-status {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--color-background-dark);
+}
+
+.careforms-status-submitted {
+    color: var(--color-success-text, var(--color-main-text));
+    background: var(--color-success-hover, var(--color-background-dark));
+}
+
 @media (max-width: 800px) {
     #careforms-app {
         width: calc(100% - 20px);
@@ -247,5 +304,10 @@
 
     .careforms-form-actions {
         flex-wrap: wrap;
+    }
+
+    .careforms-submission-item {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
