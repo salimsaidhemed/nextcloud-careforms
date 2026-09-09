@@ -4,9 +4,11 @@ script('careforms', 'forms/home-health-aide');
 script('careforms', 'forms/nurses-progress-note');
 script('careforms', 'form-renderer');
 script('careforms', 'page');
+script('careforms', 'reports');
 script('careforms', 'audit');
 style('careforms', 'page');
 style('careforms', 'nurses');
+style('careforms', 'reports');
 style('careforms', 'audit');
 
 ?>
@@ -30,13 +32,8 @@ style('careforms', 'audit');
         <main id="careforms-content">
             <section class="careforms-view active" data-view-panel="work"><div id="careforms-work-browser"></div></section>
             <section class="careforms-view" data-view-panel="forms" hidden><div id="careforms-forms-browser"></div></section>
-            <section class="careforms-view" data-view-panel="reports" hidden>
-                <h2>Reports</h2>
-                <div class="careforms-empty-state"><h3>Reports are not enabled yet</h3><p>Reporting will be added after the form and submission workflows are in place.</p></div>
-            </section>
-            <section class="careforms-view" data-view-panel="audit" hidden>
-                <div id="careforms-audit-browser"></div>
-            </section>
+            <section class="careforms-view" data-view-panel="reports" hidden><div id="careforms-reports-browser"></div></section>
+            <section class="careforms-view" data-view-panel="audit" hidden><div id="careforms-audit-browser"></div></section>
         </main>
     </div>
 </div>
