@@ -35,6 +35,7 @@ class AccessController extends Controller
             'forms' => $this->accessService->allowedForms($userId),
             'canViewReports' => $this->accessService->canViewReports($userId),
             'canViewAudit' => $this->accessService->isCareFormsAdministrator($userId),
+            'canManageForms' => $this->accessService->canManageForms($userId),
         ]);
     }
 }

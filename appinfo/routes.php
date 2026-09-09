@@ -22,6 +22,16 @@ return [
             'verb' => 'GET',
         ],
         [
+            'name' => 'formAdmin#index',
+            'url' => '/api/forms/admin',
+            'verb' => 'GET',
+        ],
+        [
+            'name' => 'formAdmin#update',
+            'url' => '/api/forms/admin/{formId}',
+            'verb' => 'PUT',
+        ],
+        [
             'name' => 'submission#index',
             'url' => '/api/submissions',
             'verb' => 'GET',

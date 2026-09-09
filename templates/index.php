@@ -6,10 +6,12 @@ script('careforms', 'form-renderer');
 script('careforms', 'page');
 script('careforms', 'reports');
 script('careforms', 'audit');
+script('careforms', 'form-admin');
 style('careforms', 'page');
 style('careforms', 'nurses');
 style('careforms', 'reports');
 style('careforms', 'audit');
+style('careforms', 'form-admin');
 
 ?>
 
@@ -26,6 +28,7 @@ style('careforms', 'audit');
             <button type="button" class="careforms-tab active" data-view="work">My Work</button>
             <button type="button" class="careforms-tab" data-view="forms">Forms</button>
             <button type="button" class="careforms-tab" data-view="reports">Reports</button>
+            <button type="button" class="careforms-tab" data-view="form-admin" hidden>Form Admin</button>
             <button type="button" class="careforms-tab" data-view="audit" hidden>Audit Log</button>
         </nav>
 
@@ -33,6 +36,7 @@ style('careforms', 'audit');
             <section class="careforms-view active" data-view-panel="work"><div id="careforms-work-browser"></div></section>
             <section class="careforms-view" data-view-panel="forms" hidden><div id="careforms-forms-browser"></div></section>
             <section class="careforms-view" data-view-panel="reports" hidden><div id="careforms-reports-browser"></div></section>
+            <section class="careforms-view" data-view-panel="form-admin" hidden><div id="careforms-form-admin-browser"></div></section>
             <section class="careforms-view" data-view-panel="audit" hidden><div id="careforms-audit-browser"></div></section>
         </main>
     </div>
