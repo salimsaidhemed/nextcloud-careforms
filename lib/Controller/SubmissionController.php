@@ -51,12 +51,14 @@ class SubmissionController extends Controller
     }
 
     #[NoAdminRequired]
-    public function create(string $formId, string $formVersion, array $data = []): JSONResponse
+    public function create(string $formId, string|int $formVersion, array $data = []): JSONResponse
     {
         $userId = $this->getUserId();
         if ($userId === null) {
             return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         }
+
+        $formVersion = (string)$formVersion;
 
         if ($formId === '' || $formVersion === '') {
             return new JSONResponse(['message' => 'formId and formVersion are required.'], Http::STATUS_BAD_REQUEST);
