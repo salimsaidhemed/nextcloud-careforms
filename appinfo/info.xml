@@ -10,7 +10,7 @@
         Provides centralized form-based data collection,
         submission management and reporting within Nextcloud.
     </description>
-    <version>0.2.11</version>
+    <version>0.2.12</version>
     <licence>agpl</licence>
     <author>TCADC</author>
     <namespace>CareForms</namespace>
