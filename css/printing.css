@@ -1,0 +1,47 @@
+@media screen {
+    .careforms-print-button { margin-left: auto; align-self: flex-start; }
+}
+
+@media print {
+    body * { visibility: hidden !important; }
+    .careforms-print-target, .careforms-print-target * { visibility: visible !important; }
+    .careforms-print-target {
+        position: absolute !important;
+        inset: 0 auto auto 0 !important;
+        width: 100% !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    .careforms-print-target .careforms-print-button,
+    .careforms-print-target [data-action="back-to-forms"],
+    .careforms-print-target .careforms-form-actions,
+    .careforms-print-target .careforms-section-nav,
+    .careforms-print-target .careforms-review-actions { display: none !important; }
+    .careforms-print-target .careforms-form-layout { display: block !important; }
+    .careforms-print-target .careforms-form-header,
+    .careforms-print-target .careforms-info-banner,
+    .careforms-print-target .careforms-form-section,
+    .careforms-print-target .careforms-report-card,
+    .careforms-print-target .careforms-report-panel,
+    .careforms-print-target .careforms-report-group {
+        background: #fff !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        border-color: #999 !important;
+    }
+    .careforms-print-target input,
+    .careforms-print-target textarea,
+    .careforms-print-target select {
+        color: #000 !important;
+        background: #fff !important;
+        -webkit-text-fill-color: #000 !important;
+        opacity: 1 !important;
+    }
+    .careforms-print-target img { break-inside: avoid; }
+    .careforms-print-target .careforms-form-section,
+    .careforms-print-target .careforms-report-panel,
+    .careforms-print-target .careforms-report-card { break-inside: avoid; }
+    @page { size: auto; margin: 14mm; }
+}
