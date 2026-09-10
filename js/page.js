@@ -20,7 +20,15 @@
             });
         });
     }
-    function definitions() { return Object.keys(window.CareForms.formDefinitions || {}).map(function (key) { return window.CareForms.formDefinitions[key]; }); }
+    function definitions() {
+        var list = Object.keys(window.CareForms.formDefinitions || {}).map(function (key) { return window.CareForms.formDefinitions[key]; });
+        if (accessState && accessState.formVersions) {
+            list.forEach(function (definition) {
+                if (accessState.formVersions[definition.id]) definition.version = accessState.formVersions[definition.id];
+            });
+        }
+        return list;
+    }
     function getDefinition(formId) { return definitions().find(function (d) { return d.id === formId; }); }
     function canUseForm(formId) { return accessState && Array.isArray(accessState.forms) && accessState.forms.indexOf(formId) !== -1; }
     function findPatient(id) { return patientCache.find(function (patient) { return Number(patient.id) === Number(id); }) || null; }
@@ -85,7 +93,7 @@
     function choosePatientForForm(definition, mount) {
         if (!canUseForm(definition.id)) { notify('You do not have permission to use this form.'); return; }
         mount.innerHTML = '<div class="careforms-form-header"><button type="button" class="careforms-secondary-button" data-action="back-to-forms">Back to Forms</button><div><h2>Select Patient</h2><p class="careforms-muted"></p></div></div><div class="careforms-patient-picker"><input type="search" placeholder="Search by patient name or MR#" aria-label="Search patients"><div class="careforms-patient-picker-list"><p class="careforms-muted">Loading patients…</p></div></div>';
-        mount.querySelector('.careforms-muted').textContent = 'Starting ' + definition.name;
+        mount.querySelector('.careforms-muted').textContent = 'Starting ' + definition.name + ' · Version ' + definition.version;
         var input = mount.querySelector('input[type="search"]');
         var list = mount.querySelector('.careforms-patient-picker-list');
 
@@ -159,7 +167,8 @@
         if (!canUseForm(definition.id)) { notify('You no longer have permission to access this form.'); showView('work'); return; }
         activeSubmission=submission;
         activePatient=findPatient(submission.patientId);
-        window.CareForms.FormRenderer.render(definition,mount,{values:submission.data||{},patient:activePatient,readOnly:submission.status==='submitted',backLabel:'Back to My Work',onSaveDraft:function(data,b){saveDraft(definition,data,b,mount);},onSubmit:function(data,b){submitForm(definition,data,b,mount);}});
+        var renderDefinition = Object.assign({}, definition, {version: Number(submission.formVersion) || definition.version});
+        window.CareForms.FormRenderer.render(renderDefinition,mount,{values:submission.data||{},patient:activePatient,readOnly:submission.status==='submitted',backLabel:'Back to My Work',onSaveDraft:function(data,b){saveDraft(renderDefinition,data,b,mount);},onSubmit:function(data,b){submitForm(renderDefinition,data,b,mount);}});
     }
 
     function renderMyWork() {
@@ -179,7 +188,7 @@
                 var main=document.createElement('span'); main.className='careforms-submission-main';
                 var patient=findPatient(s.patientId); var patientName=patient ? patient.displayName : (s.data && s.data.patient_name ? s.data.patient_name : 'Legacy / unassigned patient');
                 main.innerHTML='<strong></strong><span></span>'; main.querySelector('strong').textContent=patientName;
-                main.querySelector('span').textContent=d.name+' · Updated '+(s.updatedAt ? new Date(s.updatedAt*1000).toLocaleString() : '—');
+                main.querySelector('span').textContent=d.name+' v'+s.formVersion+' · Updated '+(s.updatedAt ? new Date(s.updatedAt*1000).toLocaleString() : '—');
                 var status=document.createElement('span'); status.className='careforms-status careforms-status-'+s.status; status.textContent=s.status==='submitted'?'Submitted':'Draft';
                 item.appendChild(main); item.appendChild(status); item.addEventListener('click',function(){renderSubmission(d,s,mount);}); list.appendChild(item);
             });
@@ -190,6 +199,6 @@
     document.addEventListener('DOMContentLoaded',function(){
         document.querySelectorAll('.careforms-tab').forEach(function(tab){tab.addEventListener('click',function(){showView(tab.dataset.view);});});
         document.addEventListener('click',function(event){var target=event.target.closest('[data-action="back-to-forms"]'); if(!target)return; if(activeSubmission)showView('work');else renderFormsBrowser();});
-        request('/api/access',{method:'GET'}).then(function(access){accessState=access;applyAccessToNavigation();renderMyWork();}).catch(function(e){notify(e.message);});
+        request('/api/access',{method:'GET'}).then(function(access){accessState=access;definitions();applyAccessToNavigation();renderMyWork();}).catch(function(e){notify(e.message);});
     });
 }());
