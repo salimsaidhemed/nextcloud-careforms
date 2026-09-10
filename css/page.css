@@ -39,395 +39,74 @@
     line-height: 1;
 }
 
-.careforms-brand-copy {
-    min-width: 0;
-}
+.careforms-brand-copy { min-width: 0; }
+.careforms-header-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.careforms-demo-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 9px; border-radius: 999px; background: var(--color-background-dark); color: var(--color-text-maxcontrast); font-size: 12px; font-weight: 600; }
+.careforms-header h1,.careforms-section-heading h2,.careforms-form-header h2 { margin: 0; }
+.careforms-header h1 { font-size: 26px; letter-spacing: -0.02em; }
+.careforms-header p,.careforms-muted { color: var(--color-text-maxcontrast); }
+.careforms-header p { margin: 4px 0 0; }
 
-.careforms-header-title-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
+.careforms-tabs { display: flex; gap: 6px; padding: 6px; margin-bottom: 24px; border: 1px solid var(--color-border); border-radius: var(--border-radius-large); background: var(--color-main-background); overflow-x: auto; scrollbar-width: thin; }
+.careforms-tab { flex: 0 0 auto; display:inline-flex; align-items:center; gap:7px; padding: 9px 15px; border: 0; border-radius: var(--border-radius-large); background: transparent; transition: background .15s ease, color .15s ease; }
+.careforms-tab:hover,.careforms-tab:focus-visible { background: var(--color-background-hover); }
+.careforms-tab.active { font-weight: 600; background: var(--color-primary-element-light); color: var(--color-primary-element-light-text, var(--color-main-text)); }
 
-.careforms-demo-badge {
-    display: inline-flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 2px 9px;
-    border-radius: 999px;
-    background: var(--color-background-dark);
-    color: var(--color-text-maxcontrast);
-    font-size: 12px;
-    font-weight: 600;
-}
+.careforms-action-icon { display:inline-flex; flex:0 0 auto; width:18px; height:18px; align-items:center; justify-content:center; vertical-align:middle; }
+.careforms-action-icon svg { width:18px; height:18px; display:block; }
+button .careforms-action-icon { margin-right:6px; }
+.careforms-tab .careforms-action-icon { margin-right:0; }
 
-.careforms-header h1,
-.careforms-section-heading h2,
-.careforms-form-header h2 {
-    margin: 0;
-}
-
-.careforms-header h1 {
-    font-size: 26px;
-    letter-spacing: -0.02em;
-}
-
-.careforms-header p,
-.careforms-muted {
-    color: var(--color-text-maxcontrast);
-}
-
-.careforms-header p {
-    margin: 4px 0 0;
-}
-
-.careforms-tabs {
-    display: flex;
-    gap: 6px;
-    padding: 6px;
-    margin-bottom: 24px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-large);
-    background: var(--color-main-background);
-    overflow-x: auto;
-    scrollbar-width: thin;
-}
-
-.careforms-tab {
-    flex: 0 0 auto;
-    padding: 9px 15px;
-    border: 0;
-    border-radius: var(--border-radius-large);
-    background: transparent;
-    transition: background .15s ease, color .15s ease;
-}
-
-.careforms-tab:hover,
-.careforms-tab:focus-visible {
-    background: var(--color-background-hover);
-}
-
-.careforms-tab.active {
-    font-weight: 600;
-    background: var(--color-primary-element-light);
-    color: var(--color-primary-element-light-text, var(--color-main-text));
-}
-
-#careforms-content {
-    min-height: 500px;
-    padding: 22px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-large);
-    background: var(--color-main-background);
-}
-
-.careforms-view[hidden] {
-    display: none;
-}
-
-.careforms-empty-state {
-    max-width: 640px;
-    padding: 28px;
-    margin-top: 16px;
-    border: 1px dashed var(--color-border);
-    border-radius: var(--border-radius-large);
-    background: var(--color-background-hover);
-}
-
-.careforms-empty-state h3 {
-    margin-top: 0;
-}
-
-.careforms-section-heading,
-.careforms-form-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 18px;
-    margin-bottom: 20px;
-}
-
-.careforms-section-heading {
-    justify-content: space-between;
-}
-
-.careforms-form-category {
-    margin-top: 24px;
-}
-
-.careforms-form-card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
-    margin-top: 12px;
-}
-
-.careforms-form-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-height: 110px;
-    padding: 18px;
-    text-align: left;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-large);
-    background: var(--color-main-background);
-    box-shadow: 0 1px 2px rgba(0,0,0,.04);
-    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-}
-
-.careforms-form-card:hover,
-.careforms-form-card:focus-visible {
-    transform: translateY(-1px);
-    box-shadow: 0 5px 14px rgba(0,0,0,.08);
-    border-color: var(--color-primary-element);
-}
-
-.careforms-form-card-icon {
-    flex: 0 0 48px;
-    display: grid;
-    place-items: center;
-    width: 48px;
-    height: 48px;
-    font-size: 30px;
-    border-radius: var(--border-radius-large);
-    background: var(--color-background-dark);
-}
-
-.careforms-form-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.careforms-form-card-body strong {
-    font-size: 16px;
-}
-
-.careforms-form-card-body span {
-    color: var(--color-text-maxcontrast);
-}
-
-.careforms-secondary-button {
-    background: var(--color-background-dark) !important;
-    color: var(--color-main-text) !important;
-}
-
-.careforms-info-banner {
-    padding: 12px 16px;
-    margin-bottom: 20px;
-    border-left: 4px solid var(--color-primary-element);
-    border-radius: var(--border-radius);
-    background: var(--color-background-dark);
-}
-
-.careforms-rendered-form {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.careforms-form-section {
-    padding: 20px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-large);
-    background: var(--color-main-background);
-}
-
-.careforms-form-section h3 {
-    margin: 0 0 18px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--color-border);
-}
-
-.careforms-field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 24px;
-}
-
-.careforms-field {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-}
-
-.careforms-field-label {
-    font-weight: 600;
-}
-
-.careforms-field input[type="text"],
-.careforms-field input[type="date"],
-.careforms-field input[type="time"],
-.careforms-field input[type="number"],
-.careforms-field textarea {
-    width: 100%;
-    max-width: none;
-    box-sizing: border-box;
-}
-
-.careforms-field textarea {
-    resize: vertical;
-}
-
-.careforms-checkbox-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-    gap: 8px 16px;
-}
-
-.careforms-checkbox-option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 32px;
-}
-
-.careforms-checkbox-option input {
-    margin: 0;
-}
-
-.careforms-single-checkbox {
-    margin-top: 24px;
-}
-
-.careforms-signature-placeholder {
-    min-height: 90px;
-    display: grid;
-    place-items: center;
-    padding: 12px;
-    text-align: center;
-    color: var(--color-text-maxcontrast);
-    border: 2px dashed var(--color-border);
-    border-radius: var(--border-radius-large);
-}
-
-.careforms-form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 4px 0 28px;
-}
-
-.careforms-submission-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 1040px;
-}
-
-.careforms-submission-item {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 16px 18px;
-    text-align: left;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-large);
-    background: var(--color-main-background);
-    transition: background .15s ease, border-color .15s ease, transform .15s ease;
-}
-
-.careforms-submission-item:hover,
-.careforms-submission-item:focus-visible {
-    background: var(--color-background-hover);
-    border-color: var(--color-primary-element);
-    transform: translateX(2px);
-}
-
-.careforms-submission-main {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.careforms-submission-main strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.careforms-submission-main span {
-    color: var(--color-text-maxcontrast);
-}
-
-.careforms-status {
-    flex: 0 0 auto;
-    padding: 5px 10px;
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
-    font-size: 12px;
-    line-height: 1.4;
-    font-weight: 600;
-    background: var(--color-background-dark);
-    color: var(--color-main-text);
-}
-
-.careforms-status-draft {
-    background: var(--color-background-dark);
-}
-
-.careforms-status-submitted {
-    border-color: var(--color-primary-element);
-    background: var(--color-primary-element-light);
-    color: var(--color-main-text);
-}
-
-.careforms-status-returned {
-    border-color: var(--color-warning, #e6a700);
-    background: var(--color-warning-hover, var(--color-background-dark));
-    color: var(--color-main-text);
-}
-
-.careforms-status-approved {
-    border-color: var(--color-success, #2d7d46);
-    background: var(--color-success-hover, var(--color-background-dark));
-    color: var(--color-main-text);
-}
+#careforms-content { min-height: 500px; padding: 22px; border: 1px solid var(--color-border); border-radius: var(--border-radius-large); background: var(--color-main-background); }
+.careforms-view[hidden] { display: none; }
+.careforms-empty-state { max-width: 640px; padding: 28px; margin-top: 16px; border: 1px dashed var(--color-border); border-radius: var(--border-radius-large); background: var(--color-background-hover); }
+.careforms-empty-state h3 { margin-top: 0; }
+.careforms-section-heading,.careforms-form-header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 20px; }
+.careforms-section-heading { justify-content: space-between; }
+.careforms-form-category { margin-top: 24px; }
+.careforms-form-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 12px; }
+.careforms-form-card { display: flex; align-items: center; gap: 14px; min-height: 110px; padding: 18px; text-align: left; border: 1px solid var(--color-border); border-radius: var(--border-radius-large); background: var(--color-main-background); box-shadow: 0 1px 2px rgba(0,0,0,.04); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.careforms-form-card:hover,.careforms-form-card:focus-visible { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(0,0,0,.08); border-color: var(--color-primary-element); }
+.careforms-form-card-icon { flex: 0 0 48px; display: grid; place-items: center; width: 48px; height: 48px; font-size: 30px; border-radius: var(--border-radius-large); background: var(--color-background-dark); }
+.careforms-form-card-body { display: flex; flex-direction: column; gap: 6px; }
+.careforms-form-card-body strong { font-size: 16px; }
+.careforms-form-card-body span { color: var(--color-text-maxcontrast); }
+.careforms-secondary-button { background: var(--color-background-dark) !important; color: var(--color-main-text) !important; }
+.careforms-info-banner { padding: 12px 16px; margin-bottom: 20px; border-left: 4px solid var(--color-primary-element); border-radius: var(--border-radius); background: var(--color-background-dark); }
+.careforms-rendered-form { display: flex; flex-direction: column; gap: 18px; }
+.careforms-form-section { padding: 20px; border: 1px solid var(--color-border); border-radius: var(--border-radius-large); background: var(--color-main-background); }
+.careforms-form-section h3 { margin: 0 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--color-border); }
+.careforms-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; }
+.careforms-field { display: flex; flex-direction: column; gap: 7px; }
+.careforms-field-label { font-weight: 600; }
+.careforms-field input[type="text"],.careforms-field input[type="date"],.careforms-field input[type="time"],.careforms-field input[type="number"],.careforms-field textarea { width: 100%; max-width: none; box-sizing: border-box; }
+.careforms-field textarea { resize: vertical; }
+.careforms-checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 16px; }
+.careforms-checkbox-option { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.careforms-checkbox-option input { margin: 0; }
+.careforms-single-checkbox { margin-top: 24px; }
+.careforms-signature-placeholder { min-height: 90px; display: grid; place-items: center; padding: 12px; text-align: center; color: var(--color-text-maxcontrast); border: 2px dashed var(--color-border); border-radius: var(--border-radius-large); }
+.careforms-form-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 4px 0 28px; }
+.careforms-submission-list { display: flex; flex-direction: column; gap: 10px; max-width: 1040px; }
+.careforms-submission-item { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; text-align: left; border: 1px solid var(--color-border); border-radius: var(--border-radius-large); background: var(--color-main-background); transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.careforms-submission-item:hover,.careforms-submission-item:focus-visible { background: var(--color-background-hover); border-color: var(--color-primary-element); transform: translateX(2px); }
+.careforms-submission-main { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.careforms-submission-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.careforms-submission-main span { color: var(--color-text-maxcontrast); }
+.careforms-status { flex: 0 0 auto; padding: 5px 10px; border: 1px solid var(--color-border); border-radius: 999px; font-size: 12px; line-height: 1.4; font-weight: 600; background: var(--color-background-dark); color: var(--color-main-text); }
+.careforms-status-draft { background: var(--color-background-dark); }
+.careforms-status-submitted { border-color: var(--color-primary-element); background: var(--color-primary-element-light); color: var(--color-main-text); }
+.careforms-status-returned { border-color: var(--color-warning, #e6a700); background: var(--color-warning-hover, var(--color-background-dark)); color: var(--color-main-text); }
+.careforms-status-approved { border-color: var(--color-success, #2d7d46); background: var(--color-success-hover, var(--color-background-dark)); color: var(--color-main-text); }
 
 @media (max-width: 800px) {
-    #careforms-app {
-        width: calc(100% - 20px);
-        margin: 14px auto;
-    }
-
-    .careforms-header {
-        padding: 16px;
-        align-items: flex-start;
-    }
-
-    .careforms-brand-mark {
-        width: 40px;
-        height: 40px;
-        flex-basis: 40px;
-        font-size: 26px;
-    }
-
-    #careforms-content {
-        padding: 14px;
-    }
-
-    .careforms-tabs {
-        overflow-x: auto;
-    }
-
-    .careforms-field-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .careforms-form-header {
-        flex-direction: column;
-    }
-
-    .careforms-form-actions {
-        flex-wrap: wrap;
-    }
-
-    .careforms-submission-item {
-        align-items: flex-start;
-        flex-direction: column;
-    }
+    #careforms-app { width: calc(100% - 20px); margin: 14px auto; }
+    .careforms-header { padding: 16px; align-items: flex-start; }
+    .careforms-brand-mark { width: 40px; height: 40px; flex-basis: 40px; font-size: 26px; }
+    #careforms-content { padding: 14px; }
+    .careforms-tabs { overflow-x: auto; }
+    .careforms-field-grid { grid-template-columns: 1fr; }
+    .careforms-form-header { flex-direction: column; }
+    .careforms-form-actions { flex-wrap: wrap; }
+    .careforms-submission-item { align-items: flex-start; flex-direction: column; }
 }
