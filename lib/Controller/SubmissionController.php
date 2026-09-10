@@ -21,6 +21,8 @@ use OCP\IUserSession;
 
 class SubmissionController extends Controller
 {
+    private const MAX_SIGNATURE_LENGTH = 200000;
+
     public function __construct(
         IRequest $request,
         private SubmissionMapper $mapper,
@@ -113,27 +115,52 @@ class SubmissionController extends Controller
     }
 
     #[NoAdminRequired]
-    public function submit(int $id, array $data = []): JSONResponse
+    public function submit(int $id, array $data = [], ?string $signatureData = null): JSONResponse
     {
         $submission = $this->findOwnedSubmission($id);
         if ($submission instanceof JSONResponse) return $submission;
-        $userId = $this->getUserId();
+        $user = $this->userSession->getUser();
+        $userId = $user?->getUID();
+        if ($userId === null) return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         if (!in_array($submission->getStatus(), ['draft', 'returned'], true)) {
-            if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'already_submitted']);
+            $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'already_submitted']);
             return new JSONResponse(['message' => 'This form cannot be submitted in its current workflow state.'], Http::STATUS_CONFLICT);
         }
         if ($submission->getPatientId() === null) return new JSONResponse(['message' => 'This legacy draft has no patient assigned and cannot be submitted.'], Http::STATUS_CONFLICT);
 
+        $signatureData = trim((string)$signatureData);
+        if ($signatureData === '' || !str_starts_with($signatureData, 'data:image/png;base64,')) {
+            return new JSONResponse(['message' => 'Draw your signature before submitting the form.'], Http::STATUS_BAD_REQUEST);
+        }
+        if (strlen($signatureData) > self::MAX_SIGNATURE_LENGTH) {
+            return new JSONResponse(['message' => 'The captured signature is too large. Clear it and sign again.'], Http::STATUS_BAD_REQUEST);
+        }
+
         $now = time();
-        $submission->setData($this->encodeData($data));
+        $encodedData = $this->encodeData($data);
+        $integrityMaterial = implode('|', [
+            $submission->getFormId(),
+            $submission->getFormVersion(),
+            (string)$submission->getPatientId(),
+            $encodedData,
+            $userId,
+            (string)$now,
+        ]);
+
+        $submission->setData($encodedData);
         $submission->setStatus('submitted');
         $submission->setUpdatedAt($now);
         $submission->setSubmittedAt($now);
         $submission->setReviewedBy(null);
         $submission->setReviewedAt(null);
         $submission->setReviewNote(null);
+        $submission->setSignedBy($userId);
+        $submission->setSignerName($user->getDisplayName());
+        $submission->setSignedAt($now);
+        $submission->setSignatureData($signatureData);
+        $submission->setIntegrityHash(hash('sha256', $integrityMaterial));
         $saved = $this->mapper->update($submission);
-        if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'success', ['version' => (int)$submission->getFormVersion()]);
+        $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'success', ['version' => (int)$submission->getFormVersion(), 'signed' => true]);
         return new JSONResponse($saved->jsonSerialize());
     }
 
