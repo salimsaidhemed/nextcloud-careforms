@@ -136,6 +136,7 @@ class ReportController extends Controller
             }
 
             $serialized = $submission->jsonSerialize();
+            $serialized['userId'] = $submission->getUserId();
             $serialized['patient'] = $patient;
             $items[] = $serialized;
         }
