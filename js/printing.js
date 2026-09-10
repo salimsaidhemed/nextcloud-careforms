@@ -42,11 +42,11 @@
         var styles = '\n' +
             '@page{size:auto;margin:14mm;}\n' +
             'html,body{margin:0;padding:0;background:#fff;color:#000;font:12px/1.4 Arial,sans-serif;height:auto!important;overflow:visible!important;}\n' +
-            '.careforms-view{display:block!important;position:static!important;height:auto!important;overflow:visible!important;}\n' +
+            '.careforms-view,.careforms-report-submission-preview{display:block!important;position:static!important;height:auto!important;overflow:visible!important;padding:0!important;border:0!important;background:#fff!important;}\n' +
             '.careforms-form-header,.careforms-section-heading{display:flex;align-items:flex-start;gap:16px;margin:0 0 16px;}\n' +
             '.careforms-form-header h2,.careforms-section-heading h2{margin:0;font-size:22px;}\n' +
             '.careforms-muted{color:#555;}\n' +
-            '.careforms-info-banner{padding:10px 12px;margin:0 0 14px;border-left:3px solid #666;}\n' +
+            '.careforms-info-banner,.careforms-report-preview-meta{padding:10px 12px;margin:0 0 14px;border-left:3px solid #666;background:#f5f5f5;}\n' +
             '.careforms-form-layout,.careforms-rendered-form{display:block!important;position:static!important;height:auto!important;max-height:none!important;overflow:visible!important;}\n' +
             '.careforms-form-section{display:block;padding:14px;margin:0 0 14px;border:1px solid #999;border-radius:6px;break-inside:auto;page-break-inside:auto;}\n' +
             '.careforms-form-section h3{margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #ddd;font-size:17px;}\n' +
@@ -95,10 +95,12 @@
         document.querySelectorAll('.careforms-rendered-form').forEach(function (form) {
             var panel = form.closest('[data-view-panel]');
             if (!panel || panel.hidden) return;
-            var header = panel.querySelector('.careforms-form-header');
+            var preview = form.closest('.careforms-report-submission-preview');
+            var scope = preview || panel;
+            var header = scope.querySelector('.careforms-form-header');
             if (!header) return;
-            addPrintButton(header, 'Print submission', function () { return panel; }, function () {
-                var heading = panel.querySelector('.careforms-form-header h2');
+            addPrintButton(header, 'Print submission', function () { return scope; }, function () {
+                var heading = scope.querySelector('.careforms-form-header h2');
                 return heading ? heading.textContent + ' - CareForms' : 'CareForms submission';
             });
         });

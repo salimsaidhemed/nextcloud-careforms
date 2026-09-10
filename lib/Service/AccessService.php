@@ -64,7 +64,8 @@ class AccessService
             return [
                 'form.view', 'form.submit', 'submission.view_own', 'submission.review',
                 'patient.select', 'patient.view', 'patient.manage',
-                'report.view', 'report.export', 'form.manage', 'permissions.manage', 'settings.manage',
+                'report.view', 'report.detail', 'report.export',
+                'form.manage', 'permissions.manage', 'settings.manage',
             ];
         }
 
@@ -78,7 +79,7 @@ class AccessService
             $caps = array_merge($caps, ['submission.review', 'patient.view', 'patient.manage']);
         }
         if ($this->groupManager->isInGroup($userId, self::GROUP_REPORT_VIEWERS)) {
-            $caps[] = 'report.view';
+            $caps = array_merge($caps, ['report.view', 'report.detail']);
         }
 
         return array_values(array_unique($caps));
@@ -112,6 +113,7 @@ class AccessService
 
     public function canAccessForm(string $formId, ?string $userId = null): bool { return in_array($formId, $this->allowedForms($userId), true); }
     public function canViewReports(?string $userId = null): bool { return in_array('report.view', $this->capabilities($userId), true); }
+    public function canViewDetailedReports(?string $userId = null): bool { return in_array('report.detail', $this->capabilities($userId), true); }
     public function canManageForms(?string $userId = null): bool { return in_array('form.manage', $this->capabilities($userId), true); }
     public function canSelectPatients(?string $userId = null): bool { return in_array('patient.select', $this->capabilities($userId), true); }
     public function canViewPatientDetails(?string $userId = null): bool { return in_array('patient.view', $this->capabilities($userId), true); }
