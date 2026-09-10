@@ -23,13 +23,17 @@ style('careforms', 'printing');
 <div id="app-content" class="careforms-app-content">
     <div id="careforms-app">
         <header class="careforms-header">
-            <div>
-                <h1>CareForms</h1>
-                <p>Secure field data collection and reporting</p>
+            <div class="careforms-brand-mark" aria-hidden="true">+</div>
+            <div class="careforms-brand-copy">
+                <div class="careforms-header-title-row">
+                    <h1>CareForms</h1>
+                    <span class="careforms-demo-badge">Clinical documentation</span>
+                </div>
+                <p>Secure field data collection, review and reporting</p>
             </div>
         </header>
 
-        <nav class="careforms-tabs" aria-label="CareForms">
+        <nav class="careforms-tabs" aria-label="CareForms workspace">
             <button type="button" class="careforms-tab active" data-view="work">My Work</button>
             <button type="button" class="careforms-tab" data-view="forms">Forms</button>
             <button type="button" class="careforms-tab" data-view="review" hidden>Review Queue</button>
