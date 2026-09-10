@@ -12,6 +12,7 @@ class Submission extends Entity implements JsonSerializable
     protected string $userId = '';
     protected string $formId = '';
     protected string $formVersion = '';
+    protected ?int $patientId = null;
     protected string $status = 'draft';
     protected string $data = '{}';
     protected int $createdAt = 0;
@@ -21,6 +22,7 @@ class Submission extends Entity implements JsonSerializable
     public function __construct()
     {
         $this->addType('id', 'integer');
+        $this->addType('patientId', 'integer');
         $this->addType('createdAt', 'integer');
         $this->addType('updatedAt', 'integer');
         $this->addType('submittedAt', 'integer');
@@ -29,9 +31,9 @@ class Submission extends Entity implements JsonSerializable
     public function jsonSerialize(): array
     {
         $decoded = json_decode($this->data, true);
-
         return [
             'id' => $this->getId(),
+            'patientId' => $this->patientId,
             'formId' => $this->formId,
             'formVersion' => $this->formVersion,
             'status' => $this->status,
