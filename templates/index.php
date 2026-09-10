@@ -10,6 +10,7 @@ script('careforms', 'audit');
 script('careforms', 'form-admin');
 script('careforms', 'review');
 script('careforms', 'printing');
+script('careforms', 'ui-icons');
 style('careforms', 'page');
 style('careforms', 'nurses');
 style('careforms', 'patients');
