@@ -19,7 +19,7 @@ class FormVersionService
         $now = time();
         $version = new FormVersion();
         $version->setFormId($formId);
-        $version->setVersion(1);
+        $version->setVersionNumber(1);
         $version->setStatus('published');
         $version->setCreatedBy('system');
         $version->setCreatedAt($now);
@@ -38,7 +38,7 @@ class FormVersionService
     public function publishedVersion(string $formId): int
     {
         $this->ensureSeeded($formId);
-        return $this->mapper->findPublished($formId)?->getVersion() ?? 1;
+        return $this->mapper->findPublished($formId)?->getVersionNumber() ?? 1;
     }
 
     public function createDraft(string $formId, string $userId): FormVersion
@@ -49,7 +49,7 @@ class FormVersionService
         $now = time();
         $version = new FormVersion();
         $version->setFormId($formId);
-        $version->setVersion($this->mapper->nextVersion($formId));
+        $version->setVersionNumber($this->mapper->nextVersion($formId));
         $version->setStatus('draft');
         $version->setCreatedBy($userId);
         $version->setCreatedAt($now);
