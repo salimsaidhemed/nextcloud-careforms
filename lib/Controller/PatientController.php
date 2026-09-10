@@ -33,33 +33,60 @@ class PatientController extends Controller
     public function index(): JSONResponse
     {
         $userId = $this->accessService->currentUserId();
-        if ($userId === null) return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
+        if ($userId === null) {
+            return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
+        }
         if (!$this->accessService->canSelectPatients($userId) && !$this->accessService->canViewPatientDetails($userId)) {
             return new JSONResponse(['message' => 'You do not have permission to view patients.'], Http::STATUS_FORBIDDEN);
         }
-        return new JSONResponse(array_map(static fn (Patient $p): array => $p->jsonSerialize(), $this->patients->findAll()));
+
+        return new JSONResponse(array_map(
+            static fn (Patient $patient): array => $patient->jsonSerialize(),
+            $this->patients->findAllActive(),
+        ));
     }
 
     #[NoAdminRequired]
     public function create(string $medicalRecordNumber, string $firstName, string $lastName, ?string $dateOfBirth = null): JSONResponse
     {
         $userId = $this->accessService->currentUserId();
-        if ($userId === null) return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
-        if (!$this->accessService->canManagePatients($userId)) return new JSONResponse(['message' => 'You do not have permission to add patients.'], Http::STATUS_FORBIDDEN);
-        $medicalRecordNumber = trim($medicalRecordNumber); $firstName = trim($firstName); $lastName = trim($lastName);
-        if ($medicalRecordNumber === '' || $firstName === '' || $lastName === '') return new JSONResponse(['message' => 'MR#, first name and last name are required.'], Http::STATUS_BAD_REQUEST);
+        if ($userId === null) {
+            return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
+        }
+        if (!$this->accessService->canManagePatients($userId)) {
+            return new JSONResponse(['message' => 'You do not have permission to add patients.'], Http::STATUS_FORBIDDEN);
+        }
+
+        $medicalRecordNumber = trim($medicalRecordNumber);
+        $firstName = trim($firstName);
+        $lastName = trim($lastName);
+        $dateOfBirth = $dateOfBirth !== null && trim($dateOfBirth) !== '' ? trim($dateOfBirth) : null;
+
+        if ($medicalRecordNumber === '' || $firstName === '' || $lastName === '') {
+            return new JSONResponse(['message' => 'MR#, first name and last name are required.'], Http::STATUS_BAD_REQUEST);
+        }
+        if ($dateOfBirth !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateOfBirth)) {
+            return new JSONResponse(['message' => 'Date of birth must use YYYY-MM-DD.'], Http::STATUS_BAD_REQUEST);
+        }
 
         $now = time();
         $patient = new Patient();
         $patient->setMedicalRecordNumber($medicalRecordNumber);
         $patient->setFirstName($firstName);
         $patient->setLastName($lastName);
-        $patient->setDateOfBirth($dateOfBirth ?: null);
+        $patient->setDateOfBirth($dateOfBirth);
         $patient->setStatus('active');
-        $patient->setCreatedAt($now); $patient->setUpdatedAt($now);
-        try { $saved = $this->patients->insert($patient); }
-        catch (\Throwable $e) { return new JSONResponse(['message' => 'Could not add patient. The MR# may already exist.'], Http::STATUS_CONFLICT); }
-        $this->auditService->log($userId, 'PATIENT_CREATE', 'patient', $saved->getId(), null, 'success', ['mrn' => $medicalRecordNumber]);
+        $patient->setCreatedAt($now);
+        $patient->setUpdatedAt($now);
+
+        try {
+            $saved = $this->patients->insert($patient);
+        } catch (\Throwable) {
+            return new JSONResponse(['message' => 'Could not add patient. The MR# may already exist.'], Http::STATUS_CONFLICT);
+        }
+
+        // Do not copy patient identifiers into audit metadata.
+        $this->auditService->log($userId, 'PATIENT_CREATE', 'patient', $saved->getId());
         return new JSONResponse($saved->jsonSerialize(), Http::STATUS_CREATED);
     }
 
@@ -67,12 +94,28 @@ class PatientController extends Controller
     public function show(int $id): JSONResponse
     {
         $userId = $this->accessService->currentUserId();
-        if ($userId === null) return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
-        if (!$this->accessService->canViewPatientDetails($userId)) return new JSONResponse(['message' => 'You do not have permission to view patient details.'], Http::STATUS_FORBIDDEN);
-        try { $patient = $this->patients->find($id); }
-        catch (DoesNotExistException | MultipleObjectsReturnedException) { return new JSONResponse(['message' => 'Patient not found.'], Http::STATUS_NOT_FOUND); }
-        $records = array_map(static fn ($s): array => $s->jsonSerialize(), $this->submissions->findAllByPatient($id));
+        if ($userId === null) {
+            return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
+        }
+        if (!$this->accessService->canViewPatientDetails($userId)) {
+            return new JSONResponse(['message' => 'You do not have permission to view patient details.'], Http::STATUS_FORBIDDEN);
+        }
+
+        try {
+            $patient = $this->patients->find($id);
+        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
+            return new JSONResponse(['message' => 'Patient not found.'], Http::STATUS_NOT_FOUND);
+        }
+
+        $records = array_map(
+            static fn ($submission): array => $submission->jsonSerialize(),
+            $this->submissions->findAllByPatient($id),
+        );
         $this->auditService->log($userId, 'PATIENT_VIEW', 'patient', $id);
-        return new JSONResponse(['patient' => $patient->jsonSerialize(), 'submissions' => $records]);
+
+        return new JSONResponse([
+            'patient' => $patient->jsonSerialize(),
+            'submissions' => $records,
+        ]);
     }
 }
