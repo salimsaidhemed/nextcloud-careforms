@@ -20,8 +20,12 @@ class Version000209Date20260910170000 extends SimpleMigrationStep
         }
 
         $table = $schema->getTable('careforms_form_versions');
-        if ($table->hasColumn('version') && !$table->hasColumn('version_number')) {
-            $table->renameColumn('version', 'version_number');
+        if (!$table->hasColumn('version_number')) {
+            $table->addColumn('version_number', 'integer', [
+                'notnull' => true,
+                'unsigned' => true,
+                'default' => 1,
+            ]);
         }
 
         return $schema;
