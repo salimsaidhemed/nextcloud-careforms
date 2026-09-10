@@ -34,7 +34,7 @@ class ReportController extends Controller
         $userId = $this->requireReportAccess();
         if ($userId instanceof JSONResponse) return $userId;
 
-        $submissions = $this->mapper->findAllSubmitted();
+        $submissions = $this->mapper->findAllReportable();
         $now = time();
         $thirtyDaysAgo = $now - (30 * 86400);
         $formTotals = [
