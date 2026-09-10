@@ -15,7 +15,10 @@
     }
     function notify(message) { if (OC.Notification && OC.Notification.showTemporary) OC.Notification.showTemporary(message); else window.alert(message); }
     function definition(formId, version) {
-        var item = window.CareForms && window.CareForms.formDefinitions ? window.CareForms.formDefinitions[formId] : null;
+        var definitions = window.CareForms && window.CareForms.formDefinitions ? window.CareForms.formDefinitions : {};
+        var item = Object.keys(definitions).map(function (key) { return definitions[key]; }).find(function (candidate) {
+            return candidate && candidate.id === formId;
+        }) || null;
         return item ? Object.assign({}, item, {version:Number(version) || item.version}) : null;
     }
 
@@ -39,9 +42,11 @@
             }
             var list = document.createElement('div');
             list.className = 'careforms-submission-list';
+            var rendered = 0;
             submissions.forEach(function (submission) {
                 var d = definition(submission.formId, submission.formVersion);
                 if (!d) return;
+                rendered += 1;
                 var patient = patientMap[submission.patientId];
                 var item = document.createElement('button');
                 item.type = 'button';
@@ -58,6 +63,10 @@
                 item.addEventListener('click', function () { renderReview(submission, d, patient, mount); });
                 list.appendChild(item);
             });
+            if (!rendered) {
+                mount.innerHTML += '<div class="careforms-empty-state"><h3>Could not display queued forms</h3><p>The queued submissions reference form definitions that are not available in this browser session.</p></div>';
+                return;
+            }
             mount.appendChild(list);
         }).catch(function (error) {
             mount.innerHTML = '<div class="careforms-empty-state"><h3>Could not load Review Queue</h3><p></p></div>';
