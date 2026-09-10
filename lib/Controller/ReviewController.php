@@ -67,6 +67,13 @@ class ReviewController extends Controller
         $submission->setReviewedBy($userId);
         $submission->setReviewedAt(time());
         $submission->setReviewNote($note !== '' ? $note : null);
+        if ($action === 'return') {
+            $submission->setSignedBy(null);
+            $submission->setSignerName(null);
+            $submission->setSignedAt(null);
+            $submission->setSignatureData(null);
+            $submission->setIntegrityHash(null);
+        }
         $submission->setUpdatedAt(time());
         $saved = $this->submissions->update($submission);
 
