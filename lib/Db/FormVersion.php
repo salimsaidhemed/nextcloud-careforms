@@ -10,7 +10,7 @@ use OCP\AppFramework\Db\Entity;
 class FormVersion extends Entity implements JsonSerializable
 {
     protected string $formId = '';
-    protected int $version = 1;
+    protected int $versionNumber = 1;
     protected string $status = 'draft';
     protected string $createdBy = '';
     protected int $createdAt = 0;
@@ -21,7 +21,7 @@ class FormVersion extends Entity implements JsonSerializable
     public function __construct()
     {
         $this->addType('id', 'integer');
-        $this->addType('version', 'integer');
+        $this->addType('versionNumber', 'integer');
         $this->addType('createdAt', 'integer');
         $this->addType('updatedAt', 'integer');
         $this->addType('publishedAt', 'integer');
@@ -33,7 +33,7 @@ class FormVersion extends Entity implements JsonSerializable
         return [
             'id' => $this->getId(),
             'formId' => $this->formId,
-            'version' => $this->version,
+            'version' => $this->versionNumber,
             'status' => $this->status,
             'createdBy' => $this->createdBy,
             'createdAt' => $this->createdAt,
