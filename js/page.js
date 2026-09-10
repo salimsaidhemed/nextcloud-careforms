@@ -32,6 +32,13 @@
     function getDefinition(formId) { return definitions().find(function (d) { return d.id === formId; }); }
     function canUseForm(formId) { return accessState && Array.isArray(accessState.forms) && accessState.forms.indexOf(formId) !== -1; }
     function findPatient(id) { return patientCache.find(function (patient) { return Number(patient.id) === Number(id); }) || null; }
+    function statusLabel(status) {
+        if (status === 'submitted') return 'Pending approval';
+        if (status === 'returned') return 'Returned for correction';
+        if (status === 'approved') return 'Approved';
+        return 'Draft';
+    }
+    function isSubmissionReadOnly(status) { return status === 'submitted' || status === 'approved'; }
 
     function loadPatients() {
         if (patientCache.length) return Promise.resolve(patientCache);
@@ -153,7 +160,7 @@
         var ensureDraft = activeSubmission && activeSubmission.id ? Promise.resolve(activeSubmission)
             : request('/api/submissions', {method:'POST', body:JSON.stringify({formId:definition.id, formVersion:definition.version, patientId:activePatient && activePatient.id, data:data})});
         ensureDraft.then(function (s) { activeSubmission=s; return request('/api/submissions/' + s.id + '/submit', {method:'POST', body:JSON.stringify({data:data})}); })
-            .then(function (s) { activeSubmission=s; notify('Form submitted.'); renderSubmission(definition,s,mount); })
+            .then(function (s) { activeSubmission=s; notify('Form submitted for approval.'); renderSubmission(definition,s,mount); })
             .catch(function (e) { notify(e.message); button.disabled=false; button.textContent='Submit'; });
     }
 
@@ -168,7 +175,7 @@
         activeSubmission=submission;
         activePatient=findPatient(submission.patientId);
         var renderDefinition = Object.assign({}, definition, {version: Number(submission.formVersion) || definition.version});
-        window.CareForms.FormRenderer.render(renderDefinition,mount,{values:submission.data||{},patient:activePatient,readOnly:submission.status==='submitted',backLabel:'Back to My Work',onSaveDraft:function(data,b){saveDraft(renderDefinition,data,b,mount);},onSubmit:function(data,b){submitForm(renderDefinition,data,b,mount);}});
+        window.CareForms.FormRenderer.render(renderDefinition,mount,{values:submission.data||{},patient:activePatient,readOnly:isSubmissionReadOnly(submission.status),backLabel:'Back to My Work',onSaveDraft:function(data,b){saveDraft(renderDefinition,data,b,mount);},onSubmit:function(data,b){submitForm(renderDefinition,data,b,mount);}});
     }
 
     function renderMyWork() {
@@ -189,7 +196,7 @@
                 var patient=findPatient(s.patientId); var patientName=patient ? patient.displayName : (s.data && s.data.patient_name ? s.data.patient_name : 'Legacy / unassigned patient');
                 main.innerHTML='<strong></strong><span></span>'; main.querySelector('strong').textContent=patientName;
                 main.querySelector('span').textContent=d.name+' v'+s.formVersion+' · Updated '+(s.updatedAt ? new Date(s.updatedAt*1000).toLocaleString() : '—');
-                var status=document.createElement('span'); status.className='careforms-status careforms-status-'+s.status; status.textContent=s.status==='submitted'?'Submitted':'Draft';
+                var status=document.createElement('span'); status.className='careforms-status careforms-status-'+s.status; status.textContent=statusLabel(s.status);
                 item.appendChild(main); item.appendChild(status); item.addEventListener('click',function(){renderSubmission(d,s,mount);}); list.appendChild(item);
             });
             mount.appendChild(list);
