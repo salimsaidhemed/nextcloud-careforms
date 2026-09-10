@@ -21,6 +21,11 @@ class Submission extends Entity implements JsonSerializable
     protected ?string $reviewedBy = null;
     protected ?int $reviewedAt = null;
     protected ?string $reviewNote = null;
+    protected ?string $signedBy = null;
+    protected ?string $signerName = null;
+    protected ?int $signedAt = null;
+    protected ?string $signatureData = null;
+    protected ?string $integrityHash = null;
 
     public function __construct()
     {
@@ -30,6 +35,7 @@ class Submission extends Entity implements JsonSerializable
         $this->addType('updatedAt', 'integer');
         $this->addType('submittedAt', 'integer');
         $this->addType('reviewedAt', 'integer');
+        $this->addType('signedAt', 'integer');
     }
 
     public function jsonSerialize(): array
@@ -48,6 +54,11 @@ class Submission extends Entity implements JsonSerializable
             'reviewedBy' => $this->reviewedBy,
             'reviewedAt' => $this->reviewedAt,
             'reviewNote' => $this->reviewNote,
+            'signedBy' => $this->signedBy,
+            'signerName' => $this->signerName,
+            'signedAt' => $this->signedAt,
+            'signatureData' => $this->signatureData,
+            'integrityHash' => $this->integrityHash,
         ];
     }
 }
