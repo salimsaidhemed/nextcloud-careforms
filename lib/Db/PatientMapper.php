@@ -17,10 +17,15 @@ class PatientMapper extends QBMapper
     }
 
     /** @return Patient[] */
-    public function findAll(): array
+    public function findAllActive(): array
     {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')->from($this->getTableName())->orderBy('last_name', 'ASC')->addOrderBy('first_name', 'ASC');
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('status', $qb->createNamedParameter('active')))
+            ->orderBy('last_name', 'ASC')
+            ->addOrderBy('first_name', 'ASC');
+
         return $this->findEntities($qb);
     }
 
@@ -28,7 +33,10 @@ class PatientMapper extends QBMapper
     public function find(int $id): Patient
     {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')->from($this->getTableName())->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
+
         return $this->findEntity($qb);
     }
 }
