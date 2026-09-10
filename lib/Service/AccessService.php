@@ -19,8 +19,16 @@ class AccessService
     public const FORM_HOME_HEALTH_AIDE = 'home-health-aide-note';
     public const FORM_NURSES_PROGRESS_NOTE = 'nurses-progress-note';
 
-    public function __construct(private IGroupManager $groupManager, private IUserSession $userSession, private IConfig $config) {}
-    public function currentUserId(): ?string { return $this->userSession->getUser()?->getUID(); }
+    public function __construct(
+        private IGroupManager $groupManager,
+        private IUserSession $userSession,
+        private IConfig $config,
+    ) {}
+
+    public function currentUserId(): ?string
+    {
+        return $this->userSession->getUser()?->getUID();
+    }
 
     public function isCareFormsAdministrator(?string $userId = null): bool
     {
@@ -30,36 +38,75 @@ class AccessService
 
     public function roles(?string $userId = null): array
     {
-        $userId ??= $this->currentUserId(); if ($userId === null) return [];
+        $userId ??= $this->currentUserId();
+        if ($userId === null) return [];
+
         $roles = [];
         if ($this->groupManager->isAdmin($userId)) $roles[] = 'nextcloud_admin';
-        foreach ([self::GROUP_AIDES=>'aide', self::GROUP_NURSES=>'nurse', self::GROUP_SUPERVISORS=>'supervisor', self::GROUP_REPORT_VIEWERS=>'report_viewer', self::GROUP_ADMINISTRATORS=>'careforms_administrator'] as $group=>$role) if ($this->groupManager->isInGroup($userId, $group)) $roles[] = $role;
+        foreach ([
+            self::GROUP_AIDES => 'aide',
+            self::GROUP_NURSES => 'nurse',
+            self::GROUP_SUPERVISORS => 'supervisor',
+            self::GROUP_REPORT_VIEWERS => 'report_viewer',
+            self::GROUP_ADMINISTRATORS => 'careforms_administrator',
+        ] as $group => $role) {
+            if ($this->groupManager->isInGroup($userId, $group)) $roles[] = $role;
+        }
         return $roles;
     }
 
     public function capabilities(?string $userId = null): array
     {
-        $userId ??= $this->currentUserId(); if ($userId === null) return [];
-        if ($this->isCareFormsAdministrator($userId)) return ['form.view','form.submit','submission.view_own','submission.review','patient.select','patient.view','patient.manage','report.view','report.export','form.manage','permissions.manage','settings.manage'];
+        $userId ??= $this->currentUserId();
+        if ($userId === null) return [];
+
+        if ($this->isCareFormsAdministrator($userId)) {
+            return [
+                'form.view', 'form.submit', 'submission.view_own', 'submission.review',
+                'patient.select', 'patient.view', 'patient.manage',
+                'report.view', 'report.export', 'form.manage', 'permissions.manage', 'settings.manage',
+            ];
+        }
+
         $caps = [];
-        if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES) || $this->groupManager->isInGroup($userId, self::GROUP_NURSES) || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) $caps = array_merge($caps, ['form.view','form.submit','submission.view_own','patient.select']);
-        if ($this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) $caps = array_merge($caps, ['submission.review','patient.view','patient.manage']);
-        if ($this->groupManager->isInGroup($userId, self::GROUP_REPORT_VIEWERS)) $caps = array_merge($caps, ['report.view','patient.view']);
+        if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES)
+            || $this->groupManager->isInGroup($userId, self::GROUP_NURSES)
+            || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
+            $caps = array_merge($caps, ['form.view', 'form.submit', 'submission.view_own', 'patient.select']);
+        }
+        if ($this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
+            $caps = array_merge($caps, ['submission.review', 'patient.view', 'patient.manage']);
+        }
+        if ($this->groupManager->isInGroup($userId, self::GROUP_REPORT_VIEWERS)) {
+            $caps[] = 'report.view';
+        }
+
         return array_values(array_unique($caps));
     }
 
-    public function isFormEnabled(string $formId): bool { return $this->config->getAppValue('careforms', 'form_enabled_' . $formId, '1') === '1'; }
-    public function setFormEnabled(string $formId, bool $enabled): void { $this->config->setAppValue('careforms', 'form_enabled_' . $formId, $enabled ? '1' : '0'); }
+    public function isFormEnabled(string $formId): bool
+    {
+        return $this->config->getAppValue('careforms', 'form_enabled_' . $formId, '1') === '1';
+    }
+
+    public function setFormEnabled(string $formId, bool $enabled): void
+    {
+        $this->config->setAppValue('careforms', 'form_enabled_' . $formId, $enabled ? '1' : '0');
+    }
 
     public function allowedForms(?string $userId = null): array
     {
-        $userId ??= $this->currentUserId(); if ($userId === null) return [];
-        if ($this->isCareFormsAdministrator($userId) || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) $forms = [self::FORM_HOME_HEALTH_AIDE, self::FORM_NURSES_PROGRESS_NOTE];
-        else {
+        $userId ??= $this->currentUserId();
+        if ($userId === null) return [];
+
+        if ($this->isCareFormsAdministrator($userId) || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
+            $forms = [self::FORM_HOME_HEALTH_AIDE, self::FORM_NURSES_PROGRESS_NOTE];
+        } else {
             $forms = [];
             if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES)) $forms[] = self::FORM_HOME_HEALTH_AIDE;
             if ($this->groupManager->isInGroup($userId, self::GROUP_NURSES)) $forms[] = self::FORM_NURSES_PROGRESS_NOTE;
         }
+
         return array_values(array_filter($forms, fn (string $formId): bool => $this->isFormEnabled($formId)));
     }
 
