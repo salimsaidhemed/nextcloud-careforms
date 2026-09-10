@@ -22,7 +22,7 @@ class FormVersionMapper extends QBMapper
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')->from($this->getTableName())
             ->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId)))
-            ->orderBy('version', 'DESC');
+            ->orderBy('version_number', 'DESC');
         return $this->findEntities($qb);
     }
 
@@ -32,7 +32,7 @@ class FormVersionMapper extends QBMapper
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')->from($this->getTableName())
             ->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId)))
-            ->andWhere($qb->expr()->eq('version', $qb->createNamedParameter($version)));
+            ->andWhere($qb->expr()->eq('version_number', $qb->createNamedParameter($version)));
         return $this->findEntity($qb);
     }
 
@@ -43,11 +43,8 @@ class FormVersionMapper extends QBMapper
             ->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId)))
             ->andWhere($qb->expr()->eq('status', $qb->createNamedParameter('published')))
             ->setMaxResults(1);
-        try {
-            return $this->findEntity($qb);
-        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
-            return null;
-        }
+        try { return $this->findEntity($qb); }
+        catch (DoesNotExistException | MultipleObjectsReturnedException) { return null; }
     }
 
     public function findDraft(string $formId): ?FormVersion
@@ -57,17 +54,14 @@ class FormVersionMapper extends QBMapper
             ->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId)))
             ->andWhere($qb->expr()->eq('status', $qb->createNamedParameter('draft')))
             ->setMaxResults(1);
-        try {
-            return $this->findEntity($qb);
-        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
-            return null;
-        }
+        try { return $this->findEntity($qb); }
+        catch (DoesNotExistException | MultipleObjectsReturnedException) { return null; }
     }
 
     public function nextVersion(string $formId): int
     {
         $versions = $this->findAllByForm($formId);
         if ($versions === []) return 1;
-        return max(array_map(static fn (FormVersion $v): int => $v->getVersion(), $versions)) + 1;
+        return max(array_map(static fn (FormVersion $v): int => $v->getVersionNumber(), $versions)) + 1;
     }
 }
