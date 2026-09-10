@@ -37,6 +37,19 @@ class SubmissionMapper extends QBMapper
     }
 
     /** @return Submission[] */
+    public function findAllReportable(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->in('status', [
+                $qb->createNamedParameter('submitted'),
+                $qb->createNamedParameter('approved'),
+            ]))
+            ->orderBy('submitted_at', 'DESC');
+        return $this->findEntities($qb);
+    }
+
+    /** @return Submission[] */
     public function findAwaitingReview(): array
     {
         return $this->findAllSubmitted();
