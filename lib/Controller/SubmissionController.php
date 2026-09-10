@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\CareForms\Controller;
 
+use OCA\CareForms\Db\PatientMapper;
 use OCA\CareForms\Db\Submission;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
@@ -22,6 +23,7 @@ class SubmissionController extends Controller
     public function __construct(
         IRequest $request,
         private SubmissionMapper $mapper,
+        private PatientMapper $patients,
         private IUserSession $userSession,
         private AccessService $accessService,
         private AuditService $auditService,
@@ -65,7 +67,7 @@ class SubmissionController extends Controller
     }
 
     #[NoAdminRequired]
-    public function create(string $formId, string|int $formVersion, array $data = []): JSONResponse
+    public function create(string $formId, string|int $formVersion, ?int $patientId = null, array $data = []): JSONResponse
     {
         $userId = $this->getUserId();
         if ($userId === null) {
@@ -78,14 +80,26 @@ class SubmissionController extends Controller
         }
 
         $formVersion = (string)$formVersion;
-
         if ($formId === '' || $formVersion === '') {
             return new JSONResponse(['message' => 'formId and formVersion are required.'], Http::STATUS_BAD_REQUEST);
+        }
+        if ($patientId === null || $patientId <= 0) {
+            return new JSONResponse(['message' => 'A patient must be selected before starting a form.'], Http::STATUS_BAD_REQUEST);
+        }
+
+        try {
+            $patient = $this->patients->find($patientId);
+        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
+            return new JSONResponse(['message' => 'Selected patient was not found.'], Http::STATUS_NOT_FOUND);
+        }
+        if ($patient->getStatus() !== 'active') {
+            return new JSONResponse(['message' => 'Selected patient is not active.'], Http::STATUS_CONFLICT);
         }
 
         $now = time();
         $submission = new Submission();
         $submission->setUserId($userId);
+        $submission->setPatientId($patientId);
         $submission->setFormId($formId);
         $submission->setFormVersion($formVersion);
         $submission->setStatus('draft');
@@ -140,6 +154,10 @@ class SubmissionController extends Controller
                 $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'already_submitted']);
             }
             return new JSONResponse(['message' => 'This form has already been submitted.'], Http::STATUS_CONFLICT);
+        }
+
+        if ($submission->getPatientId() === null) {
+            return new JSONResponse(['message' => 'This legacy draft has no patient assigned and cannot be submitted.'], Http::STATUS_CONFLICT);
         }
 
         $now = time();

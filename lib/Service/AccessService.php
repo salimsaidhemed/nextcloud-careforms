@@ -25,7 +25,10 @@ class AccessService
         private IConfig $config,
     ) {}
 
-    public function currentUserId(): ?string { return $this->userSession->getUser()?->getUID(); }
+    public function currentUserId(): ?string
+    {
+        return $this->userSession->getUser()?->getUID();
+    }
 
     public function isCareFormsAdministrator(?string $userId = null): bool
     {
@@ -37,9 +40,16 @@ class AccessService
     {
         $userId ??= $this->currentUserId();
         if ($userId === null) return [];
+
         $roles = [];
         if ($this->groupManager->isAdmin($userId)) $roles[] = 'nextcloud_admin';
-        foreach ([self::GROUP_AIDES=>'aide', self::GROUP_NURSES=>'nurse', self::GROUP_SUPERVISORS=>'supervisor', self::GROUP_REPORT_VIEWERS=>'report_viewer', self::GROUP_ADMINISTRATORS=>'careforms_administrator'] as $group=>$role) {
+        foreach ([
+            self::GROUP_AIDES => 'aide',
+            self::GROUP_NURSES => 'nurse',
+            self::GROUP_SUPERVISORS => 'supervisor',
+            self::GROUP_REPORT_VIEWERS => 'report_viewer',
+            self::GROUP_ADMINISTRATORS => 'careforms_administrator',
+        ] as $group => $role) {
             if ($this->groupManager->isInGroup($userId, $group)) $roles[] = $role;
         }
         return $roles;
@@ -49,13 +59,28 @@ class AccessService
     {
         $userId ??= $this->currentUserId();
         if ($userId === null) return [];
-        if ($this->isCareFormsAdministrator($userId)) return ['form.view','form.submit','submission.view_own','submission.review','report.view','report.export','form.manage','permissions.manage','settings.manage'];
-        $caps = [];
-        if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES) || $this->groupManager->isInGroup($userId, self::GROUP_NURSES) || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
-            $caps = array_merge($caps, ['form.view','form.submit','submission.view_own']);
+
+        if ($this->isCareFormsAdministrator($userId)) {
+            return [
+                'form.view', 'form.submit', 'submission.view_own', 'submission.review',
+                'patient.select', 'patient.view', 'patient.manage',
+                'report.view', 'report.export', 'form.manage', 'permissions.manage', 'settings.manage',
+            ];
         }
-        if ($this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) $caps[] = 'submission.review';
-        if ($this->groupManager->isInGroup($userId, self::GROUP_REPORT_VIEWERS)) $caps[] = 'report.view';
+
+        $caps = [];
+        if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES)
+            || $this->groupManager->isInGroup($userId, self::GROUP_NURSES)
+            || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
+            $caps = array_merge($caps, ['form.view', 'form.submit', 'submission.view_own', 'patient.select']);
+        }
+        if ($this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
+            $caps = array_merge($caps, ['submission.review', 'patient.view', 'patient.manage']);
+        }
+        if ($this->groupManager->isInGroup($userId, self::GROUP_REPORT_VIEWERS)) {
+            $caps[] = 'report.view';
+        }
+
         return array_values(array_unique($caps));
     }
 
@@ -88,4 +113,7 @@ class AccessService
     public function canAccessForm(string $formId, ?string $userId = null): bool { return in_array($formId, $this->allowedForms($userId), true); }
     public function canViewReports(?string $userId = null): bool { return in_array('report.view', $this->capabilities($userId), true); }
     public function canManageForms(?string $userId = null): bool { return in_array('form.manage', $this->capabilities($userId), true); }
+    public function canSelectPatients(?string $userId = null): bool { return in_array('patient.select', $this->capabilities($userId), true); }
+    public function canViewPatientDetails(?string $userId = null): bool { return in_array('patient.view', $this->capabilities($userId), true); }
+    public function canManagePatients(?string $userId = null): bool { return in_array('patient.manage', $this->capabilities($userId), true); }
 }
