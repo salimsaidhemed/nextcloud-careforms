@@ -26,7 +26,7 @@ class Version000208Date20260910163000 extends SimpleMigrationStep
             $table->addColumn('updated_at', 'bigint', ['notnull' => true]);
             $table->addColumn('published_at', 'bigint', ['notnull' => false]);
             $table->addColumn('archived_at', 'bigint', ['notnull' => false]);
-            $table->setPrimaryKey(['id']);
+            $table->setPrimaryKey(['id'], 'cf_form_versions_pk');
             $table->addUniqueIndex(['form_id', 'version'], 'cf_form_version');
             $table->addIndex(['form_id', 'status'], 'cf_form_status');
         }
