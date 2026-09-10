@@ -101,9 +101,9 @@ class SubmissionController extends Controller
         $submission = $this->findOwnedSubmission($id);
         if ($submission instanceof JSONResponse) return $submission;
         $userId = $this->getUserId();
-        if ($submission->getStatus() !== 'draft') {
-            if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_UPDATE', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'submitted_read_only']);
-            return new JSONResponse(['message' => 'Submitted forms are read-only.'], Http::STATUS_CONFLICT);
+        if (!in_array($submission->getStatus(), ['draft', 'returned'], true)) {
+            if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_UPDATE', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'read_only_status']);
+            return new JSONResponse(['message' => 'This form is read-only in its current workflow state.'], Http::STATUS_CONFLICT);
         }
         $submission->setData($this->encodeData($data));
         $submission->setUpdatedAt(time());
@@ -118,9 +118,9 @@ class SubmissionController extends Controller
         $submission = $this->findOwnedSubmission($id);
         if ($submission instanceof JSONResponse) return $submission;
         $userId = $this->getUserId();
-        if ($submission->getStatus() !== 'draft') {
+        if (!in_array($submission->getStatus(), ['draft', 'returned'], true)) {
             if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'already_submitted']);
-            return new JSONResponse(['message' => 'This form has already been submitted.'], Http::STATUS_CONFLICT);
+            return new JSONResponse(['message' => 'This form cannot be submitted in its current workflow state.'], Http::STATUS_CONFLICT);
         }
         if ($submission->getPatientId() === null) return new JSONResponse(['message' => 'This legacy draft has no patient assigned and cannot be submitted.'], Http::STATUS_CONFLICT);
 
@@ -129,6 +129,9 @@ class SubmissionController extends Controller
         $submission->setStatus('submitted');
         $submission->setUpdatedAt($now);
         $submission->setSubmittedAt($now);
+        $submission->setReviewedBy(null);
+        $submission->setReviewedAt(null);
+        $submission->setReviewNote(null);
         $saved = $this->mapper->update($submission);
         if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'success', ['version' => (int)$submission->getFormVersion()]);
         return new JSONResponse($saved->jsonSerialize());

@@ -37,6 +37,12 @@ class SubmissionMapper extends QBMapper
     }
 
     /** @return Submission[] */
+    public function findAwaitingReview(): array
+    {
+        return $this->findAllSubmitted();
+    }
+
+    /** @return Submission[] */
     public function findAllByPatient(int $patientId): array
     {
         $qb = $this->db->getQueryBuilder();
@@ -44,6 +50,15 @@ class SubmissionMapper extends QBMapper
             ->where($qb->expr()->eq('patient_id', $qb->createNamedParameter($patientId)))
             ->orderBy('updated_at', 'DESC');
         return $this->findEntities($qb);
+    }
+
+    /** @throws DoesNotExistException @throws MultipleObjectsReturnedException */
+    public function findById(int $id): Submission
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
+        return $this->findEntity($qb);
     }
 
     /** @throws DoesNotExistException @throws MultipleObjectsReturnedException */
