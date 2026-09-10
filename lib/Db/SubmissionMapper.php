@@ -20,11 +20,9 @@ class SubmissionMapper extends QBMapper
     public function findAllByUser(string $userId): array
     {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-            ->from($this->getTableName())
+        $qb->select('*')->from($this->getTableName())
             ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)))
             ->orderBy('updated_at', 'DESC');
-
         return $this->findEntities($qb);
     }
 
@@ -32,26 +30,29 @@ class SubmissionMapper extends QBMapper
     public function findAllSubmitted(): array
     {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-            ->from($this->getTableName())
+        $qb->select('*')->from($this->getTableName())
             ->where($qb->expr()->eq('status', $qb->createNamedParameter('submitted')))
             ->orderBy('submitted_at', 'DESC');
-
         return $this->findEntities($qb);
     }
 
-    /**
-     * @throws DoesNotExistException
-     * @throws MultipleObjectsReturnedException
-     */
+    /** @return Submission[] */
+    public function findAllByPatient(int $patientId): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->eq('patient_id', $qb->createNamedParameter($patientId)))
+            ->orderBy('updated_at', 'DESC');
+        return $this->findEntities($qb);
+    }
+
+    /** @throws DoesNotExistException @throws MultipleObjectsReturnedException */
     public function findByIdAndUser(int $id, string $userId): Submission
     {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-            ->from($this->getTableName())
+        $qb->select('*')->from($this->getTableName())
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
             ->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)));
-
         return $this->findEntity($qb);
     }
 }
