@@ -9,12 +9,14 @@ script('careforms', 'reports');
 script('careforms', 'audit');
 script('careforms', 'form-admin');
 script('careforms', 'review');
+script('careforms', 'printing');
 style('careforms', 'page');
 style('careforms', 'nurses');
 style('careforms', 'patients');
 style('careforms', 'reports');
 style('careforms', 'audit');
 style('careforms', 'form-admin');
+style('careforms', 'printing');
 
 ?>
 

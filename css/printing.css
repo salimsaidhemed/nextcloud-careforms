@@ -1,0 +1,89 @@
+@media screen {
+    .careforms-print-button { margin-left: auto; align-self: flex-start; }
+}
+
+@media print {
+    html, body {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    body * { visibility: hidden !important; }
+    .careforms-print-target, .careforms-print-target * { visibility: visible !important; }
+
+    /* Keep the print target in normal document flow. Absolute positioning here
+       causes long forms to be clipped to the first printed page in Chromium. */
+    .careforms-print-target {
+        position: static !important;
+        inset: auto !important;
+        width: auto !important;
+        max-width: none !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    #app-content,
+    #careforms-app,
+    #careforms-content,
+    .careforms-view,
+    .careforms-form-layout,
+    .careforms-rendered-form {
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .careforms-print-target .careforms-print-button,
+    .careforms-print-target [data-action="back-to-forms"],
+    .careforms-print-target .careforms-form-actions,
+    .careforms-print-target .careforms-section-nav,
+    .careforms-print-target .careforms-review-actions { display: none !important; }
+
+    .careforms-print-target .careforms-form-layout { display: block !important; }
+
+    .careforms-print-target .careforms-form-header,
+    .careforms-print-target .careforms-info-banner,
+    .careforms-print-target .careforms-form-section,
+    .careforms-print-target .careforms-report-card,
+    .careforms-print-target .careforms-report-panel,
+    .careforms-print-target .careforms-report-group {
+        background: #fff !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        border-color: #999 !important;
+    }
+
+    .careforms-print-target input,
+    .careforms-print-target textarea,
+    .careforms-print-target select {
+        color: #000 !important;
+        background: #fff !important;
+        -webkit-text-fill-color: #000 !important;
+        opacity: 1 !important;
+    }
+
+    .careforms-print-target img { break-inside: avoid; }
+
+    /* A section may span multiple pages. Preventing breaks inside every section
+       can make Chromium clip a section that is taller than one sheet. */
+    .careforms-print-target .careforms-form-section {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+    }
+    .careforms-print-target .careforms-field,
+    .careforms-print-target .careforms-report-card,
+    .careforms-print-target .careforms-report-panel {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    @page { size: auto; margin: 14mm; }
+}
