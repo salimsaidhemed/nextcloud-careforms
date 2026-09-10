@@ -13,10 +13,8 @@ use OCP\IRequest;
 
 class AccessController extends Controller
 {
-    public function __construct(
-        IRequest $request,
-        private AccessService $accessService,
-    ) {
+    public function __construct(IRequest $request, private AccessService $accessService)
+    {
         parent::__construct('careforms', $request);
     }
 
@@ -24,10 +22,7 @@ class AccessController extends Controller
     public function me(): JSONResponse
     {
         $userId = $this->accessService->currentUserId();
-        if ($userId === null) {
-            return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
-        }
-
+        if ($userId === null) return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         return new JSONResponse([
             'userId' => $userId,
             'roles' => $this->accessService->roles($userId),
@@ -36,6 +31,9 @@ class AccessController extends Controller
             'canViewReports' => $this->accessService->canViewReports($userId),
             'canViewAudit' => $this->accessService->isCareFormsAdministrator($userId),
             'canManageForms' => $this->accessService->canManageForms($userId),
+            'canSelectPatients' => $this->accessService->canSelectPatients($userId),
+            'canViewPatients' => $this->accessService->canViewPatientDetails($userId),
+            'canManagePatients' => $this->accessService->canManagePatients($userId),
         ]);
     }
 }
