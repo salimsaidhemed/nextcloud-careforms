@@ -73,8 +73,124 @@
     border-bottom: 0;
 }
 
+.careforms-entry-report-section {
+    margin-top: 34px;
+    padding-top: 26px;
+    border-top: 1px solid var(--color-border);
+}
+
+.careforms-report-filters {
+    display: grid;
+    grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(160px, 1fr)) repeat(2, minmax(145px, 1fr));
+    gap: 12px;
+    align-items: end;
+    margin: 14px 0 8px;
+}
+
+.careforms-report-filters input,
+.careforms-report-filters select {
+    width: 100%;
+    max-width: none;
+}
+
+.careforms-report-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-maxcontrast);
+}
+
+.careforms-report-result-count {
+    margin: 8px 0 12px;
+}
+
+.careforms-entry-report-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.careforms-entry-report-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 15px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    background: var(--color-main-background);
+}
+
+.careforms-entry-report-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.careforms-entry-report-copy span,
+.careforms-entry-report-copy small {
+    color: var(--color-text-maxcontrast);
+}
+
+.careforms-entry-report-copy small {
+    overflow-wrap: anywhere;
+}
+
+.careforms-entry-report-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.careforms-report-submission-preview {
+    margin-top: 24px;
+    padding: 20px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    background: var(--color-background-hover);
+}
+
+.careforms-report-preview-meta {
+    margin: -6px 0 18px;
+    padding: 10px 12px;
+    border-radius: var(--border-radius);
+    background: var(--color-background-dark);
+    color: var(--color-text-maxcontrast);
+    font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+    .careforms-report-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 900px) {
     .careforms-report-columns {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .careforms-report-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .careforms-entry-report-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .careforms-entry-report-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .careforms-report-submission-preview {
+        padding: 12px;
     }
 }
