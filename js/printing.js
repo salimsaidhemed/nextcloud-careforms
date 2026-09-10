@@ -1,15 +1,6 @@
 (function () {
     'use strict';
 
-    function escapeHtml(value) {
-        return String(value || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
     function printTarget(target, title) {
         if (!target) return;
 
@@ -32,24 +23,32 @@
             control.replaceWith(replacement);
         });
 
-        var printWindow = window.open('', '_blank', 'noopener,noreferrer');
-        if (!printWindow) {
-            if (OC.Notification && OC.Notification.showTemporary) OC.Notification.showTemporary('Allow pop-ups for this site to print CareForms documents.');
-            else window.alert('Allow pop-ups for this site to print CareForms documents.');
-            return;
-        }
+        var oldFrame = document.getElementById('careforms-print-frame');
+        if (oldFrame) oldFrame.remove();
 
+        var frame = document.createElement('iframe');
+        frame.id = 'careforms-print-frame';
+        frame.setAttribute('aria-hidden', 'true');
+        frame.style.position = 'fixed';
+        frame.style.right = '0';
+        frame.style.bottom = '0';
+        frame.style.width = '0';
+        frame.style.height = '0';
+        frame.style.border = '0';
+        frame.style.visibility = 'hidden';
+        document.body.appendChild(frame);
+
+        var printDocument = frame.contentDocument || frame.contentWindow.document;
         var styles = '\n' +
             '@page{size:auto;margin:14mm;}\n' +
-            'html,body{margin:0;padding:0;background:#fff;color:#000;font:12px/1.4 Arial,sans-serif;}\n' +
-            'body{padding:0;}\n' +
-            '.careforms-view{display:block!important;}\n' +
+            'html,body{margin:0;padding:0;background:#fff;color:#000;font:12px/1.4 Arial,sans-serif;height:auto!important;overflow:visible!important;}\n' +
+            '.careforms-view{display:block!important;position:static!important;height:auto!important;overflow:visible!important;}\n' +
             '.careforms-form-header,.careforms-section-heading{display:flex;align-items:flex-start;gap:16px;margin:0 0 16px;}\n' +
             '.careforms-form-header h2,.careforms-section-heading h2{margin:0;font-size:22px;}\n' +
             '.careforms-muted{color:#555;}\n' +
             '.careforms-info-banner{padding:10px 12px;margin:0 0 14px;border-left:3px solid #666;}\n' +
-            '.careforms-rendered-form{display:block;}\n' +
-            '.careforms-form-section{padding:14px;margin:0 0 14px;border:1px solid #999;border-radius:6px;break-inside:auto;page-break-inside:auto;}\n' +
+            '.careforms-form-layout,.careforms-rendered-form{display:block!important;position:static!important;height:auto!important;max-height:none!important;overflow:visible!important;}\n' +
+            '.careforms-form-section{display:block;padding:14px;margin:0 0 14px;border:1px solid #999;border-radius:6px;break-inside:auto;page-break-inside:auto;}\n' +
             '.careforms-form-section h3{margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #ddd;font-size:17px;}\n' +
             '.careforms-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;}\n' +
             '.careforms-field{display:flex;flex-direction:column;gap:5px;break-inside:avoid;page-break-inside:avoid;}\n' +
@@ -63,19 +62,20 @@
             '.careforms-report-card,.careforms-report-panel,.careforms-report-group{border:1px solid #aaa;border-radius:6px;padding:12px;margin-bottom:12px;break-inside:avoid;page-break-inside:avoid;}\n' +
             '.careforms-report-columns{display:block;}\n' +
             '.careforms-report-pairs>div{display:flex;justify-content:space-between;gap:16px;padding:4px 0;border-bottom:1px solid #eee;}\n' +
-            'img{max-width:100%;height:auto;}\n' +
-            '@media(max-width:700px){.careforms-field-grid,.careforms-report-card-grid{grid-template-columns:1fr;}}\n';
+            'img{max-width:100%;height:auto;}\n';
 
-        printWindow.document.open();
-        printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + escapeHtml(title || 'CareForms') + '</title><style>' + styles + '</style></head><body>' + clone.outerHTML + '</body></html>');
-        printWindow.document.close();
+        printDocument.open();
+        printDocument.write('<!doctype html><html><head><meta charset="utf-8"><title></title><style>' + styles + '</style></head><body></body></html>');
+        printDocument.close();
+        printDocument.title = title || 'CareForms';
+        printDocument.body.appendChild(printDocument.importNode(clone, true));
 
-        printWindow.addEventListener('load', function () {
-            window.setTimeout(function () {
-                printWindow.focus();
-                printWindow.print();
-            }, 150);
-        });
+        window.setTimeout(function () {
+            frame.style.visibility = 'visible';
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+            window.setTimeout(function () { frame.remove(); }, 1000);
+        }, 100);
     }
 
     function addPrintButton(container, label, targetProvider, titleProvider) {
@@ -120,7 +120,7 @@
     var observer = new MutationObserver(function () { window.requestAnimationFrame(decorate); });
     document.addEventListener('DOMContentLoaded', function () {
         var app = document.getElementById('careforms-app');
-        if (app) observer.observe(app, {childList:true, subtree:true, attributes:true, attributeFilter:['hidden']});
+        if (app) observer.observe(app, {childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
         document.addEventListener('click', function () { window.setTimeout(decorate, 0); });
         decorate();
     });
