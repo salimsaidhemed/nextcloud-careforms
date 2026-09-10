@@ -67,7 +67,7 @@ class FormAdminController extends Controller
         if ($userId instanceof JSONResponse) return $userId;
         if (!isset(self::FORMS[$formId])) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
         $draft = $this->formVersions->createDraft($formId, $userId);
-        $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => $draft->getVersion()]);
+        $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => $draft->getVersionNumber()]);
         return new JSONResponse($draft->jsonSerialize(), Http::STATUS_CREATED);
     }
 
