@@ -18,5 +18,7 @@ return [
         ['name' => 'submission#show', 'url' => '/api/submissions/{id}', 'verb' => 'GET'],
         ['name' => 'submission#update', 'url' => '/api/submissions/{id}', 'verb' => 'PUT'],
         ['name' => 'submission#submit', 'url' => '/api/submissions/{id}/submit', 'verb' => 'POST'],
+        ['name' => 'review#index', 'url' => '/api/review/submissions', 'verb' => 'GET'],
+        ['name' => 'review#decide', 'url' => '/api/review/submissions/{id}', 'verb' => 'POST'],
     ],
 ];
