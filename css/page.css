@@ -110,3 +110,10 @@ button .careforms-action-icon { margin-right:6px; }
     .careforms-form-actions { flex-wrap: wrap; }
     .careforms-submission-item { align-items: flex-start; flex-direction: column; }
 }
+
+.careforms-footer {
+    padding: 18px 8px 8px;
+    text-align: center;
+    color: var(--color-text-maxcontrast);
+    font-size: 0.85rem;
+}
