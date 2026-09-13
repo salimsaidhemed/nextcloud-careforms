@@ -1,6 +1,5 @@
 <?php
 
-script('careforms', 'forms/home-health-aide');
 script('careforms', 'forms/nurses-progress-note');
 script('careforms', 'form-renderer');
 script('careforms', 'page');
