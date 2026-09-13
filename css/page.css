@@ -117,3 +117,61 @@ button .careforms-action-icon { margin-right:6px; }
     color: var(--color-text-maxcontrast);
     font-size: 0.85rem;
 }
+
+
+.careforms-field-width-full {
+    grid-column: 1 / -1;
+}
+
+.careforms-field-width-half {
+    grid-column: span 1;
+}
+
+.careforms-field-width-third {
+    min-width: 0;
+}
+
+.careforms-field-help,
+.careforms-section-description {
+    margin: 6px 0 0;
+}
+
+.careforms-field-unit {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--color-text-maxcontrast);
+}
+
+.careforms-collapsible-section {
+    width: 100%;
+}
+
+.careforms-collapsible-section > summary {
+    cursor: pointer;
+    margin-bottom: 12px;
+    color: var(--color-main-text);
+    font-weight: 600;
+}
+
+@media (min-width: 1100px) {
+    .careforms-field-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .careforms-field {
+        grid-column: span 3;
+    }
+
+    .careforms-field-width-full {
+        grid-column: 1 / -1;
+    }
+
+    .careforms-field-width-half {
+        grid-column: span 3;
+    }
+
+    .careforms-field-width-third {
+        grid-column: span 2;
+    }
+}
