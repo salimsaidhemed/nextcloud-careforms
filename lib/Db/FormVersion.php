@@ -10,7 +10,7 @@ use OCP\AppFramework\Db\Entity;
 class FormVersion extends Entity implements JsonSerializable
 {
     protected string $formId = '';
-    protected int $versionNumber = 1;
+    protected int $versionNumber = 0;
     protected string $status = 'draft';
     protected string $createdBy = '';
     protected int $createdAt = 0;
