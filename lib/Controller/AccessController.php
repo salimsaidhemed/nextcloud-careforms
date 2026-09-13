@@ -11,6 +11,8 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\IUserManager;
+use OCP\IConfig;
 
 class AccessController extends Controller
 {
@@ -18,6 +20,8 @@ class AccessController extends Controller
         IRequest $request,
         private AccessService $accessService,
         private FormVersionService $formVersions,
+        private IUserManager $userManager,
+        private IConfig $config,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -32,6 +36,8 @@ class AccessController extends Controller
         foreach ($forms as $formId) $published[$formId] = $this->formVersions->publishedVersion($formId);
         return new JSONResponse([
             'userId' => $userId,
+            'displayName' => $this->userManager->get($userId)?->getDisplayName() ?? $userId,
+            'appVersion' => $this->config->getAppValue('careforms', 'installed_version', '0.2.17'),
             'roles' => $this->accessService->roles($userId),
             'capabilities' => $this->accessService->capabilities($userId),
             'forms' => $forms,
