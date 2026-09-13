@@ -8,6 +8,7 @@ final class FormDefinitionService
 {
     private const DEFINITIONS = [
         'home-health-aide-note' => 'home-health-aide-note.json',
+        'nurses-progress-note' => 'nurses-progress-note.json',
     ];
 
     public function __construct(

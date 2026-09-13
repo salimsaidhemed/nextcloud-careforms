@@ -1,6 +1,5 @@
 <?php
 
-script('careforms', 'forms/nurses-progress-note');
 script('careforms', 'form-renderer');
 script('careforms', 'page');
 script('careforms', 'patients');
