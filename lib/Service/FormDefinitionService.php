@@ -13,6 +13,7 @@ final class FormDefinitionService
 
     public function __construct(
         private FormSchemaValidator $validator,
+        private FormDefinitionCompatibilityService $compatibility,
     ) {
     }
 
@@ -79,6 +80,7 @@ final class FormDefinitionService
             throw new \RuntimeException(sprintf('CareForms form definition "%s" must decode to an object.', $formId));
         }
 
+        $definition = $this->compatibility->normalize($definition);
         $this->validator->assertValid($definition);
 
         if (($definition['id'] ?? null) !== $formId) {
