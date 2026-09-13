@@ -3,6 +3,7 @@ return [
     'routes' => [
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'access#me', 'url' => '/api/access', 'verb' => 'GET'],
+        ['name' => 'formDefinition#index', 'url' => '/api/form-definitions', 'verb' => 'GET'],
         ['name' => 'audit#index', 'url' => '/api/audit', 'verb' => 'GET'],
         ['name' => 'report#overview', 'url' => '/api/reports/overview', 'verb' => 'GET'],
         ['name' => 'report#submissions', 'url' => '/api/reports/submissions', 'verb' => 'GET'],

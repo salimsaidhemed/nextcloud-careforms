@@ -44,6 +44,16 @@
         return {signatureData:submission.signatureData,signedBy:submission.signedBy,signerName:submission.signerName,signedAt:submission.signedAt,integrityHash:submission.integrityHash};
     }
 
+    function loadFormDefinitions() {
+        return request('/api/form-definitions', {method:'GET'}).then(function (items) {
+            window.CareForms.formDefinitions = window.CareForms.formDefinitions || {};
+            (Array.isArray(items) ? items : []).forEach(function (definition) {
+                window.CareForms.formDefinitions[definition.id] = definition;
+            });
+            return items;
+        });
+    }
+
     function loadPatients() {
         if (patientCache.length) return Promise.resolve(patientCache);
         return request('/api/patients', {method:'GET'}).then(function (patients) { patientCache = patients; return patients; });
@@ -129,6 +139,29 @@
         return {aide_name:accessState.displayName,nurse_name:accessState.displayName};
     }
 
+    function localDateValue() {
+        var now = new Date();
+        var month = String(now.getMonth() + 1).padStart(2, '0');
+        var day = String(now.getDate()).padStart(2, '0');
+        return now.getFullYear() + '-' + month + '-' + day;
+    }
+
+    function sourceValues(definition, patient) {
+        var values = {};
+        var sections = definition.sections || definition.fields || [];
+        sections.forEach(function (section) {
+            (section.fields || []).forEach(function (field) {
+                if (!field.source || field.source === 'manual') return;
+                if (field.source === 'patient.name' && patient) values[field.id] = patient.displayName || '';
+                if (field.source === 'patient.mr_number' && patient) values[field.id] = patient.medicalRecordNumber || '';
+                if (field.source === 'patient.date_of_birth' && patient) values[field.id] = patient.dateOfBirth || '';
+                if (field.source === 'current_user.display_name') values[field.id] = accessState && accessState.displayName ? accessState.displayName : '';
+                if (field.source === 'system.current_date') values[field.id] = localDateValue();
+            });
+        });
+        return values;
+    }
+
     function saveDraft(definition, data, button, mount) {
         button.disabled=true; button.textContent='Saving…';
         var promise = activeSubmission && activeSubmission.id
@@ -149,7 +182,7 @@
 
     function openNewForm(definition, mount, patient) {
         activeSubmission = null; activePatient = patient;
-        window.CareForms.FormRenderer.render(definition,mount,{values:Object.assign({},patientValues(patient),currentUserValues()),patient:patient,onSaveDraft:function(data,b){saveDraft(definition,data,b,mount);},onSubmit:function(data,b,sig){submitForm(definition,data,b,mount,sig);}});
+        window.CareForms.FormRenderer.render(definition,mount,{values:Object.assign({},patientValues(patient),currentUserValues(),sourceValues(definition,patient)),patient:patient,onSaveDraft:function(data,b){saveDraft(definition,data,b,mount);},onSubmit:function(data,b,sig){submitForm(definition,data,b,mount,sig);}});
     }
 
     function renderSubmission(definition, submission, mount) {
@@ -186,6 +219,6 @@
     document.addEventListener('DOMContentLoaded',function(){
         document.querySelectorAll('.careforms-tab').forEach(function(tab){tab.addEventListener('click',function(){showView(tab.dataset.view);});});
         document.addEventListener('click',function(event){var target=event.target.closest('[data-action="back-to-forms"]'); if(!target)return; if(activeSubmission)showView('work');else renderFormsBrowser();});
-        request('/api/access',{method:'GET'}).then(function(access){accessState=access;definitions();applyAccessToNavigation();var version=document.querySelector('[data-careforms-version]');if(version)version.textContent=access.appVersion||'—';renderMyWork();}).catch(function(e){notify(e.message);});
+        request('/api/access',{method:'GET'}).then(function(access){accessState=access;return loadFormDefinitions().then(function(){definitions();applyAccessToNavigation();var version=document.querySelector('[data-careforms-version]');if(version)version.textContent=access.appVersion||'—';renderMyWork();});}).catch(function(e){notify(e.message);});
     });
 }());
