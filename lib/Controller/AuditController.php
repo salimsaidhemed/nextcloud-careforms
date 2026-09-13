@@ -12,6 +12,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\IUserManager;
 
 class AuditController extends Controller
 {
@@ -19,6 +20,7 @@ class AuditController extends Controller
         IRequest $request,
         private AuditEventMapper $mapper,
         private AccessService $accessService,
+        private IUserManager $userManager,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -39,7 +41,12 @@ class AuditController extends Controller
         $events = $this->mapper->findRecent($limit);
 
         return new JSONResponse(array_map(
-            static fn (AuditEvent $event): array => $event->jsonSerialize(),
+            function (AuditEvent $event): array {
+                $data = $event->jsonSerialize();
+                $userId = $event->getUserId();
+                $data['userDisplayName'] = $this->userManager->get($userId)?->getDisplayName() ?? $userId;
+                return $data;
+            },
             $events,
         ));
     }
