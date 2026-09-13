@@ -124,6 +124,11 @@
         return {patient_name:patient.displayName,patientName:patient.displayName,mr_number:patient.medicalRecordNumber,mrn:patient.medicalRecordNumber,medical_record_number:patient.medicalRecordNumber,date_of_birth:patient.dateOfBirth || ''};
     }
 
+    function currentUserValues() {
+        if (!accessState || !accessState.displayName) return {};
+        return {aide_name:accessState.displayName,nurse_name:accessState.displayName};
+    }
+
     function saveDraft(definition, data, button, mount) {
         button.disabled=true; button.textContent='Saving…';
         var promise = activeSubmission && activeSubmission.id
@@ -144,7 +149,7 @@
 
     function openNewForm(definition, mount, patient) {
         activeSubmission = null; activePatient = patient;
-        window.CareForms.FormRenderer.render(definition,mount,{values:patientValues(patient),patient:patient,onSaveDraft:function(data,b){saveDraft(definition,data,b,mount);},onSubmit:function(data,b,sig){submitForm(definition,data,b,mount,sig);}});
+        window.CareForms.FormRenderer.render(definition,mount,{values:Object.assign({},patientValues(patient),currentUserValues()),patient:patient,onSaveDraft:function(data,b){saveDraft(definition,data,b,mount);},onSubmit:function(data,b,sig){submitForm(definition,data,b,mount,sig);}});
     }
 
     function renderSubmission(definition, submission, mount) {
@@ -181,6 +186,6 @@
     document.addEventListener('DOMContentLoaded',function(){
         document.querySelectorAll('.careforms-tab').forEach(function(tab){tab.addEventListener('click',function(){showView(tab.dataset.view);});});
         document.addEventListener('click',function(event){var target=event.target.closest('[data-action="back-to-forms"]'); if(!target)return; if(activeSubmission)showView('work');else renderFormsBrowser();});
-        request('/api/access',{method:'GET'}).then(function(access){accessState=access;definitions();applyAccessToNavigation();renderMyWork();}).catch(function(e){notify(e.message);});
+        request('/api/access',{method:'GET'}).then(function(access){accessState=access;definitions();applyAccessToNavigation();var version=document.querySelector('[data-careforms-version]');if(version)version.textContent=access.appVersion||'—';renderMyWork();}).catch(function(e){notify(e.message);});
     });
 }());

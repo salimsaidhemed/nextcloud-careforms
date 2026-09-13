@@ -117,6 +117,7 @@
         wrapper.className = 'careforms-field';
         var savedValue = valueForField(field, values);
         var patientIdentityField = patientLinked && ['patient_name', 'mr_number', 'medical_record_number', 'mrn'].indexOf(field.id) !== -1;
+        var userIdentityField = ['aide_name', 'nurse_name'].indexOf(field.id) !== -1;
 
         if (field.type === 'checkbox-group' || field.type === 'choice-group') {
             var groupLabel = document.createElement('div');
@@ -160,8 +161,9 @@
         if (field.type === 'textarea') { input = document.createElement('textarea'); input.rows = field.rows || 4; input.value = savedValue; }
         else { input = document.createElement('input'); input.type = field.type || 'text'; input.value = savedValue; }
         input.id = field.id; input.name = field.id; input.required = Boolean(field.required);
-        input.disabled = readOnly || patientIdentityField;
+        input.disabled = readOnly || patientIdentityField || userIdentityField;
         if (patientIdentityField) input.dataset.patientIdentity = 'true';
+        if (userIdentityField) input.dataset.userIdentity = 'true';
         if (field.min !== undefined) input.min = field.min;
         if (field.max !== undefined) input.max = field.max;
         wrapper.appendChild(input); return wrapper;
