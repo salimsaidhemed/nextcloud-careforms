@@ -3,6 +3,10 @@
 
     window.CareForms = window.CareForms || {};
 
+    function sectionsFor(definition) {
+        return definition.sections || definition.fields || [];
+    }
+
     function valueForField(field, values) {
         if (!values || values[field.id] === undefined || values[field.id] === null) {
             return field.type === 'checkbox-group' ? [] : '';
@@ -111,7 +115,7 @@
     }
 
     function createInput(field, values, readOnly, patientLinked, signature) {
-        if (field.type === 'signature-placeholder') return createSignatureField(field, readOnly, signature);
+        if (field.type === 'signature-placeholder' || field.type === 'signature') return createSignatureField(field, readOnly, signature);
 
         var wrapper = document.createElement('div');
         wrapper.className = 'careforms-field';
@@ -135,7 +139,7 @@
                 input.value = option;
                 input.id = field.id + '-' + index;
                 input.checked = field.type === 'choice-group' ? savedValue === option : Array.isArray(savedValue) && savedValue.indexOf(option) !== -1;
-                input.disabled = readOnly;
+                input.disabled = readOnly || Boolean(field.readOnly);
                 if (field.required && index === 0) input.required = true;
                 var text = document.createElement('span'); text.textContent = option;
                 optionLabel.appendChild(input); optionLabel.appendChild(text); grid.appendChild(optionLabel);
@@ -149,7 +153,7 @@
             checkboxLabel.className = 'careforms-checkbox-option careforms-single-checkbox';
             var singleCheckbox = document.createElement('input');
             singleCheckbox.type = 'checkbox'; singleCheckbox.id = field.id; singleCheckbox.name = field.id;
-            singleCheckbox.checked = savedValue === true; singleCheckbox.disabled = readOnly;
+            singleCheckbox.checked = savedValue === true; singleCheckbox.disabled = readOnly || Boolean(field.readOnly);
             var checkboxText = document.createElement('span'); checkboxText.textContent = field.label;
             checkboxLabel.appendChild(singleCheckbox); checkboxLabel.appendChild(checkboxText); wrapper.appendChild(checkboxLabel); return wrapper;
         }
@@ -161,19 +165,21 @@
         if (field.type === 'textarea') { input = document.createElement('textarea'); input.rows = field.rows || 4; input.value = savedValue; }
         else { input = document.createElement('input'); input.type = field.type || 'text'; input.value = savedValue; }
         input.id = field.id; input.name = field.id; input.required = Boolean(field.required);
-        input.disabled = readOnly || patientIdentityField || userIdentityField;
+        input.disabled = readOnly || Boolean(field.readOnly) || patientIdentityField || userIdentityField;
         if (patientIdentityField) input.dataset.patientIdentity = 'true';
         if (userIdentityField) input.dataset.userIdentity = 'true';
         if (field.min !== undefined) input.min = field.min;
         if (field.max !== undefined) input.max = field.max;
+        if (field.placeholder) input.placeholder = field.placeholder;
+        if (field.helpText) { var help = document.createElement('p'); help.className = 'careforms-muted'; help.textContent = field.helpText; wrapper.appendChild(help); }
         wrapper.appendChild(input); return wrapper;
     }
 
     function collectData(form, definition) {
         var data = {};
-        definition.fields.forEach(function (section) {
+        sectionsFor(definition).forEach(function (section) {
             section.fields.forEach(function (field) {
-                if (field.type === 'signature-placeholder') return;
+                if (field.type === 'signature-placeholder' || field.type === 'signature') return;
                 if (field.type === 'checkbox-group') {
                     data[field.id] = Array.from(form.querySelectorAll('input[name="' + field.id + '[]"]:checked')).map(function (input) { return input.value; }); return;
                 }
@@ -221,15 +227,16 @@
         mountNode.appendChild(notice);
 
         var layout = document.createElement('div'); layout.className = 'careforms-form-layout';
-        if (definition.fields.length > 8) {
+        var sections = sectionsFor(definition);
+        if (sections.length > 8) {
             var sectionNav = document.createElement('nav'); sectionNav.className = 'careforms-section-nav'; sectionNav.setAttribute('aria-label', 'Form sections');
             var navTitle = document.createElement('strong'); navTitle.textContent = 'Sections'; sectionNav.appendChild(navTitle);
-            definition.fields.forEach(function (section) { var link = document.createElement('a'); link.href = '#' + section.id; link.textContent = section.label; sectionNav.appendChild(link); });
+            sections.forEach(function (section) { var link = document.createElement('a'); link.href = '#' + section.id; link.textContent = section.label; sectionNav.appendChild(link); });
             layout.appendChild(sectionNav);
         }
 
         var form = document.createElement('form'); form.className = 'careforms-rendered-form'; form.dataset.formId = definition.id;
-        definition.fields.forEach(function (section) {
+        sections.forEach(function (section) {
             var sectionElement = document.createElement('section'); sectionElement.className = 'careforms-form-section'; sectionElement.id = section.id;
             var heading = document.createElement('h3'); heading.textContent = section.label; sectionElement.appendChild(heading);
             var fieldGrid = document.createElement('div'); fieldGrid.className = 'careforms-field-grid';
