@@ -53,5 +53,9 @@ style('careforms', 'printing');
             <section class="careforms-view" data-view-panel="form-admin" hidden><div id="careforms-form-admin-browser"></div></section>
             <section class="careforms-view" data-view-panel="audit" hidden><div id="careforms-audit-browser"></div></section>
         </main>
+
+        <footer class="careforms-footer">
+            CareForms · v<span data-careforms-version>—</span>
+        </footer>
     </div>
 </div>
