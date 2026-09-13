@@ -59,12 +59,12 @@
 
             events.forEach(function (event) {
                 var row = document.createElement('tr');
-                row.dataset.filter = [event.userId, event.action, event.formId, event.outcome, event.resourceType, event.resourceId].join(' ').toLowerCase();
+                row.dataset.filter = [event.userDisplayName, event.userId, event.action, event.formId, event.outcome, event.resourceType, event.resourceId].join(' ').toLowerCase();
 
                 var reason = event.metadata && event.metadata.reason ? event.metadata.reason : '—';
                 [
                     displayDate(event.createdAt),
-                    event.userId || '—',
+                    event.userDisplayName || event.userId || '—',
                     humanize(event.action),
                     event.formId || '—',
                     (event.resourceType || '—') + (event.resourceId ? ' #' + event.resourceId : ''),
