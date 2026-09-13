@@ -6,7 +6,6 @@
     var activePatient = null;
     var accessState = null;
     var patientCache = [];
-    var dynamicDefinitions = [];
 
     function apiUrl(path) { return OC.generateUrl('/apps/careforms' + path); }
     function notify(message) { if (OC.Notification && OC.Notification.showTemporary) OC.Notification.showTemporary(message); else window.alert(message); }
@@ -22,7 +21,7 @@
         });
     }
     function definitions() {
-        var list = Object.keys(window.CareForms.formDefinitions || {}).map(function (key) { return window.CareForms.formDefinitions[key]; }).concat(dynamicDefinitions);
+        var list = Object.keys(window.CareForms.formDefinitions || {}).map(function (key) { return window.CareForms.formDefinitions[key]; });
         if (accessState && accessState.formVersions) {
             list.forEach(function (definition) {
                 if (accessState.formVersions[definition.id]) definition.version = accessState.formVersions[definition.id];
@@ -47,8 +46,11 @@
 
     function loadFormDefinitions() {
         return request('/api/form-definitions', {method:'GET'}).then(function (items) {
-            dynamicDefinitions = Array.isArray(items) ? items : [];
-            return dynamicDefinitions;
+            window.CareForms.formDefinitions = window.CareForms.formDefinitions || {};
+            (Array.isArray(items) ? items : []).forEach(function (definition) {
+                window.CareForms.formDefinitions[definition.id] = definition;
+            });
+            return items;
         });
     }
 
