@@ -175,3 +175,130 @@ button .careforms-action-icon { margin-right:6px; }
         grid-column: span 2;
     }
 }
+
+
+/* Generic dynamic-form layout */
+.careforms-form-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    align-items: start;
+}
+
+.careforms-rendered-form {
+    width: 100%;
+    min-width: 0;
+}
+
+.careforms-form-section {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.careforms-field-grid {
+    width: 100%;
+    min-width: 0;
+}
+
+.careforms-field {
+    min-width: 0;
+}
+
+.careforms-signature-field {
+    grid-column: 1 / -1;
+}
+
+.careforms-signature-field img {
+    display: block;
+    width: min(100%, 520px) !important;
+    max-width: 520px !important;
+    min-height: 96px;
+    object-fit: contain;
+    object-position: left center;
+}
+
+.careforms-field input:disabled,
+.careforms-field textarea:disabled {
+    opacity: 1;
+    color: var(--color-main-text);
+    -webkit-text-fill-color: var(--color-main-text);
+}
+
+.careforms-section-nav {
+    min-width: 0;
+}
+
+@media (min-width: 1000px) {
+    .careforms-form-layout-with-nav {
+        grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
+        gap: 24px;
+    }
+
+    .careforms-form-layout-with-nav .careforms-section-nav {
+        position: sticky;
+        top: 12px;
+        align-self: start;
+    }
+}
+
+@media (max-width: 999px) {
+    .careforms-form-layout-with-nav {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 800px) {
+    .careforms-field-width-full,
+    .careforms-field-width-half,
+    .careforms-field-width-third,
+    .careforms-signature-field {
+        grid-column: 1 / -1;
+    }
+}
+
+
+/* Strong width contract for schema-driven forms.
+ * Nextcloud's generic form/section rules may otherwise allow intrinsic sizing. */
+#careforms-content .careforms-form-layout {
+    display: block;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#careforms-content .careforms-rendered-form {
+    display: flex;
+    flex: 1 1 100%;
+    align-self: stretch;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#careforms-content .careforms-form-section {
+    display: block;
+    align-self: stretch;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#careforms-content .careforms-field-grid {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+@media (min-width: 1000px) {
+    #careforms-content .careforms-form-layout-with-nav {
+        display: grid;
+        grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
+        gap: 24px;
+    }
+}

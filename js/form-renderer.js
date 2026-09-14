@@ -8,7 +8,11 @@
     }
 
     function fieldWidthClass(field) {
-        return field.width ? ' careforms-field-width-' + field.width : '';
+        if (field.width) return ' careforms-field-width-' + field.width;
+        if (field.type === 'textarea' || field.type === 'signature' || field.type === 'signature-placeholder') {
+            return ' careforms-field-width-full';
+        }
+        return ' careforms-field-width-half';
     }
 
     function appendHelp(wrapper, field) {
@@ -233,8 +237,9 @@
         var titleBlock = document.createElement('div');
         var title = document.createElement('h2'); title.textContent = definition.name;
         var meta = document.createElement('p'); meta.className = 'careforms-muted'; meta.textContent = definition.category + ' · Version ' + definition.version;
-        var description = document.createElement('p'); description.textContent = definition.description;
-        titleBlock.appendChild(title); titleBlock.appendChild(meta); titleBlock.appendChild(description); header.appendChild(backButton); header.appendChild(titleBlock); mountNode.appendChild(header);
+        titleBlock.appendChild(title); titleBlock.appendChild(meta);
+        if (definition.description) { var description = document.createElement('p'); description.textContent = definition.description; titleBlock.appendChild(description); }
+        header.appendChild(backButton); header.appendChild(titleBlock); mountNode.appendChild(header);
 
         if (patient) {
             var patientBanner = document.createElement('div'); patientBanner.className = 'careforms-info-banner';
@@ -249,6 +254,7 @@
         var layout = document.createElement('div'); layout.className = 'careforms-form-layout';
         var sections = sectionsFor(definition);
         if (sections.length > 8) {
+            layout.classList.add('careforms-form-layout-with-nav');
             var sectionNav = document.createElement('nav'); sectionNav.className = 'careforms-section-nav'; sectionNav.setAttribute('aria-label', 'Form sections');
             var navTitle = document.createElement('strong'); navTitle.textContent = 'Sections'; sectionNav.appendChild(navTitle);
             sections.forEach(function (section) { var link = document.createElement('a'); link.href = '#' + section.id; link.textContent = section.label; sectionNav.appendChild(link); });
