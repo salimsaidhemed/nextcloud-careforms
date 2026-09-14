@@ -7,6 +7,8 @@ namespace OCA\CareForms\Controller;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
 use OCA\CareForms\Service\FormVersionService;
+use OCA\CareForms\Service\FormDefinitionService;
+use OCA\CareForms\Service\FormSchemaValidator;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -25,6 +27,8 @@ class FormAdminController extends Controller
         private AccessService $accessService,
         private AuditService $auditService,
         private FormVersionService $formVersions,
+        private FormDefinitionService $definitions,
+        private FormSchemaValidator $schemaValidator,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -47,6 +51,60 @@ class FormAdminController extends Controller
             ], $metadata);
         }
         return new JSONResponse($forms);
+    }
+
+    #[NoAdminRequired]
+    public function export(string $formId): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+        if (!isset(self::FORMS[$formId])) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+
+        try {
+            $definition = $this->definitions->get($formId);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+        $this->auditService->log($userId, 'FORM_EXPORT', 'form', null, $formId, 'success', ['schemaVersion' => $definition['schemaVersion'] ?? null]);
+
+        return new JSONResponse([
+            'filename' => $formId . '-v' . ($definition['version'] ?? 1) . '.json',
+            'definition' => $definition,
+        ]);
+    }
+
+    #[NoAdminRequired]
+    public function validateImport(array $definition): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+
+        $errors = $this->schemaValidator->validate($definition);
+        $formId = is_string($definition['id'] ?? null) ? $definition['id'] : null;
+
+        $this->auditService->log(
+            $userId,
+            'FORM_IMPORT_VALIDATE',
+            'form',
+            null,
+            $formId,
+            $errors === [] ? 'success' : 'failure',
+            ['schemaVersion' => $definition['schemaVersion'] ?? null, 'errorCount' => count($errors)],
+        );
+
+        return new JSONResponse([
+            'valid' => $errors === [],
+            'errors' => $errors,
+            'summary' => [
+                'id' => $formId,
+                'name' => is_string($definition['name'] ?? null) ? $definition['name'] : null,
+                'category' => is_string($definition['category'] ?? null) ? $definition['category'] : null,
+                'schemaVersion' => $definition['schemaVersion'] ?? null,
+                'version' => $definition['version'] ?? null,
+                'conflictsExisting' => $formId !== null && isset(self::FORMS[$formId]),
+            ],
+        ]);
     }
 
     #[NoAdminRequired]

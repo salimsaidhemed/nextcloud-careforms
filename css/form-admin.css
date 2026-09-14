@@ -62,3 +62,21 @@
         flex-direction: column;
     }
 }
+
+
+.careforms-import-panel {
+    max-width: 980px;
+    margin: 18px 0 24px;
+    padding: 18px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    background: var(--color-main-background);
+}
+
+.careforms-import-panel input[type="file"] {
+    margin: 10px 0 14px;
+}
+
+.careforms-import-result ul {
+    margin: 8px 0 0 20px;
+}
