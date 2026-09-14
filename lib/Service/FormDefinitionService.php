@@ -80,6 +80,17 @@ final class FormDefinitionService
             return $this->decodeAndValidate($formId, $record->getDefinitionJson());
         }
 
+        // Compatibility for lifecycle versions created before version-specific
+        // JSON definitions were persisted. Reuse the nearest earlier persisted
+        // definition because those draft/published versions shared the same
+        // underlying form structure at the time.
+        $compatibleRecord = $this->records->findLatestAtOrBefore($formId, $version);
+        if ($compatibleRecord !== null) {
+            $definition = $this->decodeAndValidate($formId, $compatibleRecord->getDefinitionJson());
+            $definition['version'] = $version;
+            return $definition;
+        }
+
         if (isset(self::DEFINITIONS[$formId])) {
             // Legacy compatibility: before persisted definitions existed,
             // business form versions could be created/published while the
