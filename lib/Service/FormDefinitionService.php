@@ -61,20 +61,58 @@ final class FormDefinitionService
     public function get(string $formId): array
     {
         $record = $this->records->findLatestByForm($formId);
-
         if ($record !== null) {
-            $json = $record->getDefinitionJson();
-        } elseif (isset(self::DEFINITIONS[$formId])) {
-            $path = dirname(__DIR__, 2) . '/forms/' . self::DEFINITIONS[$formId];
-            $json = @file_get_contents($path);
+            return $this->decodeAndValidate($formId, $record->getDefinitionJson());
+        }
 
-            if ($json === false) {
-                throw new \RuntimeException(sprintf('Unable to read CareForms form definition "%s".', $formId));
-            }
-        } else {
+        return $this->getBundled($formId);
+    }
+
+    /**
+     * Return the exact definition for a business form version.
+     *
+     * @return array<string, mixed>
+     */
+    public function getVersion(string $formId, int $version): array
+    {
+        $record = $this->records->findByFormAndVersion($formId, $version);
+        if ($record !== null) {
+            return $this->decodeAndValidate($formId, $record->getDefinitionJson());
+        }
+
+        if ($version === 1 && isset(self::DEFINITIONS[$formId])) {
+            return $this->getBundled($formId);
+        }
+
+        throw new \InvalidArgumentException(sprintf(
+            'CareForms definition "%s" version %d was not found.',
+            $formId,
+            $version,
+        ));
+    }
+
+    /** @return array<string, mixed> */
+    private function getBundled(string $formId): array
+    {
+        if (!isset(self::DEFINITIONS[$formId])) {
             throw new \InvalidArgumentException(sprintf('Unknown CareForms form definition "%s".', $formId));
         }
 
+        $path = dirname(__DIR__, 2) . '/forms/' . self::DEFINITIONS[$formId];
+        $json = @file_get_contents($path);
+
+        if ($json === false) {
+            throw new \RuntimeException(sprintf('Unable to read CareForms form definition "%s".', $formId));
+        }
+
+        return $this->decodeAndValidate($formId, $json);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeAndValidate(string $formId, string $json): array
+    {
         try {
             $definition = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
@@ -134,6 +172,46 @@ final class FormDefinitionService
 
         if ($this->exists($formId)) {
             throw new \LogicException(sprintf('A CareForms form with ID "%s" already exists.', $formId));
+        }
+
+        $json = json_encode($definition, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+        $record = new FormDefinitionRecord();
+        $record->setFormId($formId);
+        $record->setFormVersion($version);
+        $record->setSchemaVersion((int)$definition['schemaVersion']);
+        $record->setDefinitionJson($json);
+        $record->setCreatedBy($userId);
+        $record->setCreatedAt(time());
+        $this->records->insert($record);
+
+        return $definition;
+    }
+
+    /**
+     * Persist a validated new business version for an existing form.
+     *
+     * @param array<string, mixed> $definition
+     * @return array<string, mixed>
+     */
+    public function importVersion(array $definition, string $userId): array
+    {
+        $definition = $this->compatibility->normalize($definition);
+        $this->validator->assertValid($definition);
+
+        $formId = (string)$definition['id'];
+        $version = (int)$definition['version'];
+
+        if (!$this->exists($formId)) {
+            throw new \LogicException(sprintf('CareForms form "%s" does not exist.', $formId));
+        }
+
+        if ($this->records->exists($formId, $version) || ($version === 1 && isset(self::DEFINITIONS[$formId]))) {
+            throw new \LogicException(sprintf(
+                'CareForms form "%s" version %d already exists.',
+                $formId,
+                $version,
+            ));
         }
 
         $json = json_encode($definition, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
