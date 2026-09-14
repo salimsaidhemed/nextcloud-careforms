@@ -58,6 +58,17 @@
                     method:'POST',
                     body:JSON.stringify({definition:definition})
                 }).then(function (payload) {
+                    if (!payload.valid) {
+                        var errors = Array.isArray(payload.errors) ? payload.errors : ['Definition failed validation.'];
+                        result.innerHTML = '<div class="careforms-empty-state"><h3>Definition is not valid</h3><ul></ul></div>';
+                        var list = result.querySelector('ul');
+                        errors.forEach(function (item) {
+                            var li = document.createElement('li');
+                            li.textContent = item;
+                            list.appendChild(li);
+                        });
+                        return;
+                    }
                     result.innerHTML = '<div class="careforms-info-banner"><strong>Valid CareForms definition</strong><p class="careforms-muted"></p></div>';
                     var summary = payload.summary || {};
                     result.querySelector('p').textContent =
