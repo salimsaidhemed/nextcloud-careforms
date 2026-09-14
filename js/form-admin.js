@@ -79,10 +79,31 @@
 
                     var actions = result.querySelector('.careforms-import-actions');
                     if (summary.conflictsExisting) {
-                        var conflict = document.createElement('p');
-                        conflict.className = 'careforms-muted';
-                        conflict.textContent = 'This form ID already exists. Importing updates will be handled through the form version workflow in a later item.';
-                        actions.appendChild(conflict);
+                        if (summary.draftExists) {
+                            var draftWarning = document.createElement('p');
+                            draftWarning.className = 'careforms-muted';
+                            draftWarning.textContent = 'Draft version ' + summary.draftVersion + ' already exists. Publish or archive it before importing another version.';
+                            actions.appendChild(draftWarning);
+                            return;
+                        }
+
+                        if (Number(summary.version) !== Number(summary.expectedVersion)) {
+                            var expectedWarning = document.createElement('p');
+                            expectedWarning.className = 'careforms-muted';
+                            expectedWarning.textContent = 'This existing form must be imported as version ' + summary.expectedVersion + '.';
+                            actions.appendChild(expectedWarning);
+                            return;
+                        }
+
+                        actions.appendChild(actionButton('Import as Draft v' + summary.expectedVersion, '', function () {
+                            return request('/api/forms/admin/import', {
+                                method:'POST',
+                                body:JSON.stringify({definition:definition})
+                            }).then(function () {
+                                notify('Form version imported as draft.');
+                                render();
+                            });
+                        }));
                         return;
                     }
 
