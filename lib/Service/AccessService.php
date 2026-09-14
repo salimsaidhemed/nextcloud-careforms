@@ -23,6 +23,7 @@ class AccessService
         private IGroupManager $groupManager,
         private IUserSession $userSession,
         private IConfig $config,
+        private FormDefinitionService $definitions,
     ) {}
 
     public function currentUserId(): ?string
@@ -101,7 +102,10 @@ class AccessService
         if ($userId === null) return [];
 
         if ($this->isCareFormsAdministrator($userId) || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
-            $forms = [self::FORM_HOME_HEALTH_AIDE, self::FORM_NURSES_PROGRESS_NOTE];
+            $forms = array_map(
+                static fn (array $definition): string => (string)$definition['id'],
+                $this->definitions->all(),
+            );
         } else {
             $forms = [];
             if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES)) $forms[] = self::FORM_HOME_HEALTH_AIDE;
