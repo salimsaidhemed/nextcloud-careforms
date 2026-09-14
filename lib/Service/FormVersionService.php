@@ -41,6 +41,18 @@ class FormVersionService
         return $this->mapper->findPublished($formId)?->getVersionNumber() ?? 1;
     }
 
+    public function nextVersion(string $formId): int
+    {
+        $this->ensureSeeded($formId);
+        return $this->mapper->nextVersion($formId);
+    }
+
+    public function draft(string $formId): ?FormVersion
+    {
+        $this->ensureSeeded($formId);
+        return $this->mapper->findDraft($formId);
+    }
+
     public function createDraft(string $formId, string $userId): FormVersion
     {
         $this->ensureSeeded($formId);
