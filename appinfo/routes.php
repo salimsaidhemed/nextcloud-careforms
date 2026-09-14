@@ -8,6 +8,8 @@ return [
         ['name' => 'report#overview', 'url' => '/api/reports/overview', 'verb' => 'GET'],
         ['name' => 'report#submissions', 'url' => '/api/reports/submissions', 'verb' => 'GET'],
         ['name' => 'formAdmin#index', 'url' => '/api/forms/admin', 'verb' => 'GET'],
+        ['name' => 'formAdmin#export', 'url' => '/api/forms/admin/{formId}/export', 'verb' => 'GET'],
+        ['name' => 'formAdmin#validateImport', 'url' => '/api/forms/admin/import/validate', 'verb' => 'POST'],
         ['name' => 'formAdmin#update', 'url' => '/api/forms/admin/{formId}', 'verb' => 'PUT'],
         ['name' => 'formAdmin#createDraft', 'url' => '/api/forms/admin/{formId}/versions', 'verb' => 'POST'],
         ['name' => 'formAdmin#publish', 'url' => '/api/forms/admin/{formId}/versions/{version}/publish', 'verb' => 'POST'],
