@@ -4,6 +4,7 @@ return [
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'access#me', 'url' => '/api/access', 'verb' => 'GET'],
         ['name' => 'formDefinition#index', 'url' => '/api/form-definitions', 'verb' => 'GET'],
+        ['name' => 'formDefinition#show', 'url' => '/api/form-definitions/{formId}/{version}', 'verb' => 'GET'],
         ['name' => 'audit#index', 'url' => '/api/audit', 'verb' => 'GET'],
         ['name' => 'report#overview', 'url' => '/api/reports/overview', 'verb' => 'GET'],
         ['name' => 'report#submissions', 'url' => '/api/reports/submissions', 'verb' => 'GET'],
