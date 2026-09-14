@@ -104,7 +104,7 @@ class FormAdminController extends Controller
                 'version' => $definition['version'] ?? null,
                 'conflictsExisting' => $formId !== null && isset(self::FORMS[$formId]),
             ],
-        ], $errors === [] ? Http::STATUS_OK : Http::STATUS_UNPROCESSABLE_ENTITY);
+        ]);
     }
 
     #[NoAdminRequired]
