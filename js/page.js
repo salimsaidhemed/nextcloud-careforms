@@ -30,6 +30,10 @@
         return list;
     }
     function getDefinition(formId) { return definitions().find(function (d) { return d.id === formId; }); }
+
+    function loadDefinitionVersion(formId, version) {
+        return request('/api/form-definitions/' + encodeURIComponent(formId) + '/' + encodeURIComponent(version), {method:'GET'});
+    }
     function canUseForm(formId) { return accessState && Array.isArray(accessState.forms) && accessState.forms.indexOf(formId) !== -1; }
     function findPatient(id) { return patientCache.find(function (patient) { return Number(patient.id) === Number(id); }) || null; }
     function statusLabel(status) {
@@ -210,7 +214,11 @@
                 main.innerHTML='<strong></strong><span></span>'; main.querySelector('strong').textContent=patientName;
                 main.querySelector('span').textContent=d.name+' v'+s.formVersion+' · Updated '+(s.updatedAt ? new Date(s.updatedAt*1000).toLocaleString() : '—');
                 var status=document.createElement('span'); status.className='careforms-status careforms-status-'+s.status; status.textContent=statusLabel(s.status);
-                item.appendChild(main); item.appendChild(status); item.addEventListener('click',function(){renderSubmission(d,s,mount);}); list.appendChild(item);
+                item.appendChild(main); item.appendChild(status); item.addEventListener('click',function(){
+                    loadDefinitionVersion(s.formId, s.formVersion)
+                        .then(function(versionDefinition){ renderSubmission(versionDefinition,s,mount); })
+                        .catch(function(error){ notify(error.message); });
+                }); list.appendChild(item);
             });
             mount.appendChild(list);
         }).catch(function(e){ mount.innerHTML='<div class="careforms-empty-state"><h3>Could not load My Work</h3><p></p></div>'; mount.querySelector('p').textContent=e.message; });
