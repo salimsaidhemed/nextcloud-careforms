@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace OCA\CareForms\Service;
 
+use OCA\CareForms\Db\FormDefinitionRecord;
+use OCA\CareForms\Db\FormDefinitionRecordMapper;
+
 final class FormDefinitionService
 {
     private const DEFINITIONS = [
@@ -14,6 +17,7 @@ final class FormDefinitionService
     public function __construct(
         private FormSchemaValidator $validator,
         private FormDefinitionCompatibilityService $compatibility,
+        private FormDefinitionRecordMapper $records,
     ) {
     }
 
@@ -22,9 +26,10 @@ final class FormDefinitionService
      */
     public function all(): array
     {
+        $ids = array_unique(array_merge(array_keys(self::DEFINITIONS), $this->dynamicFormIds()));
         $definitions = [];
 
-        foreach (array_keys(self::DEFINITIONS) as $formId) {
+        foreach ($ids as $formId) {
             $definitions[] = $this->get($formId);
         }
 
@@ -40,7 +45,7 @@ final class FormDefinitionService
         $definitions = [];
 
         foreach ($formIds as $formId) {
-            if (!isset(self::DEFINITIONS[$formId])) {
+            if (!$this->exists($formId)) {
                 continue;
             }
 
@@ -55,15 +60,19 @@ final class FormDefinitionService
      */
     public function get(string $formId): array
     {
-        if (!isset(self::DEFINITIONS[$formId])) {
+        $record = $this->records->findLatestByForm($formId);
+
+        if ($record !== null) {
+            $json = $record->getDefinitionJson();
+        } elseif (isset(self::DEFINITIONS[$formId])) {
+            $path = dirname(__DIR__, 2) . '/forms/' . self::DEFINITIONS[$formId];
+            $json = @file_get_contents($path);
+
+            if ($json === false) {
+                throw new \RuntimeException(sprintf('Unable to read CareForms form definition "%s".', $formId));
+            }
+        } else {
             throw new \InvalidArgumentException(sprintf('Unknown CareForms form definition "%s".', $formId));
-        }
-
-        $path = dirname(__DIR__, 2) . '/forms/' . self::DEFINITIONS[$formId];
-        $json = @file_get_contents($path);
-
-        if ($json === false) {
-            throw new \RuntimeException(sprintf('Unable to read CareForms form definition "%s".', $formId));
         }
 
         try {
@@ -89,6 +98,54 @@ final class FormDefinitionService
                 $formId,
             ));
         }
+
+        return $definition;
+    }
+
+    public function exists(string $formId): bool
+    {
+        return isset(self::DEFINITIONS[$formId]) || $this->records->findLatestByForm($formId) !== null;
+    }
+
+    /** @return list<string> */
+    public function dynamicFormIds(): array
+    {
+        $ids = [];
+        foreach ($this->records->findAllRecords() as $record) {
+            $ids[$record->getFormId()] = true;
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * Persist a brand-new validated form definition.
+     *
+     * @param array<string, mixed> $definition
+     * @return array<string, mixed>
+     */
+    public function importNew(array $definition, string $userId): array
+    {
+        $definition = $this->compatibility->normalize($definition);
+        $this->validator->assertValid($definition);
+
+        $formId = (string)$definition['id'];
+        $version = (int)$definition['version'];
+
+        if ($this->exists($formId)) {
+            throw new \LogicException(sprintf('A CareForms form with ID "%s" already exists.', $formId));
+        }
+
+        $json = json_encode($definition, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+        $record = new FormDefinitionRecord();
+        $record->setFormId($formId);
+        $record->setFormVersion($version);
+        $record->setSchemaVersion((int)$definition['schemaVersion']);
+        $record->setDefinitionJson($json);
+        $record->setCreatedBy($userId);
+        $record->setCreatedAt(time());
+        $this->records->insert($record);
 
         return $definition;
     }
