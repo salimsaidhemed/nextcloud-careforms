@@ -15,6 +15,67 @@
     }
     function notify(message) { if (OC.Notification && OC.Notification.showTemporary) OC.Notification.showTemporary(message); }
 
+    function downloadJson(filename, definition) {
+        var blob = new Blob([JSON.stringify(definition, null, 2) + '\n'], {type:'application/json'});
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = filename || 'careforms-form.json';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function exportForm(form) {
+        return request('/api/forms/admin/' + encodeURIComponent(form.id) + '/export', {method:'GET'}).then(function (payload) {
+            downloadJson(payload.filename, payload.definition);
+            notify('Form definition exported.');
+        });
+    }
+
+    function renderImportValidator(mount) {
+        var section = document.createElement('section');
+        section.className = 'careforms-import-panel';
+        section.innerHTML = '<div class="careforms-section-heading"><div><h3>Validate JSON Form Definition</h3><p class="careforms-muted">Choose a CareForms JSON definition to validate before import. Validation does not save or publish the form.</p></div></div><input type="file" accept=".json,application/json" data-json-file><div class="careforms-import-result"></div>';
+        var input = section.querySelector('[data-json-file]');
+        var result = section.querySelector('.careforms-import-result');
+
+        input.addEventListener('change', function () {
+            result.innerHTML = '';
+            var file = input.files && input.files[0];
+            if (!file) return;
+
+            file.text().then(function (text) {
+                var definition;
+                try {
+                    definition = JSON.parse(text);
+                } catch (error) {
+                    throw new Error('The selected file is not valid JSON: ' + error.message);
+                }
+
+                return request('/api/forms/admin/import/validate', {
+                    method:'POST',
+                    body:JSON.stringify({definition:definition})
+                }).then(function (payload) {
+                    result.innerHTML = '<div class="careforms-info-banner"><strong>Valid CareForms definition</strong><p class="careforms-muted"></p></div>';
+                    var summary = payload.summary || {};
+                    result.querySelector('p').textContent =
+                        (summary.name || summary.id || file.name) +
+                        ' · schema v' + (summary.schemaVersion || '—') +
+                        ' · form v' + (summary.version || '—') +
+                        (summary.conflictsExisting ? ' · Existing form ID' : '');
+                });
+            }).catch(function (error) {
+                var message = error.message || 'Validation failed.';
+                result.innerHTML = '<div class="careforms-empty-state"><h3>Definition is not valid</h3><p></p></div>';
+                result.querySelector('p').textContent = message;
+            });
+        });
+
+        mount.appendChild(section);
+    }
+
     function lifecycleBadge(version) {
         var badge = document.createElement('span');
         badge.className = 'careforms-form-state-badge ' + (version.status === 'published' ? 'is-enabled' : (version.status === 'archived' ? 'is-disabled' : ''));
@@ -48,6 +109,7 @@
             notice.className = 'careforms-info-banner';
             notice.textContent = 'Only one version is published at a time. Publishing a draft automatically archives the previous published version. Existing submissions stay tied to the version they were created with.';
             mount.appendChild(notice);
+            renderImportValidator(mount);
 
             var list = document.createElement('div');
             list.className = 'careforms-admin-form-list';
@@ -86,6 +148,7 @@
                 enabledBadge.className = 'careforms-form-state-badge ' + (form.enabled ? 'is-enabled' : 'is-disabled');
                 enabledBadge.textContent = form.enabled ? 'Enabled' : 'Disabled';
                 state.appendChild(enabledBadge);
+                state.appendChild(actionButton('Export JSON', 'careforms-secondary-button', function () { return exportForm(form); }));
                 state.appendChild(actionButton(form.enabled ? 'Disable' : 'Enable', form.enabled ? 'careforms-secondary-button' : '', function () {
                     return request('/api/forms/admin/' + encodeURIComponent(form.id), {method:'PUT', body:JSON.stringify({enabled:!form.enabled})}).then(function(){ render(); });
                 }));
