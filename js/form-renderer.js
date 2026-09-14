@@ -8,7 +8,11 @@
     }
 
     function fieldWidthClass(field) {
-        return field.width ? ' careforms-field-width-' + field.width : '';
+        if (field.width) return ' careforms-field-width-' + field.width;
+        if (field.type === 'textarea' || field.type === 'signature' || field.type === 'signature-placeholder') {
+            return ' careforms-field-width-full';
+        }
+        return ' careforms-field-width-half';
     }
 
     function appendHelp(wrapper, field) {
@@ -36,7 +40,7 @@
 
     function createSignatureField(field, readOnly, signature) {
         var wrapper = document.createElement('div');
-        wrapper.className = 'careforms-field careforms-signature-field' + (field.width ? fieldWidthClass(field) : ' careforms-field-width-full');
+        wrapper.className = 'careforms-field careforms-signature-field' + fieldWidthClass(field);
         var label = document.createElement('div');
         label.className = 'careforms-field-label';
         label.textContent = field.label + ' *';
