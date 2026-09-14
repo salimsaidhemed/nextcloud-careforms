@@ -17,10 +17,6 @@ use OCP\IRequest;
 
 class FormAdminController extends Controller
 {
-    private const FORMS = [
-        AccessService::FORM_HOME_HEALTH_AIDE => ['name' => 'Home Health Aide Note', 'category' => 'Home Health'],
-        AccessService::FORM_NURSES_PROGRESS_NOTE => ['name' => 'Nurses Progress Note', 'category' => 'Nursing'],
-    ];
 
     public function __construct(
         IRequest $request,
@@ -41,14 +37,17 @@ class FormAdminController extends Controller
         if (!$this->accessService->canManageForms($userId)) return new JSONResponse(['message' => 'You do not have permission to manage forms.'], Http::STATUS_FORBIDDEN);
 
         $forms = [];
-        foreach (self::FORMS as $formId => $metadata) {
+        foreach ($this->definitions->all() as $definition) {
+            $formId = (string)$definition['id'];
             $versions = array_map(static fn ($version): array => $version->jsonSerialize(), $this->formVersions->versions($formId));
-            $forms[] = array_merge([
+            $forms[] = [
                 'id' => $formId,
+                'name' => (string)$definition['name'],
+                'category' => (string)$definition['category'],
                 'enabled' => $this->accessService->isFormEnabled($formId),
                 'publishedVersion' => $this->formVersions->publishedVersion($formId),
                 'versions' => $versions,
-            ], $metadata);
+            ];
         }
         return new JSONResponse($forms);
     }
@@ -58,7 +57,7 @@ class FormAdminController extends Controller
     {
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
-        if (!isset(self::FORMS[$formId])) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+        if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
 
         try {
             $definition = $this->definitions->get($formId);
@@ -102,9 +101,59 @@ class FormAdminController extends Controller
                 'category' => is_string($definition['category'] ?? null) ? $definition['category'] : null,
                 'schemaVersion' => $definition['schemaVersion'] ?? null,
                 'version' => $definition['version'] ?? null,
-                'conflictsExisting' => $formId !== null && isset(self::FORMS[$formId]),
+                'conflictsExisting' => $formId !== null && $this->definitions->exists($formId),
             ],
         ]);
+    }
+
+    #[NoAdminRequired]
+    public function importDefinition(array $definition): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+
+        $errors = $this->schemaValidator->validate($definition);
+        if ($errors !== []) {
+            return new JSONResponse([
+                'message' => 'The form definition is not valid.',
+                'errors' => $errors,
+            ], Http::STATUS_UNPROCESSABLE_ENTITY);
+        }
+
+        if ((int)($definition['version'] ?? 0) !== 1) {
+            return new JSONResponse([
+                'message' => 'A newly imported form must start at version 1.',
+            ], Http::STATUS_CONFLICT);
+        }
+
+        try {
+            $imported = $this->definitions->importNew($definition, $userId);
+            $this->formVersions->ensureSeeded((string)$imported['id']);
+        } catch (\LogicException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+        }
+
+        $formId = (string)$imported['id'];
+        $this->auditService->log(
+            $userId,
+            'FORM_IMPORT',
+            'form',
+            null,
+            $formId,
+            'success',
+            [
+                'schemaVersion' => $imported['schemaVersion'],
+                'version' => $imported['version'],
+            ],
+        );
+
+        return new JSONResponse([
+            'definition' => $imported,
+            'enabled' => $this->accessService->isFormEnabled($formId),
+            'publishedVersion' => $this->formVersions->publishedVersion($formId),
+        ], Http::STATUS_CREATED);
     }
 
     #[NoAdminRequired]
@@ -112,7 +161,7 @@ class FormAdminController extends Controller
     {
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
-        if (!isset(self::FORMS[$formId])) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+        if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
         $this->accessService->setFormEnabled($formId, $enabled);
         $this->auditService->log($userId, 'ADMIN_SETTING_CHANGE', 'form', null, $formId, 'success', ['setting' => 'enabled', 'enabled' => $enabled]);
         return new JSONResponse(['id' => $formId, 'enabled' => $this->accessService->isFormEnabled($formId)]);
@@ -123,7 +172,7 @@ class FormAdminController extends Controller
     {
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
-        if (!isset(self::FORMS[$formId])) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+        if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
         $draft = $this->formVersions->createDraft($formId, $userId);
         $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => $draft->getVersionNumber()]);
         return new JSONResponse($draft->jsonSerialize(), Http::STATUS_CREATED);
@@ -134,7 +183,7 @@ class FormAdminController extends Controller
     {
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
-        if (!isset(self::FORMS[$formId])) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+        if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
         try { $published = $this->formVersions->publish($formId, $version); }
         catch (\InvalidArgumentException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_NOT_FOUND); }
         catch (\LogicException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_CONFLICT); }
@@ -147,7 +196,7 @@ class FormAdminController extends Controller
     {
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
-        if (!isset(self::FORMS[$formId])) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+        if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
         try { $archived = $this->formVersions->archiveDraft($formId, $version); }
         catch (\InvalidArgumentException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_NOT_FOUND); }
         catch (\LogicException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_CONFLICT); }
