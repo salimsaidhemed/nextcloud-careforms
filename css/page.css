@@ -257,3 +257,48 @@ button .careforms-action-icon { margin-right:6px; }
         grid-column: 1 / -1;
     }
 }
+
+
+/* Strong width contract for schema-driven forms.
+ * Nextcloud's generic form/section rules may otherwise allow intrinsic sizing. */
+#careforms-content .careforms-form-layout {
+    display: block;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#careforms-content .careforms-rendered-form {
+    display: flex;
+    flex: 1 1 100%;
+    align-self: stretch;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#careforms-content .careforms-form-section {
+    display: block;
+    align-self: stretch;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#careforms-content .careforms-field-grid {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+@media (min-width: 1000px) {
+    #careforms-content .careforms-form-layout-with-nav {
+        display: grid;
+        grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
+        gap: 24px;
+    }
+}
