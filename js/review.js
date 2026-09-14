@@ -40,7 +40,11 @@
                 main.querySelector('strong').textContent = patient ? patient.displayName : 'Patient #' + submission.patientId;
                 main.querySelector('span').textContent = d.name + ' v' + submission.formVersion + ' · Submitted ' + (submission.submittedAt ? new Date(submission.submittedAt * 1000).toLocaleString() : '—');
                 var status = document.createElement('span'); status.className = 'careforms-status careforms-status-submitted'; status.textContent = 'Awaiting review';
-                item.appendChild(main); item.appendChild(status); item.addEventListener('click', function () { renderReview(submission, d, patient, mount); }); list.appendChild(item);
+                item.appendChild(main); item.appendChild(status); item.addEventListener('click', function () {
+                    request('/api/form-definitions/' + encodeURIComponent(submission.formId) + '/' + encodeURIComponent(submission.formVersion), {method:'GET'})
+                        .then(function (versionDefinition) { renderReview(submission, versionDefinition, patient, mount); })
+                        .catch(function (error) { notify(error.message); });
+                }); list.appendChild(item);
             });
             if (!rendered) { mount.innerHTML += '<div class="careforms-empty-state"><h3>Could not display queued forms</h3><p>The queued submissions reference form definitions that are not available in this browser session.</p></div>'; return; }
             mount.appendChild(list);

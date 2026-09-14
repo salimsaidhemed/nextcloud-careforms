@@ -186,29 +186,32 @@
     }
 
     function renderSubmissionPreview(section, submission) {
-        var definition = formDefinition(submission.formId, submission.formVersion);
-        if (!definition || !window.CareForms || !window.CareForms.FormRenderer) return;
+        if (!window.CareForms || !window.CareForms.FormRenderer) return;
 
-        var existing = section.querySelector('.careforms-report-submission-preview');
-        if (existing) existing.remove();
-        var preview = document.createElement('div');
-        preview.className = 'careforms-report-submission-preview';
-        section.appendChild(preview);
+        request('/api/form-definitions/' + encodeURIComponent(submission.formId) + '/' + encodeURIComponent(submission.formVersion))
+            .then(function (definition) {
+                var existing = section.querySelector('.careforms-report-submission-preview');
+                if (existing) existing.remove();
+                var preview = document.createElement('div');
+                preview.className = 'careforms-report-submission-preview';
+                section.appendChild(preview);
 
-        window.CareForms.FormRenderer.render(definition, preview, {
-            values: submission.data || {},
-            patient: submission.patient || null,
-            signature: signatureInfo(submission),
-            readOnly: true,
-            backLabel: 'Back to report results'
-        });
+                window.CareForms.FormRenderer.render(definition, preview, {
+                    values: submission.data || {},
+                    patient: submission.patient || null,
+                    signature: signatureInfo(submission),
+                    readOnly: true,
+                    backLabel: 'Back to report results'
+                });
 
-        var meta = document.createElement('div');
-        meta.className = 'careforms-report-preview-meta';
-        meta.textContent = 'Submission #' + submission.id + ' · ' + statusLabel(submission.status) + ' · Submitted by ' + (submission.userId || '—') + (submission.reviewedBy ? ' · Reviewed by ' + submission.reviewedBy : '');
-        var header = preview.querySelector('.careforms-form-header');
-        if (header) header.insertAdjacentElement('afterend', meta);
-        preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                var meta = document.createElement('div');
+                meta.className = 'careforms-report-preview-meta';
+                meta.textContent = 'Submission #' + submission.id + ' · ' + statusLabel(submission.status) + ' · Submitted by ' + (submission.userId || '—') + (submission.reviewedBy ? ' · Reviewed by ' + submission.reviewedBy : '');
+                var header = preview.querySelector('.careforms-form-header');
+                if (header) header.insertAdjacentElement('afterend', meta);
+                preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            })
+            .catch(function () {});
     }
 
     function renderReports() {

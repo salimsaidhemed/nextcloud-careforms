@@ -37,15 +37,20 @@ class FormAdminController extends Controller
         if (!$this->accessService->canManageForms($userId)) return new JSONResponse(['message' => 'You do not have permission to manage forms.'], Http::STATUS_FORBIDDEN);
 
         $forms = [];
-        foreach ($this->definitions->all() as $definition) {
-            $formId = (string)$definition['id'];
+        foreach ($this->definitions->all() as $candidate) {
+            $formId = (string)$candidate['id'];
+            $publishedVersion = $this->formVersions->publishedVersion($formId);
+            $definition = $this->definitions->getVersion($formId, $publishedVersion);
             $versions = array_map(static fn ($version): array => $version->jsonSerialize(), $this->formVersions->versions($formId));
+            $draft = $this->formVersions->draft($formId);
             $forms[] = [
                 'id' => $formId,
                 'name' => (string)$definition['name'],
                 'category' => (string)$definition['category'],
                 'enabled' => $this->accessService->isFormEnabled($formId),
-                'publishedVersion' => $this->formVersions->publishedVersion($formId),
+                'publishedVersion' => $publishedVersion,
+                'nextVersion' => $this->formVersions->nextVersion($formId),
+                'draftVersion' => $draft?->getVersionNumber(),
                 'versions' => $versions,
             ];
         }
@@ -60,7 +65,7 @@ class FormAdminController extends Controller
         if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
 
         try {
-            $definition = $this->definitions->get($formId);
+            $definition = $this->definitions->getVersion($formId, $this->formVersions->publishedVersion($formId));
         } catch (\Throwable $e) {
             return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
@@ -92,6 +97,9 @@ class FormAdminController extends Controller
             ['schemaVersion' => $definition['schemaVersion'] ?? null, 'errorCount' => count($errors)],
         );
 
+        $exists = $formId !== null && $this->definitions->exists($formId);
+        $draft = $exists ? $this->formVersions->draft($formId) : null;
+
         return new JSONResponse([
             'valid' => $errors === [],
             'errors' => $errors,
@@ -101,7 +109,10 @@ class FormAdminController extends Controller
                 'category' => is_string($definition['category'] ?? null) ? $definition['category'] : null,
                 'schemaVersion' => $definition['schemaVersion'] ?? null,
                 'version' => $definition['version'] ?? null,
-                'conflictsExisting' => $formId !== null && $this->definitions->exists($formId),
+                'conflictsExisting' => $exists,
+                'expectedVersion' => $exists ? $this->formVersions->nextVersion($formId) : 1,
+                'draftExists' => $draft !== null,
+                'draftVersion' => $draft?->getVersionNumber(),
             ],
         ]);
     }
@@ -120,25 +131,59 @@ class FormAdminController extends Controller
             ], Http::STATUS_UNPROCESSABLE_ENTITY);
         }
 
-        if ((int)($definition['version'] ?? 0) !== 1) {
-            return new JSONResponse([
-                'message' => 'A newly imported form must start at version 1.',
-            ], Http::STATUS_CONFLICT);
-        }
+        $formId = (string)$definition['id'];
+        $existing = $this->definitions->exists($formId);
 
         try {
-            $imported = $this->definitions->importNew($definition, $userId);
-            $this->formVersions->ensureSeeded((string)$imported['id']);
+            if (!$existing) {
+                if ((int)$definition['version'] !== 1) {
+                    return new JSONResponse([
+                        'message' => 'A newly imported form must start at version 1.',
+                    ], Http::STATUS_CONFLICT);
+                }
+
+                $imported = $this->definitions->importNew($definition, $userId);
+                $this->formVersions->ensureSeeded($formId);
+                $action = 'FORM_IMPORT';
+            } else {
+                $draft = $this->formVersions->draft($formId);
+                if ($draft !== null) {
+                    return new JSONResponse([
+                        'message' => sprintf(
+                            'Form "%s" already has draft version %d. Publish or archive it before importing another version.',
+                            $formId,
+                            $draft->getVersionNumber(),
+                        ),
+                    ], Http::STATUS_CONFLICT);
+                }
+
+                $expectedVersion = $this->formVersions->nextVersion($formId);
+                if ((int)$definition['version'] !== $expectedVersion) {
+                    return new JSONResponse([
+                        'message' => sprintf(
+                            'The next version for form "%s" must be %d.',
+                            $formId,
+                            $expectedVersion,
+                        ),
+                    ], Http::STATUS_CONFLICT);
+                }
+
+                $imported = $this->definitions->importVersion($definition, $userId);
+                $draft = $this->formVersions->createDraft($formId, $userId);
+                if ($draft->getVersionNumber() !== (int)$definition['version']) {
+                    throw new \LogicException('Imported definition version does not match the created draft version.');
+                }
+                $action = 'FORM_VERSION_IMPORT';
+            }
         } catch (\LogicException $e) {
             return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_CONFLICT);
         } catch (\InvalidArgumentException $e) {
             return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
         }
 
-        $formId = (string)$imported['id'];
         $this->auditService->log(
             $userId,
-            'FORM_IMPORT',
+            $action,
             'form',
             null,
             $formId,
@@ -146,6 +191,7 @@ class FormAdminController extends Controller
             [
                 'schemaVersion' => $imported['schemaVersion'],
                 'version' => $imported['version'],
+                'status' => $existing ? 'draft' : 'published',
             ],
         );
 
@@ -153,6 +199,7 @@ class FormAdminController extends Controller
             'definition' => $imported,
             'enabled' => $this->accessService->isFormEnabled($formId),
             'publishedVersion' => $this->formVersions->publishedVersion($formId),
+            'draftVersion' => $existing ? (int)$imported['version'] : null,
         ], Http::STATUS_CREATED);
     }
 

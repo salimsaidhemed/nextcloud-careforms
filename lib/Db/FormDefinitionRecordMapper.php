@@ -44,6 +44,39 @@ class FormDefinitionRecordMapper extends QBMapper
         }
     }
 
+    public function findLatestAtOrBefore(string $formId, int $version): ?FormDefinitionRecord
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId)))
+            ->andWhere($qb->expr()->lte('form_version', $qb->createNamedParameter($version)))
+            ->orderBy('form_version', 'DESC')
+            ->setMaxResults(1);
+
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
+            return null;
+        }
+    }
+
+    public function findByFormAndVersion(string $formId, int $version): ?FormDefinitionRecord
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId)))
+            ->andWhere($qb->expr()->eq('form_version', $qb->createNamedParameter($version)))
+            ->setMaxResults(1);
+
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
+            return null;
+        }
+    }
+
     public function exists(string $formId, int $version): bool
     {
         $qb = $this->db->getQueryBuilder();
