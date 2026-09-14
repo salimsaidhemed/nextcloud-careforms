@@ -80,8 +80,14 @@ final class FormDefinitionService
             return $this->decodeAndValidate($formId, $record->getDefinitionJson());
         }
 
-        if ($version === 1 && isset(self::DEFINITIONS[$formId])) {
-            return $this->getBundled($formId);
+        if (isset(self::DEFINITIONS[$formId])) {
+            // Legacy compatibility: before persisted definitions existed,
+            // business form versions could be created/published while the
+            // form body still lived in the bundled JSON file. Those versions
+            // therefore share the bundled definition shape.
+            $definition = $this->getBundled($formId);
+            $definition['version'] = $version;
+            return $definition;
         }
 
         throw new \InvalidArgumentException(sprintf(
