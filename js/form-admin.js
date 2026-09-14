@@ -69,13 +69,40 @@
                         });
                         return;
                     }
-                    result.innerHTML = '<div class="careforms-info-banner"><strong>Valid CareForms definition</strong><p class="careforms-muted"></p></div>';
+                    result.innerHTML = '<div class="careforms-info-banner"><strong>Valid CareForms definition</strong><p class="careforms-muted"></p><div class="careforms-import-actions"></div></div>';
                     var summary = payload.summary || {};
                     result.querySelector('p').textContent =
                         (summary.name || summary.id || file.name) +
                         ' · schema v' + (summary.schemaVersion || '—') +
                         ' · form v' + (summary.version || '—') +
                         (summary.conflictsExisting ? ' · Existing form ID' : '');
+
+                    var actions = result.querySelector('.careforms-import-actions');
+                    if (summary.conflictsExisting) {
+                        var conflict = document.createElement('p');
+                        conflict.className = 'careforms-muted';
+                        conflict.textContent = 'This form ID already exists. Importing updates will be handled through the form version workflow in a later item.';
+                        actions.appendChild(conflict);
+                        return;
+                    }
+
+                    if (Number(summary.version) !== 1) {
+                        var versionWarning = document.createElement('p');
+                        versionWarning.className = 'careforms-muted';
+                        versionWarning.textContent = 'A newly imported form must start at version 1.';
+                        actions.appendChild(versionWarning);
+                        return;
+                    }
+
+                    actions.appendChild(actionButton('Import Form', '', function () {
+                        return request('/api/forms/admin/import', {
+                            method:'POST',
+                            body:JSON.stringify({definition:definition})
+                        }).then(function () {
+                            notify('Form imported successfully.');
+                            render();
+                        });
+                    }));
                 });
             }).catch(function (error) {
                 var message = error.message || 'Validation failed.';
