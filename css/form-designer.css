@@ -33,3 +33,8 @@
 .careforms-designer-markup{width:100%;min-height:520px;margin-top:14px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;line-height:1.5;resize:vertical}
 .careforms-designer-markup-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px}
 @media(max-width:720px){.careforms-designer-markup{min-height:420px}.careforms-designer-markup-footer{align-items:stretch;flex-direction:column}.careforms-designer-markup-footer button{width:100%}}
+
+.careforms-designer-validation-summary{max-width:1100px;margin:0 0 16px;padding:14px 16px;border:2px solid var(--color-error);border-radius:var(--border-radius-large);background:var(--color-error-hover)}
+.careforms-designer-validation-summary p{margin:4px 0 8px}.careforms-designer-validation-summary ul{margin:0;padding-left:20px}.careforms-designer-validation-summary li{margin:5px 0}
+.careforms-designer-validation-summary li button{padding:0;border:0;background:transparent;text-align:left;color:var(--color-main-text);text-decoration:underline}
+.careforms-validation-error{outline:2px solid var(--color-error);outline-offset:2px;border-radius:var(--border-radius-large)}
