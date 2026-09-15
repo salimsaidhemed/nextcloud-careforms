@@ -240,14 +240,14 @@ class FormAdminController extends Controller
         if ($errors !== []) return new JSONResponse(['message' => 'The new form is invalid.', 'errors' => $errors], Http::STATUS_UNPROCESSABLE_ENTITY);
 
         try {
-            $draft = $this->formVersions->createDraft($formId, $userId);
+            $draft = $this->formVersions->createInitialDraft($formId, $userId);
             $definition['version'] = $draft->getVersionNumber();
             $created = $this->definitions->importNew($definition, $userId);
         } catch (\Throwable $e) {
             return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
 
-        $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => 1, 'source' => 'designer']);
+        $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => $draft->getVersionNumber(), 'source' => 'designer']);
         return new JSONResponse(['definition' => $created, 'draft' => $draft->jsonSerialize()], Http::STATUS_CREATED);
     }
 
