@@ -250,6 +250,13 @@
                 type.textContent=field.type + (field.required ? ' · Required' : '');
                 var fieldActions=document.createElement('div'); fieldActions.className='careforms-designer-field-actions';
                 fieldActions.appendChild(sectionButton('Edit',function(){ editField(field,rerender); }));
+                fieldActions.appendChild(sectionButton('Duplicate',function(){
+                    var copy=clone(field);
+                    copy.id=fieldId(state,(field.label || field.id || 'field') + ' copy');
+                    copy.label=(field.label || 'Field') + ' copy';
+                    section.fields.splice(fieldIndex+1,0,copy);
+                    rerender();
+                }));
                 fieldActions.appendChild(sectionButton('↑',function(){ if(fieldIndex<1)return; var item=section.fields.splice(fieldIndex,1)[0]; section.fields.splice(fieldIndex-1,0,item); rerender(); },fieldIndex===0));
                 fieldActions.appendChild(sectionButton('↓',function(){ if(fieldIndex>=section.fields.length-1)return; var item=section.fields.splice(fieldIndex,1)[0]; section.fields.splice(fieldIndex+1,0,item); rerender(); },fieldIndex===section.fields.length-1));
                 fieldActions.appendChild(sectionButton('Delete',function(){
