@@ -157,13 +157,31 @@
         return button;
     }
 
+    function createFormDialog() {
+        var name=window.prompt('Form name','New Care Form');
+        if(!name || !name.trim()) return Promise.resolve();
+        var category=window.prompt('Category','General');
+        if(category===null) return Promise.resolve();
+        return request('/api/forms/admin/create',{
+            method:'POST',
+            body:JSON.stringify({name:name.trim(),category:(category || 'General').trim()})
+        }).then(function(payload){
+            notify('New draft form created.');
+            if(window.CareForms && window.CareForms.FormDesigner){
+                window.CareForms.FormDesigner.open(payload.definition.id, payload.draft.version);
+            } else render();
+        });
+    }
+
     function render() {
         var mount = document.getElementById('careforms-form-admin-browser');
         if (!mount) return;
         mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div></div><p class="careforms-muted">Loading…</p>';
 
         request('/api/forms/admin', {method:'GET'}).then(function (forms) {
-            mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div></div>';
+            mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div><div data-form-admin-actions></div></div>';
+            var topActions=mount.querySelector('[data-form-admin-actions]');
+            topActions.appendChild(actionButton('+ Create form','',createFormDialog));
             var notice = document.createElement('div');
             notice.className = 'careforms-info-banner';
             notice.textContent = 'Only one version is published at a time. Publishing a draft automatically archives the previous published version. Existing submissions stay tied to the version they were created with.';
