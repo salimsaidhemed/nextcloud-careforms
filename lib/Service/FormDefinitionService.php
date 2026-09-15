@@ -162,6 +162,23 @@ final class FormDefinitionService
         return isset(self::DEFINITIONS[$formId]) || $this->records->findLatestByForm($formId) !== null;
     }
 
+    /**
+     * Persist a draft definition created by cloning an existing published version.
+     *
+     * @return array<string, mixed>
+     */
+    public function cloneVersion(string $formId, int $sourceVersion, int $targetVersion, string $userId): array
+    {
+        if ($this->records->exists($formId, $targetVersion)) {
+            return $this->getVersion($formId, $targetVersion);
+        }
+
+        $definition = $this->getVersion($formId, $sourceVersion);
+        $definition['version'] = $targetVersion;
+
+        return $this->importVersion($definition, $userId);
+    }
+
     /** @return list<string> */
     public function dynamicFormIds(): array
     {
