@@ -179,6 +179,30 @@ final class FormDefinitionService
         return $this->importVersion($definition, $userId);
     }
 
+    /**
+     * Replace an existing persisted draft definition after validation.
+     *
+     * @param array<string, mixed> $definition
+     * @return array<string, mixed>
+     */
+    public function saveDraft(string $formId, int $version, array $definition, string $userId): array
+    {
+        $definition = $this->compatibility->normalize($definition);
+        if (($definition['id'] ?? null) !== $formId || (int)($definition['version'] ?? 0) !== $version) {
+            throw new \InvalidArgumentException('Designer definition identity/version does not match the draft being edited.');
+        }
+        $this->validator->assertValid($definition);
+
+        $record = $this->records->findByFormAndVersion($formId, $version);
+        if ($record === null) {
+            throw new \InvalidArgumentException(sprintf('Draft definition "%s" version %d was not found.', $formId, $version));
+        }
+
+        $json = json_encode($definition, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $this->records->replaceDefinition($record, $json, $userId);
+        return $definition;
+    }
+
     /** @return list<string> */
     public function dynamicFormIds(): array
     {
