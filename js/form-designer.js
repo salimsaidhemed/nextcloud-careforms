@@ -44,6 +44,43 @@
     }
     var stateIds=[];
 
+    var FIELD_PALETTE=[
+        {type:'text',label:'Short text',description:'Names, identifiers and short answers'},
+        {type:'textarea',label:'Long text',description:'Notes and longer narrative answers',defaults:{rows:4}},
+        {type:'number',label:'Number',description:'Numeric measurements or scores'},
+        {type:'date',label:'Date',description:'Calendar date'},
+        {type:'time',label:'Time',description:'Time of day'},
+        {type:'checkbox',label:'Yes / No',description:'Single yes/no checkbox'},
+        {type:'choice-group',label:'Select one',description:'Choose one option',defaults:{options:['Option 1','Option 2']}},
+        {type:'checkbox-group',label:'Multiple choice',description:'Choose one or more options',defaults:{options:['Option 1','Option 2']}},
+        {type:'signature',label:'Signature',description:'Electronic signature'}
+    ];
+
+    function allFieldIds(state) {
+        var ids=[];
+        state.sections.forEach(function(section){ (section.fields || []).forEach(function(field){ ids.push(field.id); }); });
+        return ids;
+    }
+    function fieldId(state,label) {
+        var base=(label || 'field').toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').replace(/^[^a-z]+/,'') || 'field';
+        var ids=allFieldIds(state), id=base, n=2;
+        while(ids.indexOf(id)!==-1){ id=base+'_'+n++; }
+        return id;
+    }
+    function chooseFieldType(callback) {
+        var overlay=document.createElement('div'); overlay.className='careforms-designer-modal-overlay';
+        var modal=document.createElement('div'); modal.className='careforms-designer-modal';
+        modal.innerHTML='<div class="careforms-designer-modal-head"><div><h3>Add field</h3><p class="careforms-muted">Choose what kind of information this field collects.</p></div><button type="button" aria-label="Close">×</button></div>';
+        modal.querySelector('button').addEventListener('click',function(){ overlay.remove(); });
+        var grid=document.createElement('div'); grid.className='careforms-field-palette';
+        FIELD_PALETTE.forEach(function(item){
+            var b=document.createElement('button'); b.type='button'; b.className='careforms-field-type';
+            b.innerHTML='<strong></strong><span></span>'; b.querySelector('strong').textContent=item.label; b.querySelector('span').textContent=item.description;
+            b.addEventListener('click',function(){ overlay.remove(); callback(item); }); grid.appendChild(b);
+        });
+        modal.appendChild(grid); overlay.appendChild(modal); document.body.appendChild(overlay);
+    }
+
     function renderDesign(state, body) {
         body.innerHTML='';
         stateIds=state.sections.map(function(section){ return section.id; });
@@ -109,6 +146,15 @@
             h.querySelector('span').textContent=(section.fields || []).length + ' field' + ((section.fields || []).length === 1 ? '' : 's');
             card.appendChild(h);
             var actions=document.createElement('div'); actions.className='careforms-designer-section-actions';
+            actions.appendChild(sectionButton('+ Add field',function(){
+                chooseFieldType(function(choice){
+                    var label=window.prompt('Field label',choice.label);
+                    if(!label)return;
+                    var field={id:fieldId(state,label),type:choice.type,label:label};
+                    if(choice.defaults){ Object.keys(choice.defaults).forEach(function(key){ field[key]=clone(choice.defaults[key]); }); }
+                    section.fields.push(field); rerender();
+                });
+            }));
             actions.appendChild(sectionButton('Edit',function(){
                 var label=window.prompt('Section name',section.label || section.id); if (!label) return;
                 var description=window.prompt('Section description (optional)',section.description || '');
@@ -125,14 +171,22 @@
                 if(!window.confirm(message))return; state.sections.splice(index,1); rerender();
             }));
             card.appendChild(actions);
-            (section.fields || []).forEach(function(field) {
+            (section.fields || []).forEach(function(field, fieldIndex) {
                 var row=document.createElement('div');
                 row.className='careforms-designer-field';
                 var label=document.createElement('span');
                 label.textContent=field.label || field.id;
                 var type=document.createElement('small');
                 type.textContent=field.type + (field.required ? ' · Required' : '');
-                row.appendChild(label); row.appendChild(type); card.appendChild(row);
+                var fieldActions=document.createElement('div'); fieldActions.className='careforms-designer-field-actions';
+                fieldActions.appendChild(sectionButton('↑',function(){ if(fieldIndex<1)return; var item=section.fields.splice(fieldIndex,1)[0]; section.fields.splice(fieldIndex-1,0,item); rerender(); },fieldIndex===0));
+                fieldActions.appendChild(sectionButton('↓',function(){ if(fieldIndex>=section.fields.length-1)return; var item=section.fields.splice(fieldIndex,1)[0]; section.fields.splice(fieldIndex+1,0,item); rerender(); },fieldIndex===section.fields.length-1));
+                fieldActions.appendChild(sectionButton('Delete',function(){
+                    if(section.fields.length===1){ window.alert('A section must contain at least one field. Add another field before deleting this one.'); return; }
+                    if(window.confirm('Delete “'+(field.label || field.id)+'”?')){ section.fields.splice(fieldIndex,1); rerender(); }
+                }));
+                var summary=document.createElement('div'); summary.className='careforms-designer-field-summary'; summary.appendChild(label); summary.appendChild(type);
+                row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
             });
             body.appendChild(card);
         });
