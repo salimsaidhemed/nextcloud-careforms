@@ -53,6 +53,28 @@ class FormVersionService
         return $this->mapper->findDraft($formId);
     }
 
+    /**
+     * Create the first lifecycle record for a brand-new designer form.
+     *
+     * Unlike createDraft(), this deliberately does not call ensureSeeded():
+     * a new form has no published v1 to seed yet.
+     */
+    public function createInitialDraft(string $formId, string $userId): FormVersion
+    {
+        if ($this->mapper->findAllByForm($formId) !== []) {
+            throw new \LogicException('Cannot create an initial draft for a form that already has lifecycle versions.');
+        }
+        $now = time();
+        $version = new FormVersion();
+        $version->setFormId($formId);
+        $version->setVersionNumber(1);
+        $version->setStatus('draft');
+        $version->setCreatedBy($userId);
+        $version->setCreatedAt($now);
+        $version->setUpdatedAt($now);
+        return $this->mapper->insert($version);
+    }
+
     public function createDraft(string $formId, string $userId): FormVersion
     {
         $this->ensureSeeded($formId);
