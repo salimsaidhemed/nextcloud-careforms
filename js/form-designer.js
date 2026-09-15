@@ -75,7 +75,16 @@
             var label=window.prompt('Section name','New section');
             if (!label) return;
             var id=slug(label);
-            state.sections.push({id:id,label:label,description:'',fields:[]});
+            state.sections.push({
+                id:id,
+                label:label,
+                description:'',
+                fields:[{
+                    id:'field_'+id.replace(/-/g,'_'),
+                    type:'text',
+                    label:'New field'
+                }]
+            });
             rerender();
         });
         heading.appendChild(add);
