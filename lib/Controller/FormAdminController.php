@@ -259,6 +259,41 @@ class FormAdminController extends Controller
     }
 
     #[NoAdminRequired]
+    public function saveDesigner(string $formId, int $version, array $definition): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+
+        $draft = $this->formVersions->draft($formId);
+        if ($draft === null || $draft->getVersionNumber() !== $version) {
+            return new JSONResponse(['message' => 'Only the current draft can be saved from the form designer.'], Http::STATUS_CONFLICT);
+        }
+
+        $errors = $this->schemaValidator->validate($definition);
+        if ($errors !== []) {
+            return new JSONResponse([
+                'message' => 'The draft contains validation errors and was not saved: ' . implode(' ', $errors),
+                'errors' => $errors,
+            ], Http::STATUS_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $saved = $this->definitions->saveDraft($formId, $version, $definition, $userId);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+        $this->auditService->log($userId, 'FORM_UPDATE', 'form_version', $draft->getId(), $formId, 'success', [
+            'version' => $version,
+            'source' => 'designer',
+        ]);
+
+        return new JSONResponse(['definition' => $saved, 'saved' => true]);
+    }
+
+    #[NoAdminRequired]
     public function publish(string $formId, int $version): JSONResponse
     {
         $userId = $this->requireManager();

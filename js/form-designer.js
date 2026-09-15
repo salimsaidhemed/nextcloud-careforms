@@ -2,11 +2,13 @@
     'use strict';
 
     function apiUrl(path) { return OC.generateUrl('/apps/careforms' + path); }
-    function request(path) {
+    function request(path, options) {
+        options=options || {};
         return fetch(apiUrl(path), {
-            method:'GET',
+            method:options.method || 'GET',
             credentials:'same-origin',
-            headers:{'Accept':'application/json','requesttoken':OC.requestToken}
+            headers:{'Accept':'application/json','Content-Type':'application/json','requesttoken':OC.requestToken},
+            body:options.body ? JSON.stringify(options.body) : undefined
         }).then(function (response) {
             return response.json().catch(function(){ return {}; }).then(function(body) {
                 if (!response.ok) throw new Error(body.message || 'CareForms request failed.');
@@ -61,6 +63,9 @@
         meta.querySelector('[data-name]').value=state.name || '';
         meta.querySelector('[data-category]').value=state.category || '';
         meta.querySelector('[data-description]').value=state.description || '';
+        meta.querySelector('[data-name]').addEventListener('input',function(){ state.name=this.value; });
+        meta.querySelector('[data-category]').addEventListener('input',function(){ state.category=this.value; });
+        meta.querySelector('[data-description]').addEventListener('input',function(){ state.description=this.value; });
         body.appendChild(meta);
 
         var heading=document.createElement('div');
@@ -70,7 +75,16 @@
             var label=window.prompt('Section name','New section');
             if (!label) return;
             var id=slug(label);
-            state.sections.push({id:id,label:label,description:'',fields:[]});
+            state.sections.push({
+                id:id,
+                label:label,
+                description:'',
+                fields:[{
+                    id:'field_'+id.replace(/-/g,'_'),
+                    type:'text',
+                    label:'New field'
+                }]
+            });
             rerender();
         });
         heading.appendChild(add);
@@ -161,10 +175,28 @@
                 title.querySelector('h2').textContent=state.name || formId;
                 title.querySelector('p').textContent='Draft v' + version + ' · Visual Form Designer';
                 header.appendChild(title);
+                var headerActions=document.createElement('div');
+                headerActions.className='careforms-designer-header-actions';
                 var status=document.createElement('span');
                 status.className='careforms-form-state-badge';
                 status.textContent='Draft v' + version;
-                header.appendChild(status);
+                var save=document.createElement('button');
+                save.type='button'; save.className='primary'; save.textContent='Save draft';
+                var saveState=document.createElement('span'); saveState.className='careforms-muted'; saveState.textContent='';
+                save.addEventListener('click',function(){
+                    save.disabled=true; saveState.textContent='Saving…';
+                    request('/api/forms/admin/' + encodeURIComponent(formId) + '/versions/' + encodeURIComponent(version) + '/designer',{
+                        method:'PUT', body:{definition:state}
+                    }).then(function(payload){
+                        state=designerState(payload.definition);
+                        saveState.textContent='Saved';
+                        setTimeout(function(){ saveState.textContent=''; },2500);
+                    }).catch(function(error){
+                        saveState.textContent='Not saved: '+error.message;
+                    }).finally(function(){ save.disabled=false; });
+                });
+                headerActions.appendChild(status); headerActions.appendChild(save); headerActions.appendChild(saveState);
+                header.appendChild(headerActions);
                 mount.appendChild(header);
 
                 var modes=document.createElement('div');
