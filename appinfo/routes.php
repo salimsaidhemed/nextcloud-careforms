@@ -14,6 +14,7 @@ return [
         ['name' => 'formAdmin#importDefinition', 'url' => '/api/forms/admin/import', 'verb' => 'POST'],
         ['name' => 'formAdmin#update', 'url' => '/api/forms/admin/{formId}', 'verb' => 'PUT'],
         ['name' => 'formAdmin#createDraft', 'url' => '/api/forms/admin/{formId}/versions', 'verb' => 'POST'],
+        ['name' => 'formAdmin#designer', 'url' => '/api/forms/admin/{formId}/versions/{version}/designer', 'verb' => 'GET'],
         ['name' => 'formAdmin#publish', 'url' => '/api/forms/admin/{formId}/versions/{version}/publish', 'verb' => 'POST'],
         ['name' => 'formAdmin#archive', 'url' => '/api/forms/admin/{formId}/versions/{version}/archive', 'verb' => 'POST'],
         ['name' => 'patient#index', 'url' => '/api/patients', 'verb' => 'GET'],

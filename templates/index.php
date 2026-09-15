@@ -5,6 +5,7 @@ script('careforms', 'page');
 script('careforms', 'patients');
 script('careforms', 'reports');
 script('careforms', 'audit');
+script('careforms', 'form-designer');
 script('careforms', 'form-admin');
 script('careforms', 'review');
 script('careforms', 'printing');
@@ -15,6 +16,7 @@ style('careforms', 'patients');
 style('careforms', 'reports');
 style('careforms', 'audit');
 style('careforms', 'form-admin');
+style('careforms', 'form-designer');
 style('careforms', 'printing');
 
 ?>

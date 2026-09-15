@@ -220,9 +220,42 @@ class FormAdminController extends Controller
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
         if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
-        $draft = $this->formVersions->createDraft($formId, $userId);
-        $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => $draft->getVersionNumber()]);
+        try {
+            $publishedVersion = $this->formVersions->publishedVersion($formId);
+            $draft = $this->formVersions->createDraft($formId, $userId);
+            $this->definitions->cloneVersion($formId, $publishedVersion, $draft->getVersionNumber(), $userId);
+        } catch (\LogicException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+        $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => $draft->getVersionNumber(), 'clonedFrom' => $publishedVersion]);
         return new JSONResponse($draft->jsonSerialize(), Http::STATUS_CREATED);
+    }
+
+    #[NoAdminRequired]
+    public function designer(string $formId, int $version): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+
+        $draft = $this->formVersions->draft($formId);
+        if ($draft === null || $draft->getVersionNumber() !== $version) {
+            return new JSONResponse(['message' => 'Only the current draft can be opened in the form designer.'], Http::STATUS_CONFLICT);
+        }
+
+        try {
+            $definition = $this->definitions->getVersion($formId, $version);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_NOT_FOUND);
+        }
+
+        return new JSONResponse([
+            'formId' => $formId,
+            'version' => $version,
+            'status' => 'draft',
+            'definition' => $definition,
+        ]);
     }
 
     #[NoAdminRequired]
