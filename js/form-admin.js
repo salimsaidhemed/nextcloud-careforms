@@ -190,6 +190,10 @@
                     group.style.display = 'inline-flex'; group.style.alignItems = 'center'; group.style.gap = '6px';
                     group.appendChild(lifecycleBadge(version));
                     if (version.status === 'draft') {
+                        group.appendChild(actionButton('Open Designer', '', function () {
+                            if (!window.CareForms || !window.CareForms.FormDesigner) throw new Error('Form Designer is unavailable.');
+                            window.CareForms.FormDesigner.open(form.id, version.version);
+                        }));
                         group.appendChild(actionButton('Publish', '', function () {
                             return request('/api/forms/admin/' + encodeURIComponent(form.id) + '/versions/' + version.version + '/publish', {method:'POST'}).then(function(){ notify('Version ' + version.version + ' published.'); render(); });
                         }));
@@ -225,6 +229,8 @@
             mount.querySelector('p').textContent = error.message;
         });
     }
+
+    document.addEventListener('careforms:form-admin-render', render);
 
     document.addEventListener('DOMContentLoaded', function () {
         var tab = document.querySelector('.careforms-tab[data-view="form-admin"]');
