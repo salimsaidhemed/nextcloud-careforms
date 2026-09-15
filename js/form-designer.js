@@ -34,8 +34,22 @@
         return b;
     }
 
+    function slug(value) {
+        var base=(value || 'section').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'section';
+        var id=base, n=2;
+        while (stateIds.indexOf(id) !== -1) { id=base+'-'+n++; }
+        return id;
+    }
+    var stateIds=[];
+
     function renderDesign(state, body) {
         body.innerHTML='';
+        stateIds=state.sections.map(function(section){ return section.id; });
+        function rerender(){ renderDesign(state,body); }
+        function sectionButton(label, handler, disabled) {
+            var b=document.createElement('button'); b.type='button'; b.className='careforms-secondary-button'; b.textContent=label; b.disabled=!!disabled;
+            b.addEventListener('click',handler); return b;
+        }
         var intro=document.createElement('div');
         intro.className='careforms-info-banner';
         intro.textContent='Simple structured layout: sections and fields flow automatically. No pixels or X/Y positioning are required.';
@@ -51,13 +65,21 @@
 
         var heading=document.createElement('div');
         heading.className='careforms-section-heading';
-        heading.innerHTML='<div><h3>Form structure</h3><p class="careforms-muted">This milestone loads the shared editable model. Section and field editing comes next.</p></div>';
+        heading.innerHTML='<div><h3>Form structure</h3><p class="careforms-muted">Add and arrange sections. Fields remain in their section when it moves.</p></div>';
+        var add=sectionButton('+ Add section',function(){
+            var label=window.prompt('Section name','New section');
+            if (!label) return;
+            var id=slug(label);
+            state.sections.push({id:id,label:label,description:'',fields:[]});
+            rerender();
+        });
+        heading.appendChild(add);
         body.appendChild(heading);
 
         if (!state.sections.length) {
             var empty=document.createElement('div');
             empty.className='careforms-empty-state';
-            empty.innerHTML='<h3>No sections yet</h3><p>The next designer item will add section and field controls.</p>';
+            empty.innerHTML='<h3>No sections yet</h3><p>Use “Add section” to create the first section.</p>';
             body.appendChild(empty);
             return;
         }
@@ -67,10 +89,28 @@
             card.className='careforms-designer-section';
             var h=document.createElement('div');
             h.className='careforms-designer-section-title';
-            h.innerHTML='<strong></strong><span></span>';
+            h.innerHTML='<div><strong></strong><p class="careforms-muted"></p></div><span></span>';
             h.querySelector('strong').textContent=section.label || section.id || ('Section ' + (index + 1));
+            h.querySelector('p').textContent=section.description || '';
             h.querySelector('span').textContent=(section.fields || []).length + ' field' + ((section.fields || []).length === 1 ? '' : 's');
             card.appendChild(h);
+            var actions=document.createElement('div'); actions.className='careforms-designer-section-actions';
+            actions.appendChild(sectionButton('Edit',function(){
+                var label=window.prompt('Section name',section.label || section.id); if (!label) return;
+                var description=window.prompt('Section description (optional)',section.description || '');
+                section.label=label; section.description=description === null ? (section.description || '') : description; rerender();
+            }));
+            actions.appendChild(sectionButton('↑ Move up',function(){ if(index<1)return; var item=state.sections.splice(index,1)[0]; state.sections.splice(index-1,0,item); rerender(); },index===0));
+            actions.appendChild(sectionButton('↓ Move down',function(){ if(index>=state.sections.length-1)return; var item=state.sections.splice(index,1)[0]; state.sections.splice(index+1,0,item); rerender(); },index===state.sections.length-1));
+            actions.appendChild(sectionButton('Duplicate',function(){
+                var copy=clone(section); copy.id=slug((section.id || 'section')+'-copy'); copy.label=(section.label || 'Section')+' copy'; state.sections.splice(index+1,0,copy); rerender();
+            }));
+            actions.appendChild(sectionButton('Delete',function(){
+                var count=(section.fields || []).length;
+                var message='Delete “'+(section.label || section.id)+'”?' + (count ? ' This will also remove '+count+' field'+(count===1?'':'s')+'.' : '');
+                if(!window.confirm(message))return; state.sections.splice(index,1); rerender();
+            }));
+            card.appendChild(actions);
             (section.fields || []).forEach(function(field) {
                 var row=document.createElement('div');
                 row.className='careforms-designer-field';
