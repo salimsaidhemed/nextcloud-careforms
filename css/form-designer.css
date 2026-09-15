@@ -29,3 +29,7 @@
 .careforms-choice-row{display:grid;grid-template-columns:auto minmax(160px,1fr) auto;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--color-border)}
 .careforms-choice-handle{color:var(--color-text-maxcontrast);cursor:default}.careforms-choice-actions{display:flex;gap:5px}.careforms-choice-actions button{min-width:36px}
 @media(max-width:720px){.careforms-choice-editor-head{flex-direction:column}.careforms-choice-row{grid-template-columns:auto 1fr}.careforms-choice-actions{grid-column:2;flex-wrap:wrap}}
+
+.careforms-designer-markup{width:100%;min-height:520px;margin-top:14px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;line-height:1.5;resize:vertical}
+.careforms-designer-markup-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px}
+@media(max-width:720px){.careforms-designer-markup{min-height:420px}.careforms-designer-markup-footer{align-items:stretch;flex-direction:column}.careforms-designer-markup-footer button{width:100%}}

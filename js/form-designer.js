@@ -292,12 +292,104 @@
         });
     }
 
-    function renderMarkup(state, body) {
-        body.innerHTML='<div class="careforms-info-banner">CareFormML editing will be enabled in its dedicated milestone. For now this view confirms that Markup and Design share the same form model.</div>';
-        var pre=document.createElement('pre');
-        pre.className='careforms-designer-code';
-        pre.textContent=JSON.stringify(state,null,2);
-        body.appendChild(pre);
+    function careFormMlQuote(value) { return JSON.stringify(value === undefined || value === null ? '' : value); }
+    function toCareFormML(state) {
+        var lines=['form '+careFormMlQuote(state.name || state.id)];
+        lines.push('  id '+careFormMlQuote(state.id));
+        lines.push('  version '+Number(state.version || 1));
+        lines.push('  schema '+Number(state.schemaVersion || 1));
+        if(state.category) lines.push('  category '+careFormMlQuote(state.category));
+        if(state.description) lines.push('  description '+careFormMlQuote(state.description));
+        (state.sections || []).forEach(function(section){
+            lines.push('');
+            lines.push('  section '+careFormMlQuote(section.label || section.id)+' id='+careFormMlQuote(section.id));
+            if(section.description) lines.push('    description '+careFormMlQuote(section.description));
+            (section.fields || []).forEach(function(field){
+                var attrs=['id='+careFormMlQuote(field.id),'type='+field.type];
+                if(field.required) attrs.push('required');
+                if(field.readOnly) attrs.push('readonly');
+                if(field.width) attrs.push('width='+field.width);
+                if(field.source) attrs.push('source='+careFormMlQuote(field.source));
+                if(field.rows) attrs.push('rows='+field.rows);
+                if(field.min!==undefined) attrs.push('min='+field.min);
+                if(field.max!==undefined) attrs.push('max='+field.max);
+                if(field.unit) attrs.push('unit='+careFormMlQuote(field.unit));
+                lines.push('    field '+careFormMlQuote(field.label || field.id)+' '+attrs.join(' '));
+                if(field.helpText) lines.push('      help '+careFormMlQuote(field.helpText));
+                (field.options || []).forEach(function(option){ lines.push('      option '+careFormMlQuote(option)); });
+            });
+        });
+        return lines.join('\n');
+    }
+    function careFormMlTokens(line) {
+        var out=[], re=/"(?:\\.|[^"\\])*"|[^\s]+/g, match;
+        while((match=re.exec(line))!==null) out.push(match[0]);
+        return out;
+    }
+    function careFormMlValue(token) {
+        if(token===undefined) return '';
+        if(token.charAt(0)==='"') { try { return JSON.parse(token); } catch(e) { throw new Error('Invalid quoted text.'); } }
+        return token;
+    }
+    function fromCareFormML(text, original) {
+        var result=clone(original), currentSection=null, currentField=null;
+        result.sections=[];
+        var lines=text.split(/\r?\n/);
+        lines.forEach(function(raw,i){
+            var line=raw.trim(); if(!line || line.charAt(0)==='#') return;
+            var t=careFormMlTokens(line), cmd=t.shift();
+            function fail(message){ throw new Error('Line '+(i+1)+': '+message); }
+            if(cmd==='form'){ if(!t.length) fail('form requires a name'); result.name=careFormMlValue(t[0]); return; }
+            if(cmd==='id'){ result.id=careFormMlValue(t[0]); return; }
+            if(cmd==='version'){ result.version=Number(t[0]); return; }
+            if(cmd==='schema'){ result.schemaVersion=Number(t[0]); return; }
+            if(cmd==='category'){ result.category=careFormMlValue(t[0]); return; }
+            if(cmd==='description' && !currentSection){ result.description=careFormMlValue(t[0]); return; }
+            if(cmd==='section'){
+                if(!t.length) fail('section requires a label');
+                var label=careFormMlValue(t.shift()), id='';
+                t.forEach(function(x){ if(x.indexOf('id=')===0) id=careFormMlValue(x.slice(3)); });
+                if(!id) fail('section requires id=');
+                currentSection={id:id,label:label,description:'',fields:[]}; result.sections.push(currentSection); currentField=null; return;
+            }
+            if(cmd==='description' && currentSection && !currentField){ currentSection.description=careFormMlValue(t[0]); return; }
+            if(cmd==='field'){
+                if(!currentSection) fail('field must be inside a section');
+                if(!t.length) fail('field requires a label');
+                var flabel=careFormMlValue(t.shift()), f={label:flabel}, attrs=t;
+                attrs.forEach(function(x){
+                    if(x==='required') f.required=true; else if(x==='readonly') f.readOnly=true;
+                    else { var p=x.indexOf('='); if(p<1) fail('invalid field attribute '+x); var k=x.slice(0,p),v=careFormMlValue(x.slice(p+1));
+                        if(k==='id') f.id=v; else if(k==='type') f.type=v; else if(k==='width') f.width=v; else if(k==='source') f.source=v;
+                        else if(k==='rows'||k==='min'||k==='max') f[k]=Number(v); else if(k==='unit') f.unit=v; else fail('unknown field attribute '+k);
+                    }
+                });
+                if(!f.id || !f.type) fail('field requires id= and type=');
+                currentSection.fields.push(f); currentField=f; return;
+            }
+            if(cmd==='help'){ if(!currentField) fail('help must follow a field'); currentField.helpText=careFormMlValue(t[0]); return; }
+            if(cmd==='option'){ if(!currentField) fail('option must follow a field'); currentField.options=currentField.options || []; currentField.options.push(careFormMlValue(t[0])); return; }
+            fail('unknown statement '+cmd);
+        });
+        if(!result.sections.length) throw new Error('CareFormML must contain at least one section.');
+        return designerState(result);
+    }
+
+    function renderMarkup(state, body, applyState) {
+        body.innerHTML='';
+        var info=document.createElement('div'); info.className='careforms-info-banner';
+        info.textContent='CareFormML is a simpler text view of the same form model. Apply markup to update Design and Preview; Save draft persists it.';
+        body.appendChild(info);
+        var textarea=document.createElement('textarea'); textarea.className='careforms-designer-markup'; textarea.spellcheck=false; textarea.value=toCareFormML(state);
+        body.appendChild(textarea);
+        var footer=document.createElement('div'); footer.className='careforms-designer-markup-footer';
+        var feedback=document.createElement('span'); feedback.className='careforms-muted';
+        var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply markup';
+        apply.addEventListener('click',function(){
+            try { var next=fromCareFormML(textarea.value,state); applyState(next); feedback.textContent='Markup applied'; }
+            catch(error){ feedback.textContent=error.message; }
+        });
+        footer.appendChild(feedback); footer.appendChild(apply); body.appendChild(footer);
     }
 
     function renderPreview(state, body) {
@@ -362,7 +454,7 @@
                     mode=next;
                     Array.prototype.forEach.call(modes.children,function(child){ child.classList.toggle('active',child.dataset.mode===mode); });
                     if (mode==='design') renderDesign(state,body);
-                    if (mode==='markup') renderMarkup(state,body);
+                    if (mode==='markup') renderMarkup(state,body,function(next){ state=next; });
                     if (mode==='preview') renderPreview(state,body);
                 }
                 [['design','Design'],['markup','Markup'],['preview','Preview']].forEach(function(item) {
