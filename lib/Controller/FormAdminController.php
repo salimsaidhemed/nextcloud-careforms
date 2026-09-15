@@ -234,6 +234,31 @@ class FormAdminController extends Controller
     }
 
     #[NoAdminRequired]
+    public function designer(string $formId, int $version): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+
+        $draft = $this->formVersions->draft($formId);
+        if ($draft === null || $draft->getVersionNumber() !== $version) {
+            return new JSONResponse(['message' => 'Only the current draft can be opened in the form designer.'], Http::STATUS_CONFLICT);
+        }
+
+        try {
+            $definition = $this->definitions->getVersion($formId, $version);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_NOT_FOUND);
+        }
+
+        return new JSONResponse([
+            'formId' => $formId,
+            'version' => $version,
+            'status' => 'draft',
+            'definition' => $definition,
+        ]);
+    }
+
+    #[NoAdminRequired]
     public function publish(string $formId, int $version): JSONResponse
     {
         $userId = $this->requireManager();
