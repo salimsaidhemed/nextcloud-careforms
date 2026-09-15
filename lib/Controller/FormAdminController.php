@@ -272,7 +272,7 @@ class FormAdminController extends Controller
         $errors = $this->schemaValidator->validate($definition);
         if ($errors !== []) {
             return new JSONResponse([
-                'message' => 'The draft contains validation errors and was not saved.',
+                'message' => 'The draft contains validation errors and was not saved: ' . implode(' ', $errors),
                 'errors' => $errors,
             ], Http::STATUS_UNPROCESSABLE_ENTITY);
         }
