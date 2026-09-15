@@ -81,6 +81,76 @@
         modal.appendChild(grid); overlay.appendChild(modal); document.body.appendChild(overlay);
     }
 
+    function editField(field, rerender) {
+        var overlay=document.createElement('div'); overlay.className='careforms-designer-modal-overlay';
+        var modal=document.createElement('div'); modal.className='careforms-designer-modal careforms-field-editor';
+        modal.innerHTML='<div class="careforms-designer-modal-head"><div><h3>Edit field</h3><p class="careforms-muted">Configure how this field appears and behaves.</p></div><button type="button" data-close aria-label="Close">×</button></div>';
+        var form=document.createElement('div'); form.className='careforms-field-editor-form';
+        form.innerHTML=
+            '<label>Field label<input type="text" data-label></label>'+
+            '<label>Help text<input type="text" data-help placeholder="Optional guidance for the person completing the form"></label>'+
+            '<label class="careforms-check"><input type="checkbox" data-required> Required field</label>'+
+            '<label>Width<select data-width><option value="">Automatic</option><option value="full">Full width</option><option value="half">Half width</option><option value="third">One third</option></select></label>';
+        form.querySelector('[data-label]').value=field.label || '';
+        form.querySelector('[data-help]').value=field.helpText || '';
+        form.querySelector('[data-required]').checked=!!field.required;
+        form.querySelector('[data-width]').value=field.width || '';
+
+        if(field.type==='choice-group' || field.type==='checkbox-group'){
+            var choices=document.createElement('label'); choices.innerHTML='Choices <span class="careforms-muted">(one per line)</span><textarea rows="6" data-options></textarea>';
+            choices.querySelector('textarea').value=(field.options || []).join('\n'); form.appendChild(choices);
+        }
+        if(field.type==='number'){
+            var numeric=document.createElement('div'); numeric.className='careforms-field-editor-row';
+            numeric.innerHTML='<label>Minimum<input type="number" step="any" data-min></label><label>Maximum<input type="number" step="any" data-max></label><label>Unit<input type="text" data-unit placeholder="e.g. kg, bpm"></label>';
+            if(field.min!==undefined) numeric.querySelector('[data-min]').value=field.min;
+            if(field.max!==undefined) numeric.querySelector('[data-max]').value=field.max;
+            numeric.querySelector('[data-unit]').value=field.unit || ''; form.appendChild(numeric);
+        }
+        if(field.type==='textarea'){
+            var rows=document.createElement('label'); rows.innerHTML='Visible lines<input type="number" min="1" max="50" data-rows>';
+            rows.querySelector('input').value=field.rows || 4; form.appendChild(rows);
+        }
+
+        var advanced=document.createElement('details'); advanced.className='careforms-field-editor-advanced';
+        advanced.innerHTML='<summary>Advanced</summary><div><label>Internal field ID<input type="text" data-id readonly></label><label>Data source<select data-source><option value="">Manual entry</option><option value="patient.name">Patient name</option><option value="patient.mr_number">Patient MR number</option><option value="patient.date_of_birth">Patient date of birth</option><option value="current_user.display_name">Current user display name</option><option value="system.current_date">Current date</option></select></label><label class="careforms-check"><input type="checkbox" data-readonly> Read only</label></div>';
+        advanced.querySelector('[data-id]').value=field.id || '';
+        advanced.querySelector('[data-source]').value=field.source || '';
+        advanced.querySelector('[data-readonly]').checked=!!field.readOnly;
+        form.appendChild(advanced);
+
+        var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
+        var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
+        var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply changes';
+        actions.appendChild(cancel); actions.appendChild(apply); form.appendChild(actions); modal.appendChild(form); overlay.appendChild(modal); document.body.appendChild(overlay);
+        function close(){ overlay.remove(); }
+        modal.querySelector('[data-close]').addEventListener('click',close); cancel.addEventListener('click',close);
+        apply.addEventListener('click',function(){
+            var label=form.querySelector('[data-label]').value.trim();
+            if(!label){ window.alert('Field label is required.'); return; }
+            field.label=label;
+            var help=form.querySelector('[data-help]').value.trim(); if(help) field.helpText=help; else delete field.helpText;
+            if(form.querySelector('[data-required]').checked) field.required=true; else delete field.required;
+            var width=form.querySelector('[data-width]').value; if(width) field.width=width; else delete field.width;
+            var source=advanced.querySelector('[data-source]').value; if(source) field.source=source; else delete field.source;
+            if(advanced.querySelector('[data-readonly]').checked) field.readOnly=true; else delete field.readOnly;
+            var options=form.querySelector('[data-options]');
+            if(options){
+                var values=options.value.split(/\r?\n/).map(function(v){return v.trim();}).filter(Boolean);
+                var unique=values.filter(function(v,i){return values.indexOf(v)===i;});
+                if(!unique.length){ window.alert('Choice fields require at least one option.'); return; }
+                field.options=unique;
+            }
+            var min=form.querySelector('[data-min]'), max=form.querySelector('[data-max]'), unit=form.querySelector('[data-unit]');
+            if(min){ if(min.value!=='') field.min=Number(min.value); else delete field.min; }
+            if(max){ if(max.value!=='') field.max=Number(max.value); else delete field.max; }
+            if(min && max && min.value!=='' && max.value!=='' && Number(min.value)>Number(max.value)){ window.alert('Minimum cannot be greater than maximum.'); return; }
+            if(unit){ var u=unit.value.trim(); if(u) field.unit=u; else delete field.unit; }
+            var rows=form.querySelector('[data-rows]'); if(rows) field.rows=Math.max(1,Math.min(50,parseInt(rows.value,10)||4));
+            close(); rerender();
+        });
+    }
+
     function renderDesign(state, body) {
         body.innerHTML='';
         stateIds=state.sections.map(function(section){ return section.id; });
@@ -179,6 +249,7 @@
                 var type=document.createElement('small');
                 type.textContent=field.type + (field.required ? ' · Required' : '');
                 var fieldActions=document.createElement('div'); fieldActions.className='careforms-designer-field-actions';
+                fieldActions.appendChild(sectionButton('Edit',function(){ editField(field,rerender); }));
                 fieldActions.appendChild(sectionButton('↑',function(){ if(fieldIndex<1)return; var item=section.fields.splice(fieldIndex,1)[0]; section.fields.splice(fieldIndex-1,0,item); rerender(); },fieldIndex===0));
                 fieldActions.appendChild(sectionButton('↓',function(){ if(fieldIndex>=section.fields.length-1)return; var item=section.fields.splice(fieldIndex,1)[0]; section.fields.splice(fieldIndex+1,0,item); rerender(); },fieldIndex===section.fields.length-1));
                 fieldActions.appendChild(sectionButton('Delete',function(){
