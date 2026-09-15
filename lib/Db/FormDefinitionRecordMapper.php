@@ -77,6 +77,14 @@ class FormDefinitionRecordMapper extends QBMapper
         }
     }
 
+    public function replaceDefinition(FormDefinitionRecord $record, string $definitionJson, string $userId): FormDefinitionRecord
+    {
+        $record->setDefinitionJson($definitionJson);
+        $record->setCreatedBy($userId);
+        $record->setCreatedAt(time());
+        return $this->update($record);
+    }
+
     public function exists(string $formId, int $version): bool
     {
         $qb = $this->db->getQueryBuilder();
