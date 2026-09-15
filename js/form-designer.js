@@ -97,8 +97,29 @@
         form.querySelector('[data-width]').value=field.width || '';
 
         if(field.type==='choice-group' || field.type==='checkbox-group'){
-            var choices=document.createElement('label'); choices.innerHTML='Choices <span class="careforms-muted">(one per line)</span><textarea rows="6" data-options></textarea>';
-            choices.querySelector('textarea').value=(field.options || []).join('\n'); form.appendChild(choices);
+            var choices=document.createElement('div'); choices.className='careforms-choice-editor';
+            choices.innerHTML='<div class="careforms-choice-editor-head"><div><strong>Choices</strong><p class="careforms-muted">Add, rename and reorder the options shown to users.</p></div><button type="button" class="careforms-secondary-button" data-add-option>+ Add choice</button></div><div data-option-list></div>';
+            var optionList=choices.querySelector('[data-option-list]');
+            var optionValues=clone(field.options || []);
+            function renderOptions(){
+                optionList.innerHTML='';
+                optionValues.forEach(function(value,index){
+                    var row=document.createElement('div'); row.className='careforms-choice-row';
+                    row.innerHTML='<span class="careforms-choice-handle">☰</span><input type="text" data-option><div class="careforms-choice-actions"></div>';
+                    row.querySelector('[data-option]').value=value;
+                    row.querySelector('[data-option]').addEventListener('input',function(){ optionValues[index]=this.value; });
+                    var a=row.querySelector('.careforms-choice-actions');
+                    var up=document.createElement('button'); up.type='button'; up.textContent='↑'; up.disabled=index===0;
+                    up.addEventListener('click',function(){ var v=optionValues.splice(index,1)[0]; optionValues.splice(index-1,0,v); renderOptions(); });
+                    var down=document.createElement('button'); down.type='button'; down.textContent='↓'; down.disabled=index===optionValues.length-1;
+                    down.addEventListener('click',function(){ var v=optionValues.splice(index,1)[0]; optionValues.splice(index+1,0,v); renderOptions(); });
+                    var remove=document.createElement('button'); remove.type='button'; remove.textContent='Remove';
+                    remove.addEventListener('click',function(){ if(optionValues.length===1){ window.alert('Choice fields require at least one option.'); return; } optionValues.splice(index,1); renderOptions(); });
+                    a.appendChild(up); a.appendChild(down); a.appendChild(remove); optionList.appendChild(row);
+                });
+            }
+            choices.querySelector('[data-add-option]').addEventListener('click',function(){ optionValues.push('New choice'); renderOptions(); });
+            choices._optionValues=optionValues; choices._renderOptions=renderOptions; renderOptions(); form.appendChild(choices);
         }
         if(field.type==='number'){
             var numeric=document.createElement('div'); numeric.className='careforms-field-editor-row';
@@ -134,11 +155,12 @@
             var width=form.querySelector('[data-width]').value; if(width) field.width=width; else delete field.width;
             var source=advanced.querySelector('[data-source]').value; if(source) field.source=source; else delete field.source;
             if(advanced.querySelector('[data-readonly]').checked) field.readOnly=true; else delete field.readOnly;
-            var options=form.querySelector('[data-options]');
-            if(options){
-                var values=options.value.split(/\r?\n/).map(function(v){return v.trim();}).filter(Boolean);
+            var choiceEditor=form.querySelector('.careforms-choice-editor');
+            if(choiceEditor){
+                var values=choiceEditor._optionValues.map(function(v){return v.trim();}).filter(Boolean);
                 var unique=values.filter(function(v,i){return values.indexOf(v)===i;});
                 if(!unique.length){ window.alert('Choice fields require at least one option.'); return; }
+                if(unique.length!==values.length){ window.alert('Each choice must be unique. Please rename duplicate choices.'); return; }
                 field.options=unique;
             }
             var min=form.querySelector('[data-min]'), max=form.querySelector('[data-max]'), unit=form.querySelector('[data-unit]');
