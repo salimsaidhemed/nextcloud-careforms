@@ -204,6 +204,53 @@ class FormAdminController extends Controller
     }
 
     #[NoAdminRequired]
+    public function createForm(string $name, string $category = 'General', string $description = ''): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+
+        $base = strtolower(trim($name));
+        $base = preg_replace('/[^a-z0-9]+/', '-', $base) ?? '';
+        $base = trim($base, '-');
+        if ($base === '') $base = 'new-form';
+        $formId = $base;
+        $suffix = 2;
+        while ($this->definitions->exists($formId)) $formId = $base . '-' . $suffix++;
+
+        $definition = [
+            'schemaVersion' => FormSchemaValidator::DEFAULT_SCHEMA_VERSION,
+            'id' => $formId,
+            'name' => trim($name),
+            'category' => trim($category) !== '' ? trim($category) : 'General',
+            'description' => trim($description),
+            'version' => 1,
+            'sections' => [[
+                'id' => 'general',
+                'label' => 'General',
+                'description' => '',
+                'fields' => [[
+                    'id' => 'new_field',
+                    'type' => 'text',
+                    'label' => 'New field',
+                ]],
+            ]],
+        ];
+
+        $errors = $this->schemaValidator->validate($definition);
+        if ($errors !== []) return new JSONResponse(['message' => 'The new form is invalid.', 'errors' => $errors], Http::STATUS_UNPROCESSABLE_ENTITY);
+
+        try {
+            $created = $this->definitions->importNew($definition, $userId);
+            $draft = $this->formVersions->createDraft($formId, $userId);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+        $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => 1, 'source' => 'designer']);
+        return new JSONResponse(['definition' => $created, 'draft' => $draft->jsonSerialize()], Http::STATUS_CREATED);
+    }
+
+    #[NoAdminRequired]
     public function update(string $formId, bool $enabled): JSONResponse
     {
         $userId = $this->requireManager();
