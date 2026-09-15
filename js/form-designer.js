@@ -11,12 +11,40 @@
             body:options.body ? JSON.stringify(options.body) : undefined
         }).then(function (response) {
             return response.json().catch(function(){ return {}; }).then(function(body) {
-                if (!response.ok) throw new Error(body.message || 'CareForms request failed.');
+                if (!response.ok) { var error=new Error(body.message || 'CareForms request failed.'); error.details=body.errors || []; throw error; }
                 return body;
             });
         });
     }
     function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+    function validationLocation(error, state) {
+        var m=error.match(/^sections\[(\d+)\](?:\.fields\[(\d+)\])?/);
+        if(!m) return {kind:'form',label:'Form'};
+        var si=Number(m[1]), fi=m[2]===undefined ? null : Number(m[2]), section=(state.sections || [])[si];
+        if(fi===null) return {kind:'section',sectionIndex:si,label:section ? (section.label || section.id) : 'Section '+(si+1)};
+        var field=section && (section.fields || [])[fi];
+        return {kind:'field',sectionIndex:si,fieldIndex:fi,label:field ? (field.label || field.id) : 'Field '+(fi+1)};
+    }
+    function showValidationErrors(errors,state,body,saveState) {
+        body.querySelectorAll('.careforms-validation-error').forEach(function(el){ el.classList.remove('careforms-validation-error'); });
+        var old=body.querySelector('.careforms-designer-validation-summary'); if(old) old.remove();
+        var summary=document.createElement('div'); summary.className='careforms-designer-validation-summary';
+        summary.innerHTML='<div><strong>Draft needs attention</strong><p></p></div><ul></ul>';
+        summary.querySelector('p').textContent=errors.length+' validation issue'+(errors.length===1?'':'s')+' must be fixed before this draft can be saved.';
+        errors.forEach(function(error){
+            var loc=validationLocation(error,state), li=document.createElement('li'), b=document.createElement('button'); b.type='button';
+            b.textContent=loc.label+': '+error; li.appendChild(b); summary.querySelector('ul').appendChild(li);
+            b.addEventListener('click',function(){
+                var target=null;
+                if(loc.kind==='section'||loc.kind==='field') target=body.querySelector('[data-section-index="'+loc.sectionIndex+'"]');
+                if(loc.kind==='field'&&target) target=target.querySelector('[data-field-index="'+loc.fieldIndex+'"]') || target;
+                if(target){ target.classList.add('careforms-validation-error'); target.scrollIntoView({behavior:'smooth',block:'center'}); }
+                else body.scrollIntoView({behavior:'smooth',block:'start'});
+            });
+        });
+        body.insertBefore(summary,body.firstChild); saveState.textContent='Not saved — '+errors.length+' issue'+(errors.length===1?'':'s');
+    }
 
     function designerState(definition) {
         var state = clone(definition);
@@ -229,7 +257,7 @@
 
         state.sections.forEach(function(section, index) {
             var card=document.createElement('div');
-            card.className='careforms-designer-section';
+            card.className='careforms-designer-section'; card.dataset.sectionIndex=String(index);
             var h=document.createElement('div');
             h.className='careforms-designer-section-title';
             h.innerHTML='<div><strong></strong><p class="careforms-muted"></p></div><span></span>';
@@ -265,7 +293,7 @@
             card.appendChild(actions);
             (section.fields || []).forEach(function(field, fieldIndex) {
                 var row=document.createElement('div');
-                row.className='careforms-designer-field';
+                row.className='careforms-designer-field'; row.dataset.fieldIndex=String(fieldIndex);
                 var label=document.createElement('span');
                 label.textContent=field.label || field.id;
                 var type=document.createElement('small');
@@ -438,7 +466,8 @@
                         saveState.textContent='Saved';
                         setTimeout(function(){ saveState.textContent=''; },2500);
                     }).catch(function(error){
-                        saveState.textContent='Not saved: '+error.message;
+                        if(error.details && error.details.length){ showValidationErrors(error.details,state,body,saveState); }
+                        else saveState.textContent='Not saved: '+error.message;
                     }).finally(function(){ save.disabled=false; });
                 });
                 headerActions.appendChild(status); headerActions.appendChild(save); headerActions.appendChild(saveState);
