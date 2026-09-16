@@ -203,7 +203,7 @@
         Promise.all([request('/api/submissions',{method:'GET'}), loadPatients().catch(function(){ return []; })]).then(function(results){
             var submissions=results[0]; patientCache=results[1] || patientCache;
             mount.innerHTML='<div class="careforms-section-heading"><div><h2>My Work</h2><p class="careforms-muted">Drafts and your recent submissions.</p></div></div>';
-            if(!accessState || (!accessState.forms.length && !accessState.canViewReports)){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No CareForms role assigned</h3><p>Ask an administrator to assign you to an appropriate CareForms group.</p></div>'; return; }
+            if(!accessState || (!accessState.forms.length && !accessState.canViewReports)){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No forms assigned</h3><p>You currently do not have permission to fill any CareForms forms. Ask an administrator to assign your Nextcloud group to a form.</p></div>'; return; }
             if(!submissions.length){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No assigned work yet</h3><p>Start a permitted form and save it as a draft. It will appear here.</p></div>'; return; }
             var list=document.createElement('div'); list.className='careforms-submission-list';
             submissions.forEach(function(s){
