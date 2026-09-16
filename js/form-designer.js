@@ -410,14 +410,31 @@
         body.appendChild(info);
         var banner=document.createElement('div'); banner.className='careforms-designer-mode-banner is-markup'; banner.innerHTML='<strong>Markup mode</strong><span>CareFormsML editor — edit the declarative form definition directly.</span>'; body.appendChild(banner);
         var editor=document.createElement('div'); editor.className='careforms-code-editor'; editor.innerHTML='<div class="careforms-code-editor-head"><strong>CareFormsML</strong><span class="careforms-muted">Form definition</span></div>';
+        var surface=document.createElement('div'); surface.className='careforms-code-surface';
+        var highlight=document.createElement('pre'); highlight.className='careforms-code-highlight'; highlight.setAttribute('aria-hidden','true');
         var textarea=document.createElement('textarea'); textarea.className='careforms-designer-markup'; textarea.spellcheck=false; textarea.value=toCareFormML(state);
-        editor.appendChild(textarea); body.appendChild(editor);
+        function esc(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function highlightLine(line){
+            var comment=line.indexOf('#'), code=comment>=0?line.slice(0,comment):line, tail=comment>=0?line.slice(comment):'';
+            var html=esc(code);
+            html=html.replace(/(&quot;(?:\\.|[^&])*?&quot;)/g,'<span class="cfml-string">$1</span>');
+            html=html.replace(/\b(form|section|field|help|option|id|version|schema|category|description)\b/g,'<span class="cfml-keyword">$1</span>');
+            html=html.replace(/\b(id|type|width|source|rows|min|max|unit)=/g,'<span class="cfml-attribute">$1</span>=');
+            html=html.replace(/\b(required|readonly|true|false)\b/g,'<span class="cfml-boolean">$1</span>');
+            html=html.replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="cfml-number">$1</span>');
+            return html+(tail?'<span class="cfml-comment">'+esc(tail)+'</span>':'');
+        }
+        function refreshHighlight(){ highlight.innerHTML=textarea.value.split(/\r?\n/).map(highlightLine).join('\n')+'\n'; }
+        function syncScroll(){ highlight.scrollTop=textarea.scrollTop; highlight.scrollLeft=textarea.scrollLeft; }
+        textarea.addEventListener('input',refreshHighlight); textarea.addEventListener('scroll',syncScroll);
+        textarea.addEventListener('keydown',function(event){ if(event.key==='Tab'){ event.preventDefault(); var start=this.selectionStart,end=this.selectionEnd; this.setRangeText('  ',start,end,'end'); refreshHighlight(); } });
+        surface.appendChild(highlight); surface.appendChild(textarea); editor.appendChild(surface); body.appendChild(editor); refreshHighlight();
         var footer=document.createElement('div'); footer.className='careforms-designer-markup-footer';
         var feedback=document.createElement('span'); feedback.className='careforms-muted';
         var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply markup';
         apply.addEventListener('click',function(){
-            try { var next=fromCareFormML(textarea.value,state); applyState(next); feedback.textContent='Markup applied'; }
-            catch(error){ feedback.textContent=error.message; }
+            try { var next=fromCareFormML(textarea.value,state); applyState(next); feedback.className='careforms-markup-feedback is-success'; feedback.textContent='Markup applied successfully'; }
+            catch(error){ feedback.className='careforms-markup-feedback is-error'; feedback.textContent=error.message; var m=error.message.match(/^Line (\\d+):/); if(m){ var lines=textarea.value.split(/\\r?\\n/), pos=0; for(var n=1;n<Number(m[1]);n++) pos+=lines[n-1].length+1; textarea.focus(); textarea.setSelectionRange(pos,pos+(lines[Number(m[1])-1]||'').length); } }
         });
         footer.appendChild(feedback); footer.appendChild(apply); body.appendChild(footer);
     }
