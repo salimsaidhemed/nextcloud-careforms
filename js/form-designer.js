@@ -210,8 +210,8 @@
             b.addEventListener('click',handler); return b;
         }
         var intro=document.createElement('div');
-        intro.className='careforms-info-banner';
-        intro.textContent='Simple structured layout: sections and fields flow automatically. No pixels or X/Y positioning are required.';
+        intro.className='careforms-designer-mode-banner is-design';
+        intro.innerHTML='<strong>Design mode</strong><span>Visual Form Designer — sections and fields flow automatically. No pixels or X/Y positioning are required.</span>';
         body.appendChild(intro);
 
         var meta=document.createElement('div');
@@ -408,8 +408,10 @@
         var info=document.createElement('div'); info.className='careforms-info-banner';
         info.textContent='CareFormML is a simpler text view of the same form model. Apply markup to update Design and Preview; Save draft persists it.';
         body.appendChild(info);
+        var banner=document.createElement('div'); banner.className='careforms-designer-mode-banner is-markup'; banner.innerHTML='<strong>Markup mode</strong><span>CareFormsML editor — edit the declarative form definition directly.</span>'; body.appendChild(banner);
+        var editor=document.createElement('div'); editor.className='careforms-code-editor'; editor.innerHTML='<div class="careforms-code-editor-head"><strong>CareFormsML</strong><span class="careforms-muted">Form definition</span></div>';
         var textarea=document.createElement('textarea'); textarea.className='careforms-designer-markup'; textarea.spellcheck=false; textarea.value=toCareFormML(state);
-        body.appendChild(textarea);
+        editor.appendChild(textarea); body.appendChild(editor);
         var footer=document.createElement('div'); footer.className='careforms-designer-markup-footer';
         var feedback=document.createElement('span'); feedback.className='careforms-muted';
         var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply markup';
@@ -426,9 +428,9 @@
             body.innerHTML='<div class="careforms-empty-state"><h3>Preview unavailable</h3><p>The CareForms renderer could not be loaded.</p></div>';
             return;
         }
-        var mount=document.createElement('div');
-        mount.className='careforms-designer-preview';
-        body.appendChild(mount);
+        var banner=document.createElement('div'); banner.className='careforms-designer-mode-banner is-preview'; banner.innerHTML='<strong>Preview mode</strong><span>End-user preview — editing controls are hidden. This is how the form will appear when completed.</span>'; body.appendChild(banner);
+        var shell=document.createElement('div'); shell.className='careforms-designer-preview-shell';
+        var mount=document.createElement('div'); mount.className='careforms-designer-preview'; shell.appendChild(mount); body.appendChild(shell);
         window.CareForms.FormRenderer.render(state,mount,{values:{},readOnly:false,backLabel:'Back to designer'});
     }
 
@@ -486,7 +488,7 @@
                     if (mode==='markup') renderMarkup(state,body,function(next){ state=next; });
                     if (mode==='preview') renderPreview(state,body);
                 }
-                [['design','Design'],['markup','Markup'],['preview','Preview']].forEach(function(item) {
+                [['design','Design'],['markup','CareFormsML'],['preview','Preview']].forEach(function(item) {
                     var b=button(item[1],item[0]===mode,function(){ switchMode(item[0]); });
                     b.dataset.mode=item[0];
                     modes.appendChild(b);
