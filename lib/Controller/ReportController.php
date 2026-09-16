@@ -34,7 +34,10 @@ class ReportController extends Controller
         $userId = $this->requireReportAccess();
         if ($userId instanceof JSONResponse) return $userId;
 
-        $submissions = $this->mapper->findAllReportable();
+        $submissions = array_values(array_filter(
+            $this->mapper->findAllReportable(),
+            fn ($submission): bool => $this->accessService->canReportOnForm($submission->getFormId(), $userId),
+        ));
         $now = time();
         $thirtyDaysAgo = $now - (30 * 86400);
         $formTotals = [
@@ -126,6 +129,7 @@ class ReportController extends Controller
 
         $items = [];
         foreach ($this->mapper->findAllReportable() as $submission) {
+            if (!$this->accessService->canReportOnForm($submission->getFormId(), $userId)) continue;
             $patient = null;
             if ($submission->getPatientId() !== null) {
                 try {

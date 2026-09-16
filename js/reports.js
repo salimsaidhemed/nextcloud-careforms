@@ -241,8 +241,23 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        var tab = document.querySelector('.careforms-tab[data-view="reports"]');
-        if (tab) tab.addEventListener('click', renderReports);
+        // page.js owns navigation. Render only after it has activated Reports.
+        document.addEventListener('careforms:view-shown', function (event) {
+            if (event.detail && event.detail.view === 'reports') renderReports();
+        });
+
+        // Compatibility fallback for cached/older page.js: if Reports becomes
+        // the active tab but no view event is emitted, render after the click
+        // has completed and only when the reports panel is actually visible.
+        var reportsTab = document.querySelector('.careforms-tab[data-view="reports"]');
+        if (reportsTab) {
+            reportsTab.addEventListener('click', function () {
+                window.setTimeout(function () {
+                    var panel = document.querySelector('[data-view-panel="reports"]');
+                    if (reportsTab.classList.contains('active') && panel && !panel.hidden) renderReports();
+                }, 0);
+            });
+        }
 
         document.addEventListener('click', function (event) {
             var back = event.target.closest('.careforms-report-submission-preview [data-action="back-to-forms"]');

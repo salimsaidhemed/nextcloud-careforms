@@ -64,10 +64,20 @@
     }
 
     function applyAccessToNavigation() {
-        var formsTab = document.querySelector('.careforms-tab[data-view="forms"]');
-        var reportsTab = document.querySelector('.careforms-tab[data-view="reports"]');
-        if (formsTab) formsTab.hidden = !accessState || !accessState.forms || accessState.forms.length === 0;
-        if (reportsTab) reportsTab.hidden = !accessState || !accessState.canViewReports;
+        var capabilities = accessState && Array.isArray(accessState.capabilities) ? accessState.capabilities : [];
+        function has(capability) { return capabilities.indexOf(capability) !== -1; }
+        function setVisible(view, visible) {
+            var tab = document.querySelector('.careforms-tab[data-view="' + view + '"]');
+            if (tab) tab.hidden = !visible;
+        }
+
+        setVisible('work', !!accessState);
+        setVisible('forms', !!accessState && Array.isArray(accessState.forms) && accessState.forms.length > 0);
+        setVisible('review', has('submission.review'));
+        setVisible('patients', has('patient.select') || has('patient.view') || has('patient.manage'));
+        setVisible('reports', has('report.view'));
+        setVisible('form-admin', has('form.manage'));
+        setVisible('audit', !!accessState && !!accessState.canViewAudit);
     }
 
     function showView(viewName) {
@@ -81,6 +91,10 @@
         });
         if (viewName === 'forms') renderFormsBrowser();
         if (viewName === 'work') renderMyWork();
+
+        // Dedicated modules listen for this event after the target panel has
+        // actually been activated. This avoids relying on click-listener order.
+        document.dispatchEvent(new CustomEvent('careforms:view-shown', { detail: { view: viewName } }));
     }
 
     function renderFormsBrowser() {
@@ -203,7 +217,7 @@
         Promise.all([request('/api/submissions',{method:'GET'}), loadPatients().catch(function(){ return []; })]).then(function(results){
             var submissions=results[0]; patientCache=results[1] || patientCache;
             mount.innerHTML='<div class="careforms-section-heading"><div><h2>My Work</h2><p class="careforms-muted">Drafts and your recent submissions.</p></div></div>';
-            if(!accessState || (!accessState.forms.length && !accessState.canViewReports)){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No CareForms role assigned</h3><p>Ask an administrator to assign you to an appropriate CareForms group.</p></div>'; return; }
+            if(!accessState || (!accessState.forms.length && !accessState.canViewReports)){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No forms assigned</h3><p>You currently do not have permission to fill any CareForms forms. Ask an administrator to assign your Nextcloud group to a form.</p></div>'; return; }
             if(!submissions.length){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No assigned work yet</h3><p>Start a permitted form and save it as a draft. It will appear here.</p></div>'; return; }
             var list=document.createElement('div'); list.className='careforms-submission-list';
             submissions.forEach(function(s){
