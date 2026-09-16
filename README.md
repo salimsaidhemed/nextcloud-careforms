@@ -9,3 +9,5 @@ CareForms is designed to support deployment in a HIPAA-compliant environment. Co
 - [Installation Guide](docs/INSTALLATION.md) — Dockerized Nextcloud and direct VM installation under `/var/www/nextcloud`
 - [Access Control](docs/ACCESS-CONTROL.md) — CareForms groups, capabilities and Keycloak/AD mapping guidance
 - [Security & Compliance](docs/SECURITY-COMPLIANCE.md) — production security controls, HIPAA/GDPR considerations and go-live checklist
+
+- [What's New in 0.3.0](docs/WHATS-NEW-0.3.0.md) — customer-preview release highlights and demo workflow
