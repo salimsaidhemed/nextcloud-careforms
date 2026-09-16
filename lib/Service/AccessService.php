@@ -80,16 +80,33 @@ class AccessService
         }
 
         $caps = [];
-        if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES)
-            || $this->groupManager->isInGroup($userId, self::GROUP_NURSES)
-            || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
+
+        // Dynamic form assignments grant the corresponding application-area
+        // capability. Legacy CareForms groups remain fallbacks inside the
+        // per-form permission evaluator, but are no longer prerequisites.
+        $canFill = false;
+        $canReview = false;
+        $canReport = false;
+        foreach ($this->definitions->all() as $definition) {
+            $formId = (string)$definition['id'];
+            $canFill = $canFill || $this->canFillForm($formId, $userId);
+            $canReview = $canReview || $this->canReviewForm($formId, $userId);
+            $canReport = $canReport || $this->canReportOnForm($formId, $userId);
+        }
+
+        if ($canFill) {
             $caps = array_merge($caps, ['form.view', 'form.submit', 'submission.view_own', 'patient.select']);
         }
-        if ($this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
-            $caps = array_merge($caps, ['submission.review', 'patient.view', 'patient.manage']);
+        if ($canReview) {
+            $caps = array_merge($caps, ['submission.review', 'patient.view']);
         }
-        if ($this->groupManager->isInGroup($userId, self::GROUP_REPORT_VIEWERS)) {
+        if ($canReport) {
             $caps = array_merge($caps, ['report.view', 'report.detail']);
+        }
+
+        // Patient administration remains an application-level privilege.
+        if ($this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
+            $caps[] = 'patient.manage';
         }
 
         return array_values(array_unique($caps));
