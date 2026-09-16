@@ -64,10 +64,20 @@
     }
 
     function applyAccessToNavigation() {
-        var formsTab = document.querySelector('.careforms-tab[data-view="forms"]');
-        var reportsTab = document.querySelector('.careforms-tab[data-view="reports"]');
-        if (formsTab) formsTab.hidden = !accessState || !accessState.forms || accessState.forms.length === 0;
-        if (reportsTab) reportsTab.hidden = !accessState || !accessState.canViewReports;
+        var capabilities = accessState && Array.isArray(accessState.capabilities) ? accessState.capabilities : [];
+        function has(capability) { return capabilities.indexOf(capability) !== -1; }
+        function setVisible(view, visible) {
+            var tab = document.querySelector('.careforms-tab[data-view="' + view + '"]');
+            if (tab) tab.hidden = !visible;
+        }
+
+        setVisible('work', !!accessState);
+        setVisible('forms', !!accessState && Array.isArray(accessState.forms) && accessState.forms.length > 0);
+        setVisible('review', has('submission.review'));
+        setVisible('patients', has('patient.select') || has('patient.view') || has('patient.manage'));
+        setVisible('reports', has('report.view'));
+        setVisible('form-admin', has('form.manage'));
+        setVisible('audit', !!accessState && !!accessState.canViewAudit);
     }
 
     function showView(viewName) {
