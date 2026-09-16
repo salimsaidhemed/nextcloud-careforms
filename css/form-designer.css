@@ -38,3 +38,96 @@
 .careforms-designer-validation-summary p{margin:4px 0 8px}.careforms-designer-validation-summary ul{margin:0;padding-left:20px}.careforms-designer-validation-summary li{margin:5px 0}
 .careforms-designer-validation-summary li button{padding:0;border:0;background:transparent;text-align:left;color:var(--color-main-text);text-decoration:underline}
 .careforms-validation-error{outline:2px solid var(--color-error);outline-offset:2px;border-radius:var(--border-radius-large)}
+
+/* Workspace modes */
+.careforms-designer-header{max-width:none;padding:18px 20px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-main-background)}
+.careforms-designer-modes{max-width:none;padding:6px;background:var(--color-background-dark)}
+.careforms-designer-mode{position:relative}
+.careforms-designer-body{max-width:none}
+.careforms-designer-mode-banner{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px 16px;border-radius:var(--border-radius-large);border:1px solid var(--color-border);background:var(--color-background-hover)}
+.careforms-designer-mode-banner strong{font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.careforms-designer-mode-banner.is-design{border-left:4px solid var(--color-primary-element)}
+.careforms-designer-mode-banner.is-markup{border-left:4px solid var(--color-warning)}
+.careforms-designer-mode-banner.is-preview{border-left:4px solid var(--color-success)}
+.careforms-designer-meta{grid-template-columns:minmax(240px,2fr) minmax(180px,1fr);max-width:none}
+.careforms-designer-meta input,.careforms-designer-meta textarea{width:100%;box-sizing:border-box}
+.careforms-designer-section{box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.careforms-designer-field{margin:6px 0;padding:12px;border:1px solid var(--color-border);border-radius:var(--border-radius);background:var(--color-background-hover)}
+.careforms-designer-preview-shell{padding:18px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-background-dark)}
+.careforms-designer-preview{max-width:1100px;margin:0 auto;background:var(--color-main-background)}
+.careforms-code-editor{position:relative;margin-top:14px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);overflow:hidden;background:var(--color-main-background)}
+.careforms-code-editor-head{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--color-border);background:var(--color-background-hover);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.careforms-code-editor .careforms-designer-markup{margin:0;border:0;border-radius:0;outline:0;tab-size:2}
+@media(max-width:720px){.careforms-designer-header{padding:14px}.careforms-designer-meta{grid-template-columns:1fr}.careforms-designer-mode-banner{align-items:flex-start;flex-direction:column}}
+
+/* CareFormsML syntax editor */
+.careforms-code-surface{position:relative;height:520px;overflow:hidden;background:#111827}
+.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{position:absolute;inset:0;box-sizing:border-box;width:100%;height:100%;margin:0;padding:18px 20px;border:0;overflow:auto;white-space:pre;word-wrap:normal;font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;tab-size:2}
+.careforms-code-highlight{z-index:1;pointer-events:none;color:#d1d5db;background:#111827}
+.careforms-code-surface .careforms-designer-markup{z-index:2;resize:none;color:transparent;background:transparent;caret-color:#f9fafb;-webkit-text-fill-color:transparent}
+.careforms-code-surface .careforms-designer-markup::selection{background:rgba(96,165,250,.35)}
+.cfml-keyword{color:#7dd3fc;font-weight:700}.cfml-attribute{color:#c4b5fd}.cfml-string{color:#86efac}.cfml-number{color:#fca5a5}.cfml-boolean{color:#fcd34d;font-weight:600}.cfml-comment{color:#94a3b8;font-style:italic}
+.careforms-markup-feedback{display:inline-flex;align-items:center;min-height:34px;padding:0 10px;border-radius:var(--border-radius)}
+.careforms-markup-feedback.is-success{color:var(--color-success);background:color-mix(in srgb,var(--color-success) 10%,transparent)}
+.careforms-markup-feedback.is-error{color:var(--color-error);background:color-mix(in srgb,var(--color-error) 10%,transparent);font-weight:600}
+@media(max-width:720px){.careforms-code-surface{height:420px}.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:14px}}
+
+/* CareFormsML editor alignment, gutter and folding */
+.careforms-code-surface{--cfml-gutter:64px}
+.careforms-code-gutter{position:absolute;z-index:3;left:0;top:0;bottom:0;width:var(--cfml-gutter);box-sizing:border-box;padding:18px 8px 18px 4px;overflow:hidden;background:#0b1220;border-right:1px solid rgba(148,163,184,.18);font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;color:#64748b;text-align:right;user-select:none}
+.cfml-gutter-line{height:23.1px;display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap}
+.cfml-fold{width:20px;min-width:20px;height:20px;min-height:20px;padding:0!important;margin:0!important;border:0!important;background:transparent!important;color:#94a3b8!important;line-height:20px!important;font-size:13px;cursor:pointer}
+.cfml-fold-space{width:20px;min-width:20px}
+.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:18px 20px 18px calc(var(--cfml-gutter) + 16px);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;font-size:14px!important;line-height:1.65!important;letter-spacing:0!important;font-variant-ligatures:none!important}
+.careforms-code-surface .careforms-designer-markup{outline:0}
+.cfml-line{display:block;height:23.1px}
+.cfml-line.is-folded,.cfml-gutter-line.is-folded{display:none}
+@media(max-width:720px){.careforms-code-surface{--cfml-gutter:54px}.careforms-code-gutter{padding-top:14px}.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:14px 14px 14px calc(var(--cfml-gutter) + 12px)}}
+
+/* CareFormsML alignment correction: one visual row per source line */
+.careforms-code-highlight{line-height:1.65!important}
+.careforms-code-highlight span{line-height:inherit}
+.cfml-line{display:inline;height:auto}
+.cfml-line.is-folded{display:inline}
+.cfml-gutter-line{height:23.1px;line-height:23.1px}
+.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:23.1px!important;
+  letter-spacing:normal!important;
+  padding-top:18px!important;
+  padding-bottom:18px!important;
+}
+
+/* CareFormsML stabilization: native editor; folding/highlight overlay intentionally disabled */
+.careforms-code-editor .careforms-cfml-plain-editor{
+  position:static!important;
+  display:block!important;
+  width:100%!important;
+  min-height:520px!important;
+  height:520px!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  padding:18px 20px!important;
+  border:0!important;
+  border-radius:0!important;
+  resize:vertical!important;
+  overflow:auto!important;
+  white-space:pre!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  tab-size:2!important;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:1.65!important;
+  letter-spacing:normal!important;
+  font-variant-ligatures:none!important;
+  color:#d1d5db!important;
+  -webkit-text-fill-color:#d1d5db!important;
+  caret-color:#f9fafb!important;
+  background:#111827!important;
+}
+.careforms-code-editor .careforms-cfml-plain-editor:focus{outline:2px solid var(--color-primary-element)!important;outline-offset:-2px}
+@media(max-width:720px){.careforms-code-editor .careforms-cfml-plain-editor{min-height:420px!important;height:420px!important;padding:14px!important}}
