@@ -81,6 +81,8 @@
         });
         if (viewName === 'forms') renderFormsBrowser();
         if (viewName === 'work') renderMyWork();
+        // Reports, Review, Patients, Form Admin and Audit own their rendering
+        // in their dedicated modules. Do not render My Work into those panels.
     }
 
     function renderFormsBrowser() {
