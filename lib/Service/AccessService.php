@@ -19,6 +19,15 @@ class AccessService
     public const FORM_HOME_HEALTH_AIDE = 'home-health-aide-note';
     public const FORM_NURSES_PROGRESS_NOTE = 'nurses-progress-note';
 
+    public const FORM_PERMISSION_FILL = 'fill';
+    public const FORM_PERMISSION_REVIEW = 'review';
+    public const FORM_PERMISSION_REPORT = 'report';
+    private const FORM_PERMISSION_TYPES = [
+        self::FORM_PERMISSION_FILL,
+        self::FORM_PERMISSION_REVIEW,
+        self::FORM_PERMISSION_REPORT,
+    ];
+
     public function __construct(
         private IGroupManager $groupManager,
         private IUserSession $userSession,
@@ -96,23 +105,132 @@ class AccessService
         $this->config->setAppValue('careforms', 'form_enabled_' . $formId, $enabled ? '1' : '0');
     }
 
+
+    /**
+     * @return list<string>
+     */
+    public function formPermissionGroups(string $formId, string $permission): array
+    {
+        $this->assertFormPermissionType($permission);
+        $raw = $this->config->getAppValue(
+            'careforms',
+            'form_permission_' . $permission . '_' . $formId,
+            '',
+        );
+        if ($raw === '') return [];
+
+        try {
+            $groups = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return [];
+        }
+        if (!is_array($groups)) return [];
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn ($group): string => trim((string)$group), $groups),
+            static fn (string $group): bool => $group !== '',
+        )));
+    }
+
+    /**
+     * @param list<string> $groups
+     */
+    public function setFormPermissionGroups(string $formId, string $permission, array $groups): void
+    {
+        $this->assertFormPermissionType($permission);
+        if (!$this->definitions->exists($formId)) {
+            throw new \InvalidArgumentException(sprintf('Unknown CareForms form "%s".', $formId));
+        }
+
+        $groups = array_values(array_unique(array_filter(
+            array_map(static fn ($group): string => trim((string)$group), $groups),
+            static fn (string $group): bool => $group !== '',
+        )));
+        $this->config->setAppValue(
+            'careforms',
+            'form_permission_' . $permission . '_' . $formId,
+            json_encode($groups, JSON_THROW_ON_ERROR),
+        );
+    }
+
+    public function hasConfiguredFormPermission(string $formId, string $permission): bool
+    {
+        $this->assertFormPermissionType($permission);
+        return $this->config->getAppValue(
+            'careforms',
+            'form_permission_' . $permission . '_' . $formId,
+            '',
+        ) !== '';
+    }
+
+    public function userHasFormPermission(string $formId, string $permission, ?string $userId = null): bool
+    {
+        $userId ??= $this->currentUserId();
+        if ($userId === null || !$this->isFormEnabled($formId)) return false;
+
+        // CareForms/Nextcloud administrators retain break-glass application access.
+        if ($this->isCareFormsAdministrator($userId)) return true;
+
+        if (!$this->hasConfiguredFormPermission($formId, $permission)) {
+            return $this->legacyFormPermission($formId, $permission, $userId);
+        }
+
+        foreach ($this->formPermissionGroups($formId, $permission) as $group) {
+            if ($this->groupManager->isInGroup($userId, $group)) return true;
+        }
+        return false;
+    }
+
+    public function canFillForm(string $formId, ?string $userId = null): bool
+    {
+        return $this->userHasFormPermission($formId, self::FORM_PERMISSION_FILL, $userId);
+    }
+
+    public function canReviewForm(string $formId, ?string $userId = null): bool
+    {
+        return $this->userHasFormPermission($formId, self::FORM_PERMISSION_REVIEW, $userId);
+    }
+
+    public function canReportOnForm(string $formId, ?string $userId = null): bool
+    {
+        return $this->userHasFormPermission($formId, self::FORM_PERMISSION_REPORT, $userId);
+    }
+
+    private function legacyFormPermission(string $formId, string $permission, string $userId): bool
+    {
+        if ($permission === self::FORM_PERMISSION_FILL) {
+            if ($this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) return true;
+            if ($formId === self::FORM_HOME_HEALTH_AIDE) return $this->groupManager->isInGroup($userId, self::GROUP_AIDES);
+            if ($formId === self::FORM_NURSES_PROGRESS_NOTE) return $this->groupManager->isInGroup($userId, self::GROUP_NURSES);
+            return false;
+        }
+        if ($permission === self::FORM_PERMISSION_REVIEW) {
+            return $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS);
+        }
+        if ($permission === self::FORM_PERMISSION_REPORT) {
+            return $this->groupManager->isInGroup($userId, self::GROUP_REPORT_VIEWERS);
+        }
+        return false;
+    }
+
+    private function assertFormPermissionType(string $permission): void
+    {
+        if (!in_array($permission, self::FORM_PERMISSION_TYPES, true)) {
+            throw new \InvalidArgumentException(sprintf('Unsupported form permission "%s".', $permission));
+        }
+    }
+
     public function allowedForms(?string $userId = null): array
     {
         $userId ??= $this->currentUserId();
         if ($userId === null) return [];
 
-        if ($this->isCareFormsAdministrator($userId) || $this->groupManager->isInGroup($userId, self::GROUP_SUPERVISORS)) {
-            $forms = array_map(
-                static fn (array $definition): string => (string)$definition['id'],
-                $this->definitions->all(),
-            );
-        } else {
-            $forms = [];
-            if ($this->groupManager->isInGroup($userId, self::GROUP_AIDES)) $forms[] = self::FORM_HOME_HEALTH_AIDE;
-            if ($this->groupManager->isInGroup($userId, self::GROUP_NURSES)) $forms[] = self::FORM_NURSES_PROGRESS_NOTE;
+        $forms = [];
+        foreach ($this->definitions->all() as $definition) {
+            $formId = (string)$definition['id'];
+            if ($this->canFillForm($formId, $userId)) $forms[] = $formId;
         }
-
-        return array_values(array_filter($forms, fn (string $formId): bool => $this->isFormEnabled($formId)));
+        return array_values(array_unique($forms));
     }
 
     public function canAccessForm(string $formId, ?string $userId = null): bool { return in_array($formId, $this->allowedForms($userId), true); }
