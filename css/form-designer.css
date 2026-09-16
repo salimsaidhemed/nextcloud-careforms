@@ -83,3 +83,19 @@
 .cfml-line{display:block;height:23.1px}
 .cfml-line.is-folded,.cfml-gutter-line.is-folded{display:none}
 @media(max-width:720px){.careforms-code-surface{--cfml-gutter:54px}.careforms-code-gutter{padding-top:14px}.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:14px 14px 14px calc(var(--cfml-gutter) + 12px)}}
+
+/* CareFormsML alignment correction: one visual row per source line */
+.careforms-code-highlight{line-height:1.65!important}
+.careforms-code-highlight span{line-height:inherit}
+.cfml-line{display:inline;height:auto}
+.cfml-line.is-folded{display:inline}
+.cfml-gutter-line{height:23.1px;line-height:23.1px}
+.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:23.1px!important;
+  letter-spacing:normal!important;
+  padding-top:18px!important;
+  padding-bottom:18px!important;
+}
