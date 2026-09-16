@@ -81,8 +81,10 @@
         });
         if (viewName === 'forms') renderFormsBrowser();
         if (viewName === 'work') renderMyWork();
-        // Reports, Review, Patients, Form Admin and Audit own their rendering
-        // in their dedicated modules. Do not render My Work into those panels.
+
+        // Dedicated modules listen for this event after the target panel has
+        // actually been activated. This avoids relying on click-listener order.
+        document.dispatchEvent(new CustomEvent('careforms:view-shown', { detail: { view: viewName } }));
     }
 
     function renderFormsBrowser() {
