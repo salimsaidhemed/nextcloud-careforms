@@ -34,7 +34,7 @@ class ReviewController extends Controller
 
         $items = array_values(array_filter(
             $this->submissions->findAwaitingReview(),
-            fn ($submission): bool => $this->accessService->canAccessForm($submission->getFormId(), $userId),
+            fn ($submission): bool => $this->accessService->canReviewForm($submission->getFormId(), $userId),
         ));
         return new JSONResponse(array_map(static fn ($submission): array => $submission->jsonSerialize(), $items));
     }
@@ -48,7 +48,7 @@ class ReviewController extends Controller
         try { $submission = $this->submissions->findById($id); }
         catch (DoesNotExistException | MultipleObjectsReturnedException) { return new JSONResponse(['message' => 'Submission not found.'], Http::STATUS_NOT_FOUND); }
 
-        if (!$this->accessService->canAccessForm($submission->getFormId(), $userId)) {
+        if (!$this->accessService->canReviewForm($submission->getFormId(), $userId)) {
             return new JSONResponse(['message' => 'You do not have permission to review this form.'], Http::STATUS_FORBIDDEN);
         }
         if ($submission->getStatus() !== 'submitted') {
