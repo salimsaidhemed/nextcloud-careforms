@@ -37,13 +37,15 @@
     function renderImportValidator(mount) {
         var section = document.createElement('section');
         section.className = 'careforms-import-panel';
-        section.innerHTML = '<div class="careforms-section-heading"><div><h3>Validate JSON Form Definition</h3><p class="careforms-muted">Choose a CareForms JSON definition to validate before import. Validation does not save or publish the form.</p></div></div><input type="file" accept=".json,application/json" data-json-file><div class="careforms-import-result"></div>';
+        section.innerHTML = '<div class="careforms-section-heading"><div><h3>Import form definition</h3><p class="careforms-muted">Validate a CareForms JSON definition before importing it. Validation never saves or publishes the form.</p></div></div><label class="careforms-file-drop"><span class="careforms-file-icon">⇧</span><strong>Choose a CareForms JSON file</strong><span class="careforms-muted">Drop a .json file here or click to browse</span><span class="careforms-file-name" data-file-name>No file selected</span><input type="file" accept=".json,application/json" data-json-file></label><div class="careforms-import-result"></div>';
         var input = section.querySelector('[data-json-file]');
         var result = section.querySelector('.careforms-import-result');
+        var fileName = section.querySelector('[data-file-name]');
 
         input.addEventListener('change', function () {
             result.innerHTML = '';
             var file = input.files && input.files[0];
+            fileName.textContent = file ? file.name : 'No file selected';
             if (!file) return;
 
             file.text().then(function (text) {
@@ -179,23 +181,26 @@
         var summary=document.createElement('summary'); summary.textContent='Permissions'; box.appendChild(summary);
         var intro=document.createElement('p'); intro.className='careforms-muted'; intro.textContent='Choose Nextcloud groups allowed to fill, review, or report on this form.'; box.appendChild(intro);
         var selections={};
-        [['fill','Can fill'],['review','Can review'],['report','Can view reports']].forEach(function(spec){
+        var grid=document.createElement('div'); grid.className='careforms-permission-grid';
+        [['fill','Fill form','Groups whose members may start and submit this form.'],['review','Review submissions','Groups whose members may review submissions for this form.'],['report','View reports','Groups whose members may access reporting for this form.']].forEach(function(spec){
             var wrap=document.createElement('label'); wrap.className='careforms-permission-field';
             var title=document.createElement('strong'); title.textContent=spec[1]; wrap.appendChild(title);
+            var help=document.createElement('small'); help.textContent=spec[2]; wrap.appendChild(help);
             var select=document.createElement('select'); select.multiple=true; select.size=Math.min(6,Math.max(3,groups.length));
             groups.forEach(function(group){ var option=document.createElement('option'); option.value=group.id; option.textContent=group.name; option.selected=(form.permissions[spec[0]] || []).indexOf(group.id)!==-1; select.appendChild(option); });
-            wrap.appendChild(select); selections[spec[0]]=select; box.appendChild(wrap);
+            wrap.appendChild(select); selections[spec[0]]=select; grid.appendChild(wrap);
         });
+        box.appendChild(grid);
         var save=actionButton('Save permissions','',function(){
             function values(select){ return Array.prototype.filter.call(select.options,function(o){return o.selected;}).map(function(o){return o.value;}); }
             return request('/api/forms/admin/'+encodeURIComponent(form.id)+'/permissions',{method:'PUT',body:JSON.stringify({fill:values(selections.fill),review:values(selections.review),report:values(selections.report)})})
                 .then(function(){ notify('Form permissions saved.'); render(); });
         });
-        box.appendChild(save);
+        var actions=document.createElement('div'); actions.className='careforms-permission-actions';
         var note=document.createElement('p'); note.className='careforms-muted';
         var configured=form.permissions && form.permissions.configured;
         note.textContent=configured && (configured.fill||configured.review||configured.report) ? 'Saved group policy is active.' : 'No dynamic policy saved yet; legacy CareForms role mappings remain in effect.';
-        box.appendChild(note);
+        actions.appendChild(note); actions.appendChild(save); box.appendChild(actions);
         return box;
     }
 
