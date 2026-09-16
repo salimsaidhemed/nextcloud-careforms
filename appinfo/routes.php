@@ -14,6 +14,8 @@ return [
         ['name' => 'formAdmin#importDefinition', 'url' => '/api/forms/admin/import', 'verb' => 'POST'],
         ['name' => 'formAdmin#createForm', 'url' => '/api/forms/admin/create', 'verb' => 'POST'],
         ['name' => 'formAdmin#update', 'url' => '/api/forms/admin/{formId}', 'verb' => 'PUT'],
+        ['name' => 'formAdmin#groups', 'url' => '/api/forms/admin/groups', 'verb' => 'GET'],
+        ['name' => 'formAdmin#permissions', 'url' => '/api/forms/admin/{formId}/permissions', 'verb' => 'PUT'],
         ['name' => 'formAdmin#createDraft', 'url' => '/api/forms/admin/{formId}/versions', 'verb' => 'POST'],
         ['name' => 'formAdmin#designer', 'url' => '/api/forms/admin/{formId}/versions/{version}/designer', 'verb' => 'GET'],
         ['name' => 'formAdmin#saveDesigner', 'url' => '/api/forms/admin/{formId}/versions/{version}/designer', 'verb' => 'PUT'],

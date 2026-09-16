@@ -173,12 +173,39 @@
         });
     }
 
+
+    function permissionEditor(form, groups) {
+        var box=document.createElement('details'); box.className='careforms-form-permissions';
+        var summary=document.createElement('summary'); summary.textContent='Permissions'; box.appendChild(summary);
+        var intro=document.createElement('p'); intro.className='careforms-muted'; intro.textContent='Choose Nextcloud groups allowed to fill, review, or report on this form.'; box.appendChild(intro);
+        var selections={};
+        [['fill','Can fill'],['review','Can review'],['report','Can view reports']].forEach(function(spec){
+            var wrap=document.createElement('label'); wrap.className='careforms-permission-field';
+            var title=document.createElement('strong'); title.textContent=spec[1]; wrap.appendChild(title);
+            var select=document.createElement('select'); select.multiple=true; select.size=Math.min(6,Math.max(3,groups.length));
+            groups.forEach(function(group){ var option=document.createElement('option'); option.value=group.id; option.textContent=group.name; option.selected=(form.permissions[spec[0]] || []).indexOf(group.id)!==-1; select.appendChild(option); });
+            wrap.appendChild(select); selections[spec[0]]=select; box.appendChild(wrap);
+        });
+        var save=actionButton('Save permissions','',function(){
+            function values(select){ return Array.prototype.filter.call(select.options,function(o){return o.selected;}).map(function(o){return o.value;}); }
+            return request('/api/forms/admin/'+encodeURIComponent(form.id)+'/permissions',{method:'PUT',body:JSON.stringify({fill:values(selections.fill),review:values(selections.review),report:values(selections.report)})})
+                .then(function(){ notify('Form permissions saved.'); render(); });
+        });
+        box.appendChild(save);
+        var note=document.createElement('p'); note.className='careforms-muted';
+        var configured=form.permissions && form.permissions.configured;
+        note.textContent=configured && (configured.fill||configured.review||configured.report) ? 'Saved group policy is active.' : 'No dynamic policy saved yet; legacy CareForms role mappings remain in effect.';
+        box.appendChild(note);
+        return box;
+    }
+
     function render() {
         var mount = document.getElementById('careforms-form-admin-browser');
         if (!mount) return;
         mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div></div><p class="careforms-muted">Loading…</p>';
 
-        request('/api/forms/admin', {method:'GET'}).then(function (forms) {
+        Promise.all([request('/api/forms/admin', {method:'GET'}),request('/api/forms/admin/groups',{method:'GET'})]).then(function (payload) {
+            var forms=payload[0], groups=payload[1];
             mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div><div data-form-admin-actions></div></div>';
             var topActions=mount.querySelector('[data-form-admin-actions]');
             topActions.appendChild(actionButton('+ Create form','',createFormDialog));
@@ -222,6 +249,7 @@
                     versions.appendChild(group);
                 });
                 details.appendChild(versions);
+                details.appendChild(permissionEditor(form, groups));
 
                 var state = document.createElement('div');
                 state.className = 'careforms-admin-form-state';

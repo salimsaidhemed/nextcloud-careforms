@@ -14,6 +14,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\IGroupManager;
 
 class FormAdminController extends Controller
 {
@@ -25,6 +26,7 @@ class FormAdminController extends Controller
         private FormVersionService $formVersions,
         private FormDefinitionService $definitions,
         private FormSchemaValidator $schemaValidator,
+        private IGroupManager $groupManager,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -52,6 +54,16 @@ class FormAdminController extends Controller
                 'nextVersion' => $this->formVersions->nextVersion($formId),
                 'draftVersion' => $draft?->getVersionNumber(),
                 'versions' => $versions,
+                'permissions' => [
+                    'fill' => $this->accessService->formPermissionGroups($formId, AccessService::FORM_PERMISSION_FILL),
+                    'review' => $this->accessService->formPermissionGroups($formId, AccessService::FORM_PERMISSION_REVIEW),
+                    'report' => $this->accessService->formPermissionGroups($formId, AccessService::FORM_PERMISSION_REPORT),
+                    'configured' => [
+                        'fill' => $this->accessService->hasConfiguredFormPermission($formId, AccessService::FORM_PERMISSION_FILL),
+                        'review' => $this->accessService->hasConfiguredFormPermission($formId, AccessService::FORM_PERMISSION_REVIEW),
+                        'report' => $this->accessService->hasConfiguredFormPermission($formId, AccessService::FORM_PERMISSION_REPORT),
+                    ],
+                ],
             ];
         }
         return new JSONResponse($forms);
@@ -249,6 +261,48 @@ class FormAdminController extends Controller
 
         $this->auditService->log($userId, 'FORM_CREATE', 'form_version', $draft->getId(), $formId, 'success', ['version' => $draft->getVersionNumber(), 'source' => 'designer']);
         return new JSONResponse(['definition' => $created, 'draft' => $draft->jsonSerialize()], Http::STATUS_CREATED);
+    }
+
+    #[NoAdminRequired]
+    public function groups(): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+
+        $groups = [];
+        foreach ($this->groupManager->search('') as $group) {
+            $groups[] = ['id' => $group->getGID(), 'name' => $group->getDisplayName()];
+        }
+        usort($groups, static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+        return new JSONResponse($groups);
+    }
+
+    #[NoAdminRequired]
+    public function permissions(string $formId, array $fill = [], array $review = [], array $report = []): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+        if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+
+        $knownGroups = [];
+        foreach ($this->groupManager->search('') as $group) $knownGroups[$group->getGID()] = true;
+        foreach (['fill' => $fill, 'review' => $review, 'report' => $report] as $permission => $groups) {
+            foreach ($groups as $group) {
+                if (!isset($knownGroups[(string)$group])) {
+                    return new JSONResponse(['message' => sprintf('Unknown Nextcloud group "%s".', (string)$group)], Http::STATUS_UNPROCESSABLE_ENTITY);
+                }
+            }
+            $this->accessService->setFormPermissionGroups($formId, $permission, $groups);
+        }
+
+        $this->auditService->log($userId, 'FORM_PERMISSION_CHANGE', 'form', null, $formId, 'success', [
+            'fill' => array_values($fill), 'review' => array_values($review), 'report' => array_values($report),
+        ]);
+        return new JSONResponse([
+            'fill' => $this->accessService->formPermissionGroups($formId, AccessService::FORM_PERMISSION_FILL),
+            'review' => $this->accessService->formPermissionGroups($formId, AccessService::FORM_PERMISSION_REVIEW),
+            'report' => $this->accessService->formPermissionGroups($formId, AccessService::FORM_PERMISSION_REPORT),
+        ]);
     }
 
     #[NoAdminRequired]
