@@ -99,3 +99,35 @@
   padding-top:18px!important;
   padding-bottom:18px!important;
 }
+
+/* CareFormsML stabilization: native editor; folding/highlight overlay intentionally disabled */
+.careforms-code-editor .careforms-cfml-plain-editor{
+  position:static!important;
+  display:block!important;
+  width:100%!important;
+  min-height:520px!important;
+  height:520px!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  padding:18px 20px!important;
+  border:0!important;
+  border-radius:0!important;
+  resize:vertical!important;
+  overflow:auto!important;
+  white-space:pre!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  tab-size:2!important;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:1.65!important;
+  letter-spacing:normal!important;
+  font-variant-ligatures:none!important;
+  color:#d1d5db!important;
+  -webkit-text-fill-color:#d1d5db!important;
+  caret-color:#f9fafb!important;
+  background:#111827!important;
+}
+.careforms-code-editor .careforms-cfml-plain-editor:focus{outline:2px solid var(--color-primary-element)!important;outline-offset:-2px}
+@media(max-width:720px){.careforms-code-editor .careforms-cfml-plain-editor{min-height:420px!important;height:420px!important;padding:14px!important}}
