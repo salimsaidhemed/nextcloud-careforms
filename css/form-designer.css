@@ -59,3 +59,15 @@
 .careforms-code-editor-head{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--color-border);background:var(--color-background-hover);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 .careforms-code-editor .careforms-designer-markup{margin:0;border:0;border-radius:0;outline:0;tab-size:2}
 @media(max-width:720px){.careforms-designer-header{padding:14px}.careforms-designer-meta{grid-template-columns:1fr}.careforms-designer-mode-banner{align-items:flex-start;flex-direction:column}}
+
+/* CareFormsML syntax editor */
+.careforms-code-surface{position:relative;height:520px;overflow:hidden;background:#111827}
+.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{position:absolute;inset:0;box-sizing:border-box;width:100%;height:100%;margin:0;padding:18px 20px;border:0;overflow:auto;white-space:pre;word-wrap:normal;font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;tab-size:2}
+.careforms-code-highlight{z-index:1;pointer-events:none;color:#d1d5db;background:#111827}
+.careforms-code-surface .careforms-designer-markup{z-index:2;resize:none;color:transparent;background:transparent;caret-color:#f9fafb;-webkit-text-fill-color:transparent}
+.careforms-code-surface .careforms-designer-markup::selection{background:rgba(96,165,250,.35)}
+.cfml-keyword{color:#7dd3fc;font-weight:700}.cfml-attribute{color:#c4b5fd}.cfml-string{color:#86efac}.cfml-number{color:#fca5a5}.cfml-boolean{color:#fcd34d;font-weight:600}.cfml-comment{color:#94a3b8;font-style:italic}
+.careforms-markup-feedback{display:inline-flex;align-items:center;min-height:34px;padding:0 10px;border-radius:var(--border-radius)}
+.careforms-markup-feedback.is-success{color:var(--color-success);background:color-mix(in srgb,var(--color-success) 10%,transparent)}
+.careforms-markup-feedback.is-error{color:var(--color-error);background:color-mix(in srgb,var(--color-error) 10%,transparent);font-weight:600}
+@media(max-width:720px){.careforms-code-surface{height:420px}.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:14px}}
