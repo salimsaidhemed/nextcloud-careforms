@@ -71,3 +71,15 @@
 .careforms-markup-feedback.is-success{color:var(--color-success);background:color-mix(in srgb,var(--color-success) 10%,transparent)}
 .careforms-markup-feedback.is-error{color:var(--color-error);background:color-mix(in srgb,var(--color-error) 10%,transparent);font-weight:600}
 @media(max-width:720px){.careforms-code-surface{height:420px}.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:14px}}
+
+/* CareFormsML editor alignment, gutter and folding */
+.careforms-code-surface{--cfml-gutter:64px}
+.careforms-code-gutter{position:absolute;z-index:3;left:0;top:0;bottom:0;width:var(--cfml-gutter);box-sizing:border-box;padding:18px 8px 18px 4px;overflow:hidden;background:#0b1220;border-right:1px solid rgba(148,163,184,.18);font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;color:#64748b;text-align:right;user-select:none}
+.cfml-gutter-line{height:23.1px;display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap}
+.cfml-fold{width:20px;min-width:20px;height:20px;min-height:20px;padding:0!important;margin:0!important;border:0!important;background:transparent!important;color:#94a3b8!important;line-height:20px!important;font-size:13px;cursor:pointer}
+.cfml-fold-space{width:20px;min-width:20px}
+.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:18px 20px 18px calc(var(--cfml-gutter) + 16px);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;font-size:14px!important;line-height:1.65!important;letter-spacing:0!important;font-variant-ligatures:none!important}
+.careforms-code-surface .careforms-designer-markup{outline:0}
+.cfml-line{display:block;height:23.1px}
+.cfml-line.is-folded,.cfml-gutter-line.is-folded{display:none}
+@media(max-width:720px){.careforms-code-surface{--cfml-gutter:54px}.careforms-code-gutter{padding-top:14px}.careforms-code-highlight,.careforms-code-surface .careforms-designer-markup{padding:14px 14px 14px calc(var(--cfml-gutter) + 12px)}}
