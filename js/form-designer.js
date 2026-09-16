@@ -411,6 +411,7 @@
         var banner=document.createElement('div'); banner.className='careforms-designer-mode-banner is-markup'; banner.innerHTML='<strong>Markup mode</strong><span>CareFormsML editor — edit the declarative form definition directly.</span>'; body.appendChild(banner);
         var editor=document.createElement('div'); editor.className='careforms-code-editor'; editor.innerHTML='<div class="careforms-code-editor-head"><strong>CareFormsML</strong><span class="careforms-muted">Form definition</span></div>';
         var surface=document.createElement('div'); surface.className='careforms-code-surface';
+        var gutter=document.createElement('div'); gutter.className='careforms-code-gutter'; gutter.setAttribute('aria-hidden','true');
         var highlight=document.createElement('pre'); highlight.className='careforms-code-highlight'; highlight.setAttribute('aria-hidden','true');
         var textarea=document.createElement('textarea'); textarea.className='careforms-designer-markup'; textarea.spellcheck=false; textarea.value=toCareFormML(state);
         function esc(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -424,11 +425,19 @@
             html=html.replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="cfml-number">$1</span>');
             return html+(tail?'<span class="cfml-comment">'+esc(tail)+'</span>':'');
         }
-        function refreshHighlight(){ highlight.innerHTML=textarea.value.split(/\r?\n/).map(highlightLine).join('\n')+'\n'; }
-        function syncScroll(){ highlight.scrollTop=textarea.scrollTop; highlight.scrollLeft=textarea.scrollLeft; }
+        var folded={};
+        function sectionRanges(lines){ var ranges=[]; for(var i=0;i<lines.length;i++){ if(/^\s*section\b/.test(lines[i])){ var end=i+1; while(end<lines.length && !/^\s*section\b/.test(lines[end])) end++; ranges.push({start:i,end:end}); } } return ranges; }
+        function refreshHighlight(){
+            var lines=textarea.value.split(/\r?\n/), ranges=sectionRanges(lines), hidden={};
+            ranges.forEach(function(r){ if(folded[r.start]) for(var x=r.start+1;x<r.end;x++) hidden[x]=true; });
+            highlight.innerHTML=lines.map(function(line,i){ return '<span class="cfml-line'+(hidden[i]?' is-folded':'')+'" data-line="'+i+'">'+highlightLine(line)+'</span>'; }).join('\n')+'\n';
+            gutter.innerHTML=lines.map(function(line,i){ var range=ranges.find(function(r){return r.start===i;}), cls=hidden[i]?' is-folded':''; return '<div class="cfml-gutter-line'+cls+'" data-line="'+i+'">'+(range?'<button type="button" class="cfml-fold" data-fold="'+i+'" title="'+(folded[i]?'Expand section':'Collapse section')+'">'+(folded[i]?'▸':'▾')+'</button>':'<span class="cfml-fold-space"></span>')+'<span>'+(i+1)+'</span></div>'; }).join('');
+            Array.prototype.forEach.call(gutter.querySelectorAll('.cfml-fold'),function(btn){ btn.addEventListener('click',function(){ var line=Number(this.getAttribute('data-fold')); folded[line]=!folded[line]; refreshHighlight(); }); });
+        }
+        function syncScroll(){ highlight.scrollTop=textarea.scrollTop; highlight.scrollLeft=textarea.scrollLeft; gutter.scrollTop=textarea.scrollTop; }
         textarea.addEventListener('input',refreshHighlight); textarea.addEventListener('scroll',syncScroll);
         textarea.addEventListener('keydown',function(event){ if(event.key==='Tab'){ event.preventDefault(); var start=this.selectionStart,end=this.selectionEnd; this.setRangeText('  ',start,end,'end'); refreshHighlight(); } });
-        surface.appendChild(highlight); surface.appendChild(textarea); editor.appendChild(surface); body.appendChild(editor); refreshHighlight();
+        surface.appendChild(gutter); surface.appendChild(highlight); surface.appendChild(textarea); editor.appendChild(surface); body.appendChild(editor); refreshHighlight();
         var footer=document.createElement('div'); footer.className='careforms-designer-markup-footer';
         var feedback=document.createElement('span'); feedback.className='careforms-muted';
         var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply markup';
