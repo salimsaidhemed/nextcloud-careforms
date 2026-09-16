@@ -241,8 +241,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        var tab = document.querySelector('.careforms-tab[data-view="reports"]');
-        if (tab) tab.addEventListener('click', renderReports);
+        document.addEventListener('careforms:view-shown', function (event) {
+            if (event.detail && event.detail.view === 'reports') renderReports();
+        });
 
         document.addEventListener('click', function (event) {
             var back = event.target.closest('.careforms-report-submission-preview [data-action="back-to-forms"]');
