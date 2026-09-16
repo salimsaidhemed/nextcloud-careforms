@@ -428,12 +428,35 @@
         var folded={};
         function sectionRanges(lines){ var ranges=[]; for(var i=0;i<lines.length;i++){ if(/^\s*section\b/.test(lines[i])){ var end=i+1; while(end<lines.length && !/^\s*section\b/.test(lines[end])) end++; ranges.push({start:i,end:end}); } } return ranges; }
         function refreshHighlight(){
-            var lines=textarea.value.split(/\r?\n/), ranges=sectionRanges(lines), hidden={};
-            ranges.forEach(function(r){ if(folded[r.start]) for(var x=r.start+1;x<r.end;x++) hidden[x]=true; });
-            highlight.innerHTML=lines.map(function(line,i){ return '<span class="cfml-line'+(hidden[i]?' is-folded':'')+'" data-line="'+i+'">'+highlightLine(line)+'</span>'; }).join('\n')+'\n';
-            gutter.innerHTML=lines.map(function(line,i){ var range=ranges.find(function(r){return r.start===i;}), cls=hidden[i]?' is-folded':''; return '<div class="cfml-gutter-line'+cls+'" data-line="'+i+'">'+(range?'<button type="button" class="cfml-fold" data-fold="'+i+'" title="'+(folded[i]?'Expand section':'Collapse section')+'">'+(folded[i]?'▸':'▾')+'</button>':'<span class="cfml-fold-space"></span>')+'<span>'+(i+1)+'</span></div>'; }).join('');
-            Array.prototype.forEach.call(gutter.querySelectorAll('.cfml-fold'),function(btn){ btn.addEventListener('click',function(){ var line=Number(this.getAttribute('data-fold')); folded[line]=!folded[line]; refreshHighlight(); }); });
+            var lines=textarea.value.split(/\r?\n/), ranges=sectionRanges(lines);
+            highlight.innerHTML=lines.map(highlightLine).join('\n')+'\n';
+            gutter.innerHTML=lines.map(function(line,i){
+                var range=ranges.find(function(r){return r.start===i;}), marker=line.match(/^\s*# \[CareFormsML folded:([^\]]+)\]/);
+                var foldButton=range?'<button type="button" class="cfml-fold" data-fold="'+i+'" title="Collapse section">▾</button>':(marker?'<button type="button" class="cfml-fold is-expand" data-marker="'+marker[1]+'" title="Expand section">▸</button>':'<span class="cfml-fold-space"></span>');
+                return '<div class="cfml-gutter-line">'+foldButton+'<span>'+(i+1)+'</span></div>';
+            }).join('');
+            Array.prototype.forEach.call(gutter.querySelectorAll('.cfml-fold'),function(btn){ btn.addEventListener('click',function(){
+                if(this.classList.contains('is-expand')){ expandFold(this.getAttribute('data-marker')); return; }
+                collapseFold(Number(this.getAttribute('data-fold')));
+            }); });
+            syncScroll();
         }
+        function collapseFold(start){
+            var lines=textarea.value.split(/\r?\n/), range=sectionRanges(lines).find(function(r){return r.start===start;});
+            if(!range || range.end<=range.start+1) return;
+            var key='f'+Date.now()+Math.random().toString(36).slice(2,7), removed=lines.slice(range.start+1,range.end);
+            folded[key]=removed;
+            lines.splice(range.start+1,removed.length,'  # [CareFormsML folded:'+key+'] '+removed.length+' lines');
+            textarea.value=lines.join('\n'); refreshHighlight();
+        }
+        function expandFold(key){
+            if(!folded[key]) return;
+            var lines=textarea.value.split(/\r?\n/), token='[CareFormsML folded:'+key+']';
+            var at=lines.findIndex(function(line){return line.indexOf(token)>=0;});
+            if(at>=0) lines.splice.apply(lines,[at,1].concat(folded[key]));
+            delete folded[key]; textarea.value=lines.join('\n'); refreshHighlight();
+        }
+        function expandAllFolds(){ Object.keys(folded).forEach(expandFold); }
         function syncScroll(){ highlight.scrollTop=textarea.scrollTop; highlight.scrollLeft=textarea.scrollLeft; gutter.scrollTop=textarea.scrollTop; }
         textarea.addEventListener('input',refreshHighlight); textarea.addEventListener('scroll',syncScroll);
         textarea.addEventListener('keydown',function(event){ if(event.key==='Tab'){ event.preventDefault(); var start=this.selectionStart,end=this.selectionEnd; this.setRangeText('  ',start,end,'end'); refreshHighlight(); } });
@@ -442,7 +465,7 @@
         var feedback=document.createElement('span'); feedback.className='careforms-muted';
         var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply markup';
         apply.addEventListener('click',function(){
-            try { var next=fromCareFormML(textarea.value,state); applyState(next); feedback.className='careforms-markup-feedback is-success'; feedback.textContent='Markup applied successfully'; }
+            try { expandAllFolds(); var next=fromCareFormML(textarea.value,state); applyState(next); feedback.className='careforms-markup-feedback is-success'; feedback.textContent='Markup applied successfully'; }
             catch(error){ feedback.className='careforms-markup-feedback is-error'; feedback.textContent=error.message; var m=error.message.match(/^Line (\\d+):/); if(m){ var lines=textarea.value.split(/\\r?\\n/), pos=0; for(var n=1;n<Number(m[1]);n++) pos+=lines[n-1].length+1; textarea.focus(); textarea.setSelectionRange(pos,pos+(lines[Number(m[1])-1]||'').length); } }
         });
         footer.appendChild(feedback); footer.appendChild(apply); body.appendChild(footer);
