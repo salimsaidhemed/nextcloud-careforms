@@ -250,6 +250,17 @@
     }
 
     function setFieldRequired(wrapper, field, required) {
+        var badge = wrapper.querySelector('[data-required-badge]');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'careforms-required-badge';
+            badge.dataset.requiredBadge = 'true';
+            badge.textContent = 'Required';
+            wrapper.insertBefore(badge, wrapper.firstChild);
+        }
+        badge.hidden = !required;
+        wrapper.classList.toggle('is-required', Boolean(required));
+        wrapper.setAttribute('aria-required', required ? 'true' : 'false');
         var controls = Array.from(wrapper.querySelectorAll('input, textarea, select'));
         if (field.type === 'checkbox-group') {
             controls.forEach(function (control) {

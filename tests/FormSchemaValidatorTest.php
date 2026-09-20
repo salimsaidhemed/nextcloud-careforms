@@ -69,6 +69,10 @@ $case['sections'][0]['fields'][0]['logic']['requiredWhen'] = [
     'value' => true,
 ];
 expectValid($validator, $case);
+$roundTrip = json_decode((string)json_encode($case, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+if ($roundTrip['sections'][0]['fields'][0]['logic'] !== $case['sections'][0]['fields'][0]['logic']) {
+    throw new RuntimeException('JSON import/export did not preserve field logic.');
+}
 
 // requiredWhen is a field-only capability.
 $case = definition();
@@ -81,10 +85,6 @@ expectErrors($validator, $case, [
     'sections[0].logic.requiredWhen is only valid for fields.',
     'sections[0].logic.showWhen is required.',
 ]);
-$roundTrip = json_decode((string)json_encode($case, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
-if ($roundTrip['sections'][0]['fields'][0]['logic'] !== $case['sections'][0]['fields'][0]['logic']) {
-    throw new RuntimeException('JSON import/export did not preserve field logic.');
-}
 
 // Sections support the same visibility structure.
 $case = definition();

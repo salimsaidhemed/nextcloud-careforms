@@ -80,6 +80,9 @@ button .careforms-action-icon { margin-right:6px; }
 .careforms-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; }
 .careforms-field { display: flex; flex-direction: column; gap: 7px; }
 .careforms-field-label { font-weight: 600; }
+.careforms-required-badge { align-self: flex-start; display: inline-flex; align-items: center; min-height: 20px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--color-primary-element) 14%, transparent); color: var(--color-primary-element); font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+.careforms-required-badge[hidden] { display: none !important; }
+.careforms-field.is-required { padding-left: 10px; border-left: 3px solid var(--color-primary-element); }
 .careforms-field input[type="text"],.careforms-field input[type="date"],.careforms-field input[type="time"],.careforms-field input[type="number"],.careforms-field textarea { width: 100%; max-width: none; box-sizing: border-box; }
 .careforms-field textarea { resize: vertical; }
 .careforms-checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 16px; }
