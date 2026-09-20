@@ -2,6 +2,7 @@
 
 script('careforms', 'form-logic');
 script('careforms', 'form-renderer');
+script('careforms', 'form-condition-builder');
 script('careforms', 'page');
 script('careforms', 'patients');
 script('careforms', 'reports');

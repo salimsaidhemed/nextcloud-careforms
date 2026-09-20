@@ -89,11 +89,115 @@
         state.sections.forEach(function(section){ (section.fields || []).forEach(function(field){ ids.push(field.id); }); });
         return ids;
     }
+    function allFields(state) {
+        var fields=[];
+        state.sections.forEach(function(section){
+            (section.fields || []).forEach(function(field){ fields.push({field:field,section:section}); });
+        });
+        return fields;
+    }
+    function fieldsById(state) {
+        var fields={};
+        allFields(state).forEach(function(item){ fields[item.field.id]=item.field; });
+        return fields;
+    }
+
+    function conditionEditor(state, target, excludedFieldId, excludedSectionId) {
+        var helper=window.CareForms && window.CareForms.ConditionBuilder;
+        var details=document.createElement('details'); details.className='careforms-condition-editor';
+        details.innerHTML='<summary>Visibility condition</summary><div class="careforms-condition-editor-body"><label class="careforms-check"><input type="checkbox" data-condition-enabled> Show this only when a condition is met</label><div data-condition-controls><label>Controlling field<select data-condition-field></select></label><label>Operator<select data-condition-operator></select></label><label data-condition-value-label>Comparison value<span data-condition-value></span></label></div><p class="careforms-muted" data-condition-empty hidden>Add another eligible field before configuring a condition.</p></div>';
+        var enabled=details.querySelector('[data-condition-enabled]');
+        var controls=details.querySelector('[data-condition-controls]');
+        var source=details.querySelector('[data-condition-field]');
+        var operator=details.querySelector('[data-condition-operator]');
+        var valueLabel=details.querySelector('[data-condition-value-label]');
+        var valueMount=details.querySelector('[data-condition-value]');
+        var empty=details.querySelector('[data-condition-empty]');
+        var candidates=allFields(state).filter(function(item){
+            return item.field.id !== excludedFieldId && item.section.id !== excludedSectionId;
+        });
+        candidates.forEach(function(item){
+            var option=document.createElement('option'); option.value=item.field.id;
+            option.textContent=(item.section.label || item.section.id)+' — '+(item.field.label || item.field.id);
+            source.appendChild(option);
+        });
+        var existing=target.logic && target.logic.showWhen ? clone(target.logic.showWhen) : null;
+        enabled.checked=!!existing; details.open=!!existing;
+        if(existing && candidates.some(function(item){return item.field.id===existing.field;})) source.value=existing.field;
+
+        function selectedField(){ var match=candidates.find(function(item){return item.field.id===source.value;}); return match ? match.field : null; }
+        function renderValue(preserved){
+            valueMount.innerHTML='';
+            var field=selectedField();
+            if(!helper.needsValue(operator.value)){ valueLabel.hidden=true; return; }
+            valueLabel.hidden=false;
+            var input;
+            if(field && field.type==='checkbox'){
+                input=document.createElement('select'); input.innerHTML='<option value="true">Yes</option><option value="false">No</option>';
+                input.value=String(preserved === undefined ? true : preserved);
+            } else if(field && (field.type==='choice-group' || field.type==='checkbox-group')){
+                input=document.createElement('select');
+                (field.options || []).forEach(function(item){ var option=document.createElement('option'); option.value=item; option.textContent=item; input.appendChild(option); });
+                if(preserved !== undefined) input.value=String(preserved);
+            } else {
+                input=document.createElement('input'); input.type=field && field.type==='number' ? 'number' : (field && (field.type==='date'||field.type==='time') ? field.type : 'text');
+                input.value=preserved === undefined ? '' : String(preserved);
+            }
+            input.dataset.conditionValue='true'; valueMount.appendChild(input);
+        }
+        function renderOperators(preservedOperator,preservedValue){
+            operator.innerHTML='';
+            helper.operatorsFor(selectedField()).forEach(function(name){ var option=document.createElement('option'); option.value=name; option.textContent=helper.labels[name]; operator.appendChild(option); });
+            if(Array.from(operator.options).some(function(option){return option.value===preservedOperator;})) operator.value=preservedOperator;
+            renderValue(preservedValue);
+        }
+        function updateEnabled(){ controls.hidden=!enabled.checked; }
+        if(!candidates.length){ enabled.disabled=true; enabled.checked=false; controls.hidden=true; empty.hidden=false; }
+        else {
+            renderOperators(existing && existing.operator,existing && existing.value);
+            updateEnabled();
+            enabled.addEventListener('change',updateEnabled);
+            source.addEventListener('change',function(){ renderOperators(null,undefined); });
+            operator.addEventListener('change',function(){ renderValue(undefined); });
+        }
+        details._applyCondition=function(){
+            if(!enabled.checked){
+                if(target.logic) delete target.logic.showWhen;
+                if(target.logic && !Object.keys(target.logic).length) delete target.logic;
+                return;
+            }
+            var input=valueMount.querySelector('[data-condition-value]');
+            var rule=helper.createRule(source.value,operator.value,selectedField(),input ? input.value : '');
+            target.logic=target.logic || {};
+            target.logic.showWhen=rule;
+        };
+        return details;
+    }
     function fieldId(state,label) {
         var base=(label || 'field').toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').replace(/^[^a-z]+/,'') || 'field';
         var ids=allFieldIds(state), id=base, n=2;
         while(ids.indexOf(id)!==-1){ id=base+'_'+n++; }
         return id;
+    }
+
+    function editSection(section, state, rerender) {
+        var overlay=document.createElement('div'); overlay.className='careforms-designer-modal-overlay';
+        var modal=document.createElement('div'); modal.className='careforms-designer-modal careforms-field-editor';
+        modal.innerHTML='<div class="careforms-designer-modal-head"><div><h3>Edit section</h3><p class="careforms-muted">Configure the section and when it appears.</p></div><button type="button" data-close aria-label="Close">×</button></div>';
+        var form=document.createElement('div'); form.className='careforms-field-editor-form';
+        form.innerHTML='<label>Section name<input type="text" data-label></label><label>Description<textarea rows="3" data-description></textarea></label>';
+        form.querySelector('[data-label]').value=section.label || '';
+        form.querySelector('[data-description]').value=section.description || '';
+        var condition=conditionEditor(state,section,null,section.id); form.appendChild(condition);
+        var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
+        var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
+        var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply changes';
+        actions.appendChild(cancel); actions.appendChild(apply); form.appendChild(actions); modal.appendChild(form); overlay.appendChild(modal); document.body.appendChild(overlay);
+        function close(){overlay.remove();} modal.querySelector('[data-close]').addEventListener('click',close); cancel.addEventListener('click',close);
+        apply.addEventListener('click',function(){
+            var label=form.querySelector('[data-label]').value.trim(); if(!label){window.alert('Section name is required.');return;}
+            section.label=label; section.description=form.querySelector('[data-description]').value.trim(); condition._applyCondition(); close(); rerender();
+        });
     }
     function chooseFieldType(callback) {
         var overlay=document.createElement('div'); overlay.className='careforms-designer-modal-overlay';
@@ -109,7 +213,7 @@
         modal.appendChild(grid); overlay.appendChild(modal); document.body.appendChild(overlay);
     }
 
-    function editField(field, rerender) {
+    function editField(field, state, rerender) {
         var overlay=document.createElement('div'); overlay.className='careforms-designer-modal-overlay';
         var modal=document.createElement('div'); modal.className='careforms-designer-modal careforms-field-editor';
         modal.innerHTML='<div class="careforms-designer-modal-head"><div><h3>Edit field</h3><p class="careforms-muted">Configure how this field appears and behaves.</p></div><button type="button" data-close aria-label="Close">×</button></div>';
@@ -167,6 +271,7 @@
         advanced.querySelector('[data-source]').value=field.source || '';
         advanced.querySelector('[data-readonly]').checked=!!field.readOnly;
         form.appendChild(advanced);
+        var condition=conditionEditor(state,field,field.id); form.appendChild(condition);
 
         var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
         var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
@@ -197,6 +302,7 @@
             if(min && max && min.value!=='' && max.value!=='' && Number(min.value)>Number(max.value)){ window.alert('Minimum cannot be greater than maximum.'); return; }
             if(unit){ var u=unit.value.trim(); if(u) field.unit=u; else delete field.unit; }
             var rows=form.querySelector('[data-rows]'); if(rows) field.rows=Math.max(1,Math.min(50,parseInt(rows.value,10)||4));
+            condition._applyCondition();
             close(); rerender();
         });
     }
@@ -265,6 +371,9 @@
             h.querySelector('p').textContent=section.description || '';
             h.querySelector('span').textContent=(section.fields || []).length + ' field' + ((section.fields || []).length === 1 ? '' : 's');
             card.appendChild(h);
+            if(section.logic && section.logic.showWhen){
+                var sectionCondition=document.createElement('p'); sectionCondition.className='careforms-condition-summary'; sectionCondition.textContent=window.CareForms.ConditionBuilder.ruleSummary(section.logic.showWhen,fieldsById(state)); card.appendChild(sectionCondition);
+            }
             var actions=document.createElement('div'); actions.className='careforms-designer-section-actions';
             actions.appendChild(sectionButton('+ Add field',function(){
                 chooseFieldType(function(choice){
@@ -275,11 +384,7 @@
                     section.fields.push(field); rerender();
                 });
             }));
-            actions.appendChild(sectionButton('Edit',function(){
-                var label=window.prompt('Section name',section.label || section.id); if (!label) return;
-                var description=window.prompt('Section description (optional)',section.description || '');
-                section.label=label; section.description=description === null ? (section.description || '') : description; rerender();
-            }));
+            actions.appendChild(sectionButton('Edit',function(){ editSection(section,state,rerender); }));
             actions.appendChild(sectionButton('↑ Move up',function(){ if(index<1)return; var item=state.sections.splice(index,1)[0]; state.sections.splice(index-1,0,item); rerender(); },index===0));
             actions.appendChild(sectionButton('↓ Move down',function(){ if(index>=state.sections.length-1)return; var item=state.sections.splice(index,1)[0]; state.sections.splice(index+1,0,item); rerender(); },index===state.sections.length-1));
             actions.appendChild(sectionButton('Duplicate',function(){
@@ -297,9 +402,9 @@
                 var label=document.createElement('span');
                 label.textContent=field.label || field.id;
                 var type=document.createElement('small');
-                type.textContent=field.type + (field.required ? ' · Required' : '');
+                type.textContent=field.type + (field.required ? ' · Required' : '') + (field.logic && field.logic.showWhen ? ' · Conditional' : '');
                 var fieldActions=document.createElement('div'); fieldActions.className='careforms-designer-field-actions';
-                fieldActions.appendChild(sectionButton('Edit',function(){ editField(field,rerender); }));
+                fieldActions.appendChild(sectionButton('Edit',function(){ editField(field,state,rerender); }));
                 fieldActions.appendChild(sectionButton('Duplicate',function(){
                     var copy=clone(field);
                     copy.id=fieldId(state,(field.label || field.id || 'field') + ' copy');
@@ -314,6 +419,7 @@
                     if(window.confirm('Delete “'+(field.label || field.id)+'”?')){ section.fields.splice(fieldIndex,1); rerender(); }
                 }));
                 var summary=document.createElement('div'); summary.className='careforms-designer-field-summary'; summary.appendChild(label); summary.appendChild(type);
+                if(field.logic && field.logic.showWhen){ var conditionSummary=document.createElement('small'); conditionSummary.className='careforms-condition-summary'; conditionSummary.textContent=window.CareForms.ConditionBuilder.ruleSummary(field.logic.showWhen,fieldsById(state)); summary.appendChild(conditionSummary); }
                 row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
             });
             body.appendChild(card);
@@ -361,6 +467,11 @@
     }
     function fromCareFormML(text, original) {
         var result=clone(original), currentSection=null, currentField=null;
+        var originalSectionLogic={}, originalFieldLogic={};
+        (original.sections || []).forEach(function(section){
+            if(section.logic) originalSectionLogic[section.id]=clone(section.logic);
+            (section.fields || []).forEach(function(field){ if(field.logic) originalFieldLogic[field.id]=clone(field.logic); });
+        });
         result.sections=[];
         var lines=text.split(/\r?\n/);
         lines.forEach(function(raw,i){
@@ -378,7 +489,9 @@
                 var label=careFormMlValue(t.shift()), id='';
                 t.forEach(function(x){ if(x.indexOf('id=')===0) id=careFormMlValue(x.slice(3)); });
                 if(!id) fail('section requires id=');
-                currentSection={id:id,label:label,description:'',fields:[]}; result.sections.push(currentSection); currentField=null; return;
+                currentSection={id:id,label:label,description:'',fields:[]};
+                if(originalSectionLogic[id]) currentSection.logic=clone(originalSectionLogic[id]);
+                result.sections.push(currentSection); currentField=null; return;
             }
             if(cmd==='description' && currentSection && !currentField){ currentSection.description=careFormMlValue(t[0]); return; }
             if(cmd==='field'){
@@ -393,6 +506,7 @@
                     }
                 });
                 if(!f.id || !f.type) fail('field requires id= and type=');
+                if(originalFieldLogic[f.id]) f.logic=clone(originalFieldLogic[f.id]);
                 currentSection.fields.push(f); currentField=f; return;
             }
             if(cmd==='help'){ if(!currentField) fail('help must follow a field'); currentField.helpText=careFormMlValue(t[0]); return; }
