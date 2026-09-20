@@ -41,6 +41,7 @@
     function createSignatureField(field, readOnly, signature) {
         var wrapper = document.createElement('div');
         wrapper.className = 'careforms-field careforms-signature-field' + fieldWidthClass(field);
+        wrapper.dataset.fieldId = field.id;
         var label = document.createElement('div');
         label.className = 'careforms-field-label';
         label.textContent = field.label + ' *';
@@ -143,6 +144,7 @@
 
         var wrapper = document.createElement('div');
         wrapper.className = 'careforms-field' + fieldWidthClass(field);
+        wrapper.dataset.fieldId = field.id;
         var savedValue = valueForField(field, values);
 
         if (field.type === 'checkbox-group' || field.type === 'choice-group') {
@@ -198,11 +200,13 @@
         return wrapper;
     }
 
-    function collectData(form, definition) {
+    function collectData(form, definition, includeHidden) {
         var data = {};
         sectionsFor(definition).forEach(function (section) {
             section.fields.forEach(function (field) {
                 if (field.type === 'signature-placeholder' || field.type === 'signature') return;
+                var wrapper = form.querySelector('[data-field-id="' + field.id + '"]');
+                if (!includeHidden && wrapper && wrapper.hidden) return;
                 if (field.type === 'checkbox-group') {
                     data[field.id] = Array.from(form.querySelectorAll('input[name="' + field.id + '[]"]:checked')).map(function (input) { return input.value; }); return;
                 }
@@ -216,6 +220,53 @@
             });
         });
         return data;
+    }
+
+    function setControlsVisible(wrapper, visible) {
+        wrapper.hidden = !visible;
+        wrapper.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        wrapper.querySelectorAll('input, textarea, select, button').forEach(function (control) {
+            if (!visible) {
+                if (control.dataset.logicManaged !== 'true') {
+                    control.dataset.logicManaged = 'true';
+                    control.dataset.logicWasDisabled = control.disabled ? 'true' : 'false';
+                    control.dataset.logicWasRequired = control.required ? 'true' : 'false';
+                }
+                control.disabled = true;
+                control.required = false;
+                return;
+            }
+            if (control.dataset.logicManaged === 'true') {
+                control.disabled = control.dataset.logicWasDisabled === 'true';
+                control.required = control.dataset.logicWasRequired === 'true';
+                delete control.dataset.logicManaged;
+                delete control.dataset.logicWasDisabled;
+                delete control.dataset.logicWasRequired;
+            }
+        });
+    }
+
+    function updateConditionalVisibility(form, definition) {
+        var logic = window.CareForms && window.CareForms.FormLogic;
+        if (!logic) return;
+
+        var values = collectData(form, definition, true);
+        sectionsFor(definition).forEach(function (section) {
+            var sectionVisible = logic.isVisible(section.logic, values);
+            var sectionElement = form.querySelector('[data-section-id="' + section.id + '"]');
+            if (sectionElement) {
+                sectionElement.hidden = !sectionVisible;
+                sectionElement.setAttribute('aria-hidden', sectionVisible ? 'false' : 'true');
+            }
+            var navLink = form.parentNode && form.parentNode.querySelector('[data-section-target="' + section.id + '"]');
+            if (navLink) navLink.hidden = !sectionVisible;
+
+            section.fields.forEach(function (field) {
+                var wrapper = form.querySelector('[data-field-id="' + field.id + '"]');
+                if (!wrapper) return;
+                setControlsVisible(wrapper, sectionVisible && logic.isVisible(field.logic, values));
+            });
+        });
     }
 
     function collectSignature(form) {
@@ -257,13 +308,13 @@
             layout.classList.add('careforms-form-layout-with-nav');
             var sectionNav = document.createElement('nav'); sectionNav.className = 'careforms-section-nav'; sectionNav.setAttribute('aria-label', 'Form sections');
             var navTitle = document.createElement('strong'); navTitle.textContent = 'Sections'; sectionNav.appendChild(navTitle);
-            sections.forEach(function (section) { var link = document.createElement('a'); link.href = '#' + section.id; link.textContent = section.label; sectionNav.appendChild(link); });
+            sections.forEach(function (section) { var link = document.createElement('a'); link.href = '#' + section.id; link.dataset.sectionTarget = section.id; link.textContent = section.label; sectionNav.appendChild(link); });
             layout.appendChild(sectionNav);
         }
 
         var form = document.createElement('form'); form.className = 'careforms-rendered-form'; form.dataset.formId = definition.id;
         sections.forEach(function (section) {
-            var sectionElement = document.createElement('section'); sectionElement.className = 'careforms-form-section'; sectionElement.id = section.id;
+            var sectionElement = document.createElement('section'); sectionElement.className = 'careforms-form-section'; sectionElement.id = section.id; sectionElement.dataset.sectionId = section.id;
             var heading = document.createElement('h3'); heading.textContent = section.label; sectionElement.appendChild(heading);
             if (section.description) {
                 var sectionDescription = document.createElement('p');
@@ -307,7 +358,20 @@
             actions.appendChild(clearButton); actions.appendChild(draftButton); actions.appendChild(submitButton); form.appendChild(actions);
         }
         layout.appendChild(form); mountNode.appendChild(layout);
+        updateConditionalVisibility(form, definition);
+        if (!readOnly) {
+            form.addEventListener('input', function () { updateConditionalVisibility(form, definition); });
+            form.addEventListener('change', function () { updateConditionalVisibility(form, definition); });
+            form.addEventListener('reset', function () {
+                window.setTimeout(function () { updateConditionalVisibility(form, definition); }, 0);
+            });
+        }
     }
 
-    window.CareForms.FormRenderer = { render: renderForm, collectData: collectData, collectSignature: collectSignature };
+    window.CareForms.FormRenderer = {
+        render: renderForm,
+        collectData: collectData,
+        collectSignature: collectSignature,
+        updateConditionalVisibility: updateConditionalVisibility
+    };
 }());
