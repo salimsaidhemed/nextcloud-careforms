@@ -427,6 +427,18 @@
     }
 
     function careFormMlQuote(value) { return JSON.stringify(value === undefined || value === null ? '' : value); }
+    function careFormMlScalar(value) {
+        if(value===null) return 'null';
+        if(typeof value==='boolean' || typeof value==='number') return String(value);
+        return careFormMlQuote(value);
+    }
+    function appendShowWhen(lines, logic, indent) {
+        if(!logic || !logic.showWhen) return;
+        var rule=logic.showWhen;
+        var attrs=['field='+careFormMlQuote(rule.field),'operator='+rule.operator];
+        if(rule.operator!=='isEmpty' && rule.operator!=='isNotEmpty') attrs.push('value='+careFormMlScalar(rule.value));
+        lines.push(indent+'show_when '+attrs.join(' '));
+    }
     function toCareFormML(state) {
         var lines=['form '+careFormMlQuote(state.name || state.id)];
         lines.push('  id '+careFormMlQuote(state.id));
@@ -437,6 +449,7 @@
         (state.sections || []).forEach(function(section){
             lines.push('');
             lines.push('  section '+careFormMlQuote(section.label || section.id)+' id='+careFormMlQuote(section.id));
+            appendShowWhen(lines,section.logic,'    ');
             if(section.description) lines.push('    description '+careFormMlQuote(section.description));
             (section.fields || []).forEach(function(field){
                 var attrs=['id='+careFormMlQuote(field.id),'type='+field.type];
@@ -449,6 +462,7 @@
                 if(field.max!==undefined) attrs.push('max='+field.max);
                 if(field.unit) attrs.push('unit='+careFormMlQuote(field.unit));
                 lines.push('    field '+careFormMlQuote(field.label || field.id)+' '+attrs.join(' '));
+                appendShowWhen(lines,field.logic,'      ');
                 if(field.helpText) lines.push('      help '+careFormMlQuote(field.helpText));
                 (field.options || []).forEach(function(option){ lines.push('      option '+careFormMlQuote(option)); });
             });
@@ -465,13 +479,18 @@
         if(token.charAt(0)==='"') { try { return JSON.parse(token); } catch(e) { throw new Error('Invalid quoted text.'); } }
         return token;
     }
+    function careFormMlScalarValue(token) {
+        if(token===undefined) return '';
+        if(token.charAt(0)==='"') return careFormMlValue(token);
+        if(token==='true') return true;
+        if(token==='false') return false;
+        if(token==='null') return null;
+        if(/^-?(?:\d+\.?\d*|\.\d+)$/.test(token)) return Number(token);
+        return token;
+    }
     function fromCareFormML(text, original) {
         var result=clone(original), currentSection=null, currentField=null;
-        var originalSectionLogic={}, originalFieldLogic={};
-        (original.sections || []).forEach(function(section){
-            if(section.logic) originalSectionLogic[section.id]=clone(section.logic);
-            (section.fields || []).forEach(function(field){ if(field.logic) originalFieldLogic[field.id]=clone(field.logic); });
-        });
+        var logicReferences=[];
         result.sections=[];
         var lines=text.split(/\r?\n/);
         lines.forEach(function(raw,i){
@@ -489,9 +508,7 @@
                 var label=careFormMlValue(t.shift()), id='';
                 t.forEach(function(x){ if(x.indexOf('id=')===0) id=careFormMlValue(x.slice(3)); });
                 if(!id) fail('section requires id=');
-                currentSection={id:id,label:label,description:'',fields:[]};
-                if(originalSectionLogic[id]) currentSection.logic=clone(originalSectionLogic[id]);
-                result.sections.push(currentSection); currentField=null; return;
+                currentSection={id:id,label:label,description:'',fields:[]}; result.sections.push(currentSection); currentField=null; return;
             }
             if(cmd==='description' && currentSection && !currentField){ currentSection.description=careFormMlValue(t[0]); return; }
             if(cmd==='field'){
@@ -506,14 +523,43 @@
                     }
                 });
                 if(!f.id || !f.type) fail('field requires id= and type=');
-                if(originalFieldLogic[f.id]) f.logic=clone(originalFieldLogic[f.id]);
                 currentSection.fields.push(f); currentField=f; return;
+            }
+            if(cmd==='show_when'){
+                var target=currentField || currentSection;
+                if(!target) fail('show_when must follow a section or field');
+                if(target.logic && target.logic.showWhen) fail('only one show_when rule is supported');
+                var values={}, allowed=['field','operator','value'];
+                t.forEach(function(x){
+                    var p=x.indexOf('='); if(p<1) fail('invalid show_when attribute '+x);
+                    var key=x.slice(0,p), token=x.slice(p+1);
+                    if(allowed.indexOf(key)===-1) fail('unknown show_when attribute '+key);
+                    if(Object.prototype.hasOwnProperty.call(values,key)) fail('duplicate show_when attribute '+key);
+                    values[key]=key==='value' ? careFormMlScalarValue(token) : careFormMlValue(token);
+                });
+                if(!values.field) fail('show_when requires field=');
+                if(!values.operator) fail('show_when requires operator=');
+                var operators=['equals','notEquals','isEmpty','isNotEmpty','contains'];
+                if(operators.indexOf(values.operator)===-1) fail('unsupported show_when operator '+values.operator);
+                var needsValue=['equals','notEquals','contains'].indexOf(values.operator)!==-1;
+                var hasValue=Object.prototype.hasOwnProperty.call(values,'value');
+                if(needsValue && !hasValue) fail('show_when operator '+values.operator+' requires value=');
+                if(!needsValue && hasValue) fail('show_when operator '+values.operator+' does not accept value=');
+                var rule={field:values.field,operator:values.operator}; if(hasValue) rule.value=values.value;
+                target.logic=target.logic || {}; target.logic.showWhen=rule;
+                logicReferences.push({field:values.field,line:i+1});
+                return;
             }
             if(cmd==='help'){ if(!currentField) fail('help must follow a field'); currentField.helpText=careFormMlValue(t[0]); return; }
             if(cmd==='option'){ if(!currentField) fail('option must follow a field'); currentField.options=currentField.options || []; currentField.options.push(careFormMlValue(t[0])); return; }
             fail('unknown statement '+cmd);
         });
         if(!result.sections.length) throw new Error('CareFormML must contain at least one section.');
+        var fieldIds={};
+        result.sections.forEach(function(section){ (section.fields || []).forEach(function(field){ fieldIds[field.id]=true; }); });
+        logicReferences.forEach(function(reference){
+            if(!fieldIds[reference.field]) throw new Error('Line '+reference.line+': show_when references unknown field ID '+reference.field);
+        });
         return designerState(result);
     }
 
@@ -629,5 +675,5 @@
     }
 
     window.CareForms=window.CareForms || {};
-    window.CareForms.FormDesigner={open:open,designerState:designerState};
+    window.CareForms.FormDesigner={open:open,designerState:designerState,toCareFormML:toCareFormML,fromCareFormML:fromCareFormML};
 }());
