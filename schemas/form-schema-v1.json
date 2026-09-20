@@ -59,7 +59,7 @@
                   "type": "string",
                   "enum": ["manual", "patient.name", "patient.mr_number", "patient.date_of_birth", "current_user.display_name", "system.current_date"]
                 },
-                "logic": { "$ref": "#/definitions/visibilityLogic" },
+                "logic": { "$ref": "#/definitions/fieldLogic" },
                 "options": {
                   "type": "array",
                   "minItems": 1,
@@ -85,6 +85,18 @@
       "properties": {
         "showWhen": { "$ref": "#/definitions/visibilityRule" }
       }
+    },
+    "fieldLogic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "showWhen": { "$ref": "#/definitions/visibilityRule" },
+        "requiredWhen": { "$ref": "#/definitions/visibilityRule" }
+      },
+      "anyOf": [
+        { "required": ["showWhen"] },
+        { "required": ["requiredWhen"] }
+      ]
     },
     "visibilityRule": {
       "type": "object",

@@ -60,10 +60,31 @@ $case['sections'][0]['fields'][0]['logic']['showWhen'] = [
     'value' => true,
 ];
 expectValid($validator, $case);
+
+// Fields may become required conditionally, independently of visibility.
+$case = definition();
+$case['sections'][0]['fields'][0]['logic']['requiredWhen'] = [
+    'field' => 'has_details',
+    'operator' => 'equals',
+    'value' => true,
+];
+expectValid($validator, $case);
 $roundTrip = json_decode((string)json_encode($case, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 if ($roundTrip['sections'][0]['fields'][0]['logic'] !== $case['sections'][0]['fields'][0]['logic']) {
     throw new RuntimeException('JSON import/export did not preserve field logic.');
 }
+
+// requiredWhen is a field-only capability.
+$case = definition();
+$case['sections'][0]['logic']['requiredWhen'] = [
+    'field' => 'has_details',
+    'operator' => 'equals',
+    'value' => true,
+];
+expectErrors($validator, $case, [
+    'sections[0].logic.requiredWhen is only valid for fields.',
+    'sections[0].logic.showWhen is required.',
+]);
 
 // Sections support the same visibility structure.
 $case = definition();

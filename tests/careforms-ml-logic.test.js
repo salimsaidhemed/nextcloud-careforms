@@ -21,7 +21,10 @@ var definition = {
                     id: 'pain_score',
                     type: 'number',
                     label: 'Pain score',
-                    logic: {showWhen: {field: 'has_pain', operator: 'equals', value: true}}
+                    logic: {
+                        showWhen: {field: 'has_pain', operator: 'equals', value: true},
+                        requiredWhen: {field: 'has_pain', operator: 'equals', value: true}
+                    }
                 }
             ]
         },
@@ -43,6 +46,7 @@ var definition = {
 
 var source = ml.toCareFormML(definition);
 assert.ok(source.includes('show_when field="has_pain" operator=equals value=true'));
+assert.ok(source.includes('required_when field="has_pain" operator=equals value=true'));
 assert.ok(source.includes('show_when field="pain_score" operator=notEquals value=0'));
 assert.ok(source.includes('show_when field="pain_score" operator=isNotEmpty'));
 
@@ -75,5 +79,12 @@ expectError(forward.replace('operator=contains value="yes"', 'operator=contains'
 expectError(forward.replace('operator=contains value="yes"', 'operator=isEmpty value="yes"'), 'does not accept value=');
 expectError(forward.replace('operator=contains', 'operator=greaterThan'), 'unsupported show_when operator');
 expectError(forward.replace('field="controller" operator=contains', 'field="missing" operator=contains'), 'references unknown field ID missing');
+
+var requiredForward = forward.replace(
+    'show_when field="controller" operator=contains value="yes"',
+    'required_when field="controller" operator=equals value="yes"'
+);
+assert.strictEqual(ml.fromCareFormML(requiredForward, definition).sections[0].fields[0].logic.requiredWhen.value, 'yes');
+expectError(requiredForward.replace('required_when field="controller" operator=equals value="yes"', 'required_when field="missing" operator=equals value="yes"'), 'required_when references unknown field ID missing');
 
 console.log('CareFormsML logic tests passed.');

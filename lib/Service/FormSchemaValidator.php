@@ -113,7 +113,7 @@ final class FormSchemaValidator
             }
 
             if (array_key_exists('logic', $section)) {
-                $this->validateLogic($section['logic'], $sectionPath . '.logic', $errors);
+                $this->validateLogic($section['logic'], $sectionPath . '.logic', false, $errors);
             }
 
             $fields = $section['fields'] ?? null;
@@ -153,7 +153,7 @@ final class FormSchemaValidator
                 }
 
                 if (array_key_exists('logic', $field)) {
-                    $this->validateLogic($field['logic'], $fieldPath . '.logic', $errors);
+                    $this->validateLogic($field['logic'], $fieldPath . '.logic', true, $errors);
                 }
 
                 if (array_key_exists('required', $field) && !is_bool($field['required'])) {
@@ -260,35 +260,47 @@ final class FormSchemaValidator
     }
 
     /** @param list<string> $errors */
-    private function validateLogic(mixed $logic, string $path, array &$errors): void
+    private function validateLogic(mixed $logic, string $path, bool $allowRequiredWhen, array &$errors): void
     {
         if (!is_array($logic)) {
             $errors[] = $path . ' must be an object.';
             return;
         }
-        if (!array_key_exists('showWhen', $logic)) {
-            $errors[] = $path . '.showWhen is required.';
+        if (!$allowRequiredWhen && array_key_exists('requiredWhen', $logic)) {
+            $errors[] = $path . '.requiredWhen is only valid for fields.';
+        }
+        $ruleNames = $allowRequiredWhen ? ['showWhen', 'requiredWhen'] : ['showWhen'];
+        $present = array_values(array_filter($ruleNames, static fn (string $name): bool => array_key_exists($name, $logic)));
+        if ($present === []) {
+            $errors[] = $path . '.' . implode(' or ', $ruleNames) . ' is required.';
             return;
         }
-        $rule = $logic['showWhen'];
+        foreach ($present as $ruleName) {
+            $this->validateLogicRule($logic[$ruleName], $path . '.' . $ruleName, $errors);
+        }
+    }
+
+    /** @param list<string> $errors */
+    private function validateLogicRule(mixed $rule, string $path, array &$errors): void
+    {
         if (!is_array($rule)) {
-            $errors[] = $path . '.showWhen must be an object.';
+            $errors[] = $path . ' must be an object.';
             return;
         }
         $field = $rule['field'] ?? null;
         if (!is_string($field) || preg_match('/^[a-z][a-z0-9_]*$/', $field) !== 1) {
-            $errors[] = $path . '.showWhen.field must be a valid field ID.';
+            $errors[] = $path . '.field must be a valid field ID.';
         }
         $operator = $rule['operator'] ?? null;
         if (!is_string($operator) || !in_array($operator, self::LOGIC_VISIBILITY_OPERATORS, true)) {
-            $errors[] = sprintf('%s.showWhen.operator must be one of: %s.', $path, implode(', ', self::LOGIC_VISIBILITY_OPERATORS));
+            $errors[] = sprintf('%s.operator must be one of: %s.', $path, implode(', ', self::LOGIC_VISIBILITY_OPERATORS));
             return;
         }
         if (in_array($operator, ['equals', 'notEquals', 'contains'], true) && !array_key_exists('value', $rule)) {
-            $errors[] = $path . '.showWhen.value is required for operator ' . $operator . '.';
+            $errors[] = $path . '.value is required for operator ' . $operator . '.';
         }
         if (in_array($operator, ['isEmpty', 'isNotEmpty'], true) && array_key_exists('value', $rule)) {
-            $errors[] = $path . '.showWhen.value is not valid for operator ' . $operator . '.';
+            $errors[] = $path . '.value is not valid for operator ' . $operator . '.';
         }
     }
 
@@ -298,12 +310,13 @@ final class FormSchemaValidator
      */
     private function validateLogicReferences(mixed $logic, string $path, array $fieldIds, array &$errors): void
     {
-        if (!is_array($logic) || !is_array($logic['showWhen'] ?? null)) {
-            return;
-        }
-        $field = $logic['showWhen']['field'] ?? null;
-        if (is_string($field) && preg_match('/^[a-z][a-z0-9_]*$/', $field) === 1 && !isset($fieldIds[$field])) {
-            $errors[] = sprintf('%s.showWhen.field references unknown field ID "%s".', $path, $field);
+        if (!is_array($logic)) return;
+        foreach (['showWhen', 'requiredWhen'] as $ruleName) {
+            if (!is_array($logic[$ruleName] ?? null)) continue;
+            $field = $logic[$ruleName]['field'] ?? null;
+            if (is_string($field) && preg_match('/^[a-z][a-z0-9_]*$/', $field) === 1 && !isset($fieldIds[$field])) {
+                $errors[] = sprintf('%s.%s.field references unknown field ID "%s".', $path, $ruleName, $field);
+            }
         }
     }
 

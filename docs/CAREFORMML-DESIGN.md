@@ -65,6 +65,22 @@ Rules may reference fields declared later in the document. References are
 validated after the complete form is parsed, and invalid rules report their
 CareFormsML line number.
 
+## Conditional required fields
+
+A field can become required only when a rule matches by using
+`required_when`. It uses the same operators and scalar-value rules as
+`show_when`:
+
+```text
+field "Pain details" id="pain_details" type=textarea
+  show_when field="has_pain" operator=equals value=true
+  required_when field="has_pain" operator=equals value=true
+```
+
+`required_when` is valid only for fields. Runtime browser validation and
+server-side submission validation both evaluate the rule. Drafts remain
+permissive so partially completed work can still be saved.
+
 ## Example
 
 ```xml
