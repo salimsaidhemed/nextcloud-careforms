@@ -1,5 +1,6 @@
 <?php
 
+script('careforms', 'form-logic');
 script('careforms', 'form-renderer');
 script('careforms', 'page');
 script('careforms', 'patients');
