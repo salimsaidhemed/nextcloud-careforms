@@ -187,3 +187,26 @@ The schema-versioning foundation is complete when:
 - import/export preserves schemaVersion
 - the form designer uses the application's default schema version
 - compatibility expectations are documented and testable
+
+
+## Conditional visibility (schemaVersion 1)
+
+CareForms 0.4.x introduces optional conditional visibility metadata as a compatible extension of schemaVersion 1. Existing definitions remain valid.
+
+A field or section may contain a `logic.showWhen` rule:
+
+```json
+{
+  "logic": {
+    "showWhen": {
+      "field": "has_pain",
+      "operator": "equals",
+      "value": true
+    }
+  }
+}
+```
+
+The `field` property references a stable field ID anywhere in the same form. Supported initial operators are `equals`, `notEquals`, `contains`, `isEmpty`, and `isNotEmpty`. The first three require `value`; empty/not-empty rules do not accept it.
+
+The schema deliberately models one rule first. Compound AND/OR expressions can be added later without changing the meaning of this representation. Runtime evaluation and designer controls are separate capabilities; accepting the schema does not by itself imply that a renderer evaluates it.

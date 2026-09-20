@@ -23,6 +23,14 @@ final class FormSchemaValidator
 
     public const FIELD_WIDTHS = ['full', 'half', 'third'];
 
+    public const LOGIC_VISIBILITY_OPERATORS = [
+        'equals',
+        'notEquals',
+        'isEmpty',
+        'isNotEmpty',
+        'contains',
+    ];
+
     public const FIELD_SOURCES = [
         'manual',
         'patient.name',
@@ -104,6 +112,10 @@ final class FormSchemaValidator
                 $errors[] = $sectionPath . '.collapsible must be a boolean.';
             }
 
+            if (array_key_exists('logic', $section)) {
+                $this->validateLogic($section['logic'], $sectionPath . '.logic', $errors);
+            }
+
             $fields = $section['fields'] ?? null;
             if (!is_array($fields) || $fields === []) {
                 $errors[] = $sectionPath . '.fields must be a non-empty array.';
@@ -138,6 +150,10 @@ final class FormSchemaValidator
                         implode(', ', self::FIELD_TYPES),
                     );
                     continue;
+                }
+
+                if (array_key_exists('logic', $field)) {
+                    $this->validateLogic($field['logic'], $fieldPath . '.logic', $errors);
                 }
 
                 if (array_key_exists('required', $field) && !is_bool($field['required'])) {
@@ -215,7 +231,80 @@ final class FormSchemaValidator
             }
         }
 
+        // Logic references are validated after every field ID is known, so a rule
+        // may safely reference a field declared later in the definition.
+        foreach ($sections as $sectionIndex => $section) {
+            if (!is_array($section)) {
+                continue;
+            }
+            $sectionPath = sprintf('sections[%d]', $sectionIndex);
+            $this->validateLogicReferences($section['logic'] ?? null, $sectionPath . '.logic', $fieldIds, $errors);
+            $fields = $section['fields'] ?? null;
+            if (!is_array($fields)) {
+                continue;
+            }
+            foreach ($fields as $fieldIndex => $field) {
+                if (!is_array($field)) {
+                    continue;
+                }
+                $this->validateLogicReferences(
+                    $field['logic'] ?? null,
+                    sprintf('%s.fields[%d].logic', $sectionPath, $fieldIndex),
+                    $fieldIds,
+                    $errors,
+                );
+            }
+        }
+
         return $errors;
+    }
+
+    /** @param list<string> $errors */
+    private function validateLogic(mixed $logic, string $path, array &$errors): void
+    {
+        if (!is_array($logic)) {
+            $errors[] = $path . ' must be an object.';
+            return;
+        }
+        if (!array_key_exists('showWhen', $logic)) {
+            $errors[] = $path . '.showWhen is required.';
+            return;
+        }
+        $rule = $logic['showWhen'];
+        if (!is_array($rule)) {
+            $errors[] = $path . '.showWhen must be an object.';
+            return;
+        }
+        $field = $rule['field'] ?? null;
+        if (!is_string($field) || preg_match('/^[a-z][a-z0-9_]*$/', $field) !== 1) {
+            $errors[] = $path . '.showWhen.field must be a valid field ID.';
+        }
+        $operator = $rule['operator'] ?? null;
+        if (!is_string($operator) || !in_array($operator, self::LOGIC_VISIBILITY_OPERATORS, true)) {
+            $errors[] = sprintf('%s.showWhen.operator must be one of: %s.', $path, implode(', ', self::LOGIC_VISIBILITY_OPERATORS));
+            return;
+        }
+        if (in_array($operator, ['equals', 'notEquals', 'contains'], true) && !array_key_exists('value', $rule)) {
+            $errors[] = $path . '.showWhen.value is required for operator ' . $operator . '.';
+        }
+        if (in_array($operator, ['isEmpty', 'isNotEmpty'], true) && array_key_exists('value', $rule)) {
+            $errors[] = $path . '.showWhen.value is not valid for operator ' . $operator . '.';
+        }
+    }
+
+    /**
+     * @param array<string, bool> $fieldIds
+     * @param list<string> $errors
+     */
+    private function validateLogicReferences(mixed $logic, string $path, array $fieldIds, array &$errors): void
+    {
+        if (!is_array($logic) || !is_array($logic['showWhen'] ?? null)) {
+            return;
+        }
+        $field = $logic['showWhen']['field'] ?? null;
+        if (is_string($field) && preg_match('/^[a-z][a-z0-9_]*$/', $field) === 1 && !isset($fieldIds[$field])) {
+            $errors[] = sprintf('%s.showWhen.field references unknown field ID "%s".', $path, $field);
+        }
     }
 
     public function assertValid(array $definition): void
