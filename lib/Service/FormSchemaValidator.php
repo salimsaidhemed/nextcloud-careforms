@@ -239,7 +239,11 @@ final class FormSchemaValidator
             }
             $sectionPath = sprintf('sections[%d]', $sectionIndex);
             $this->validateLogicReferences($section['logic'] ?? null, $sectionPath . '.logic', $fieldIds, $errors);
-            foreach (($section['fields'] ?? []) as $fieldIndex => $field) {
+            $fields = $section['fields'] ?? null;
+            if (!is_array($fields)) {
+                continue;
+            }
+            foreach ($fields as $fieldIndex => $field) {
                 if (!is_array($field)) {
                     continue;
                 }
