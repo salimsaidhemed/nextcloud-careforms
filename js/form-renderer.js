@@ -299,6 +299,26 @@
         if (label) label.textContent = label.dataset.fieldLabel + (required ? ' *' : '');
     }
 
+    function setCrossFieldValidity(wrapper, field, values) {
+        var control = wrapper.querySelector('input, textarea, select');
+        if (!control || !control.setCustomValidity) return;
+        if (control.dataset.crossFieldInvalid === 'true') {
+            control.setCustomValidity('');
+            delete control.dataset.crossFieldInvalid;
+        }
+        var comparison = field.validation && field.validation.compare;
+        var helper = window.CareForms && window.CareForms.CrossFieldValidation;
+        if (!comparison || !helper) return;
+        var form = wrapper.closest('form');
+        var sourceWrapper = form && form.querySelector('[data-field-id="' + comparison.field + '"]');
+        if (sourceWrapper && sourceWrapper.hidden) return;
+        var rule = Object.assign({target: field.id}, comparison);
+        if (!helper.evaluateRule(rule, values)) {
+            control.setCustomValidity(comparison.message || 'This value does not match the related field.');
+            control.dataset.crossFieldInvalid = 'true';
+        }
+    }
+
     function updateConditionalVisibility(form, definition) {
         var logic = window.CareForms && window.CareForms.FormLogic;
         if (!logic) return;
@@ -324,6 +344,7 @@
                         ? logic.evaluateRule(field.logic.requiredWhen, values)
                         : false;
                     setFieldRequired(wrapper, field, Boolean(field.required) || conditionallyRequired);
+                    setCrossFieldValidity(wrapper, field, values);
                 }
             });
         });

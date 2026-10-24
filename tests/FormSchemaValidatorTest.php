@@ -175,4 +175,43 @@ $case = definition();
 $case['sections'][0]['fields'][] = ['id' => 'score', 'type' => 'number', 'label' => 'Score', 'step' => 0];
 expectErrors($validator, $case, ['sections[0].fields[2].step must be a number greater than zero.']);
 
+// Cross-field comparisons support forward references and compatible types.
+$case = definition();
+$case['sections'][0]['fields'][0]['validation']['compare'] = [
+    'field' => 'confirmation',
+    'operator' => 'equals',
+    'message' => 'The values must match.',
+];
+$case['sections'][0]['fields'][] = ['id' => 'confirmation', 'type' => 'textarea', 'label' => 'Confirmation'];
+expectValid($validator, $case);
+
+$case = definition();
+$case['sections'][0]['fields'][0]['validation']['compare'] = [
+    'field' => 'missing',
+    'operator' => 'greaterThan',
+    'message' => '',
+];
+expectErrors($validator, $case, [
+    'sections[0].fields[0].validation.compare.message must be a non-empty string.',
+    'sections[0].fields[0].validation.compare.field references unknown field ID "missing".',
+]);
+
+$case = definition();
+$case['sections'][0]['fields'][0]['validation']['compare'] = [
+    'field' => 'details_text',
+    'operator' => 'equals',
+    'message' => 'Self comparison.',
+];
+expectErrors($validator, $case, ['sections[0].fields[0].validation.compare.field must reference a different field.']);
+
+$case = definition();
+$case['sections'][0]['fields'][0]['validation']['compare'] = [
+    'field' => 'has_details',
+    'operator' => 'greaterThan',
+    'message' => 'Invalid type comparison.',
+];
+expectErrors($validator, $case, [
+    'sections[0].fields[0].validation.compare operator greaterThan is not compatible with text and checkbox fields.',
+]);
+
 fwrite(STDOUT, "FormSchemaValidator tests passed.\n");

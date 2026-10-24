@@ -32,6 +32,19 @@ server regular-expression engines. Constraints do not make an optional field
 required, and hidden fields do not produce constraint errors. Published
 submissions are always validated against their captured form version.
 
+### Cross-field comparisons
+
+A scalar field may contain `validation.compare` with `field`, `operator`, and
+`message`. The referenced field ID must exist in the same definition and must
+not be the target field itself. Text, textarea, and single-choice fields form a
+compatible text family for equality comparisons. Numbers, dates, and times
+support equality and ordered comparisons with their own type. Checkboxes
+support equality comparisons with other checkboxes.
+
+Comparisons run only when both values are present. Hidden targets are ignored,
+drafts remain permissive, and final submissions are checked again by the
+server using the submission's exact form version.
+
 ## text
 
 ### Purpose

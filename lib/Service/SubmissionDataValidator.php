@@ -37,6 +37,14 @@ final class SubmissionDataValidator
                 }
                 if (!$this->isEmpty($value)) {
                     array_push($errors, ...$this->validateConstraints($field, $value));
+                    $comparison = $field['validation']['compare'] ?? null;
+                    if (is_array($comparison)) {
+                        $sourceValue = $data[$comparison['field'] ?? ''] ?? null;
+                        if (!$this->isEmpty($sourceValue)
+                            && !$this->evaluateComparison((string)($comparison['operator'] ?? ''), $value, $sourceValue)) {
+                            $errors[] = (string)($comparison['message'] ?? sprintf('%s does not match the related field.', $field['label'] ?? $fieldId));
+                        }
+                    }
                 }
             }
         }
@@ -125,6 +133,19 @@ final class SubmissionDataValidator
         }
 
         return $errors;
+    }
+
+    private function evaluateComparison(string $operator, mixed $actual, mixed $expected): bool
+    {
+        return match ($operator) {
+            'equals' => $actual === $expected,
+            'notEquals' => $actual !== $expected,
+            'greaterThan' => $actual > $expected,
+            'greaterThanOrEqual' => $actual >= $expected,
+            'lessThan' => $actual < $expected,
+            'lessThanOrEqual' => $actual <= $expected,
+            default => false,
+        };
     }
 
     private function patternExpression(string $pattern): string

@@ -68,4 +68,51 @@ if ($validator->validate($definition, ['toggle' => false, 'reference' => 'bad', 
     throw new RuntimeException('Hidden fields must not fail advanced constraints.');
 }
 
+$definition = [
+    'sections' => [[
+        'id' => 'visit',
+        'fields' => [
+            ['id' => 'start_date', 'type' => 'date', 'label' => 'Start date'],
+            [
+                'id' => 'end_date', 'type' => 'date', 'label' => 'End date',
+                'validation' => ['compare' => [
+                    'field' => 'start_date',
+                    'operator' => 'greaterThanOrEqual',
+                    'message' => 'End date must be on or after the start date.',
+                ]],
+            ],
+        ],
+    ]],
+];
+if ($validator->validate($definition, ['start_date' => '2026-10-24', 'end_date' => '2026-10-25']) !== []) {
+    throw new RuntimeException('A valid cross-field comparison was rejected.');
+}
+$errors = $validator->validate($definition, ['start_date' => '2026-10-24', 'end_date' => '2026-10-23']);
+if ($errors !== ['End date must be on or after the start date.']) {
+    throw new RuntimeException('An invalid cross-field comparison was not enforced.');
+}
+if ($validator->validate($definition, ['start_date' => '', 'end_date' => '']) !== []) {
+    throw new RuntimeException('Empty optional comparison values must remain valid.');
+}
+
+$operatorCases = [
+    'equals' => [5, 5, 6],
+    'notEquals' => [5, 6, 6],
+    'greaterThan' => [6, 5, 5],
+    'greaterThanOrEqual' => [5, 5, 4],
+    'lessThan' => [4, 5, 5],
+    'lessThanOrEqual' => [5, 5, 6],
+];
+foreach ($operatorCases as $operator => [$validActual, $expected, $invalidActual]) {
+    $definition['sections'][0]['fields'][0] = ['id' => 'source', 'type' => 'number', 'label' => 'Source'];
+    $definition['sections'][0]['fields'][1] = [
+        'id' => 'target', 'type' => 'number', 'label' => 'Target',
+        'validation' => ['compare' => ['field' => 'source', 'operator' => $operator, 'message' => 'Comparison failed.']],
+    ];
+    $actualErrors = $validator->validate($definition, ['source' => $expected, 'target' => $validActual]);
+    if ($actualErrors !== []) throw new RuntimeException('Operator ' . $operator . ' rejected a valid comparison.');
+    $actualErrors = $validator->validate($definition, ['source' => $expected, 'target' => $invalidActual]);
+    if ($actualErrors !== ['Comparison failed.']) throw new RuntimeException('Operator ' . $operator . ' accepted an invalid comparison.');
+}
+
 fwrite(STDOUT, "SubmissionDataValidator tests passed.\n");
