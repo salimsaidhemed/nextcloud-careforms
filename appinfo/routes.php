@@ -17,6 +17,7 @@ return [
         ['name' => 'formAdmin#groups', 'url' => '/api/forms/admin/groups', 'verb' => 'GET'],
         ['name' => 'formAdmin#permissions', 'url' => '/api/forms/admin/{formId}/permissions', 'verb' => 'PUT'],
         ['name' => 'formAdmin#createDraft', 'url' => '/api/forms/admin/{formId}/versions', 'verb' => 'POST'],
+        ['name' => 'formAdmin#restoreVersion', 'url' => '/api/forms/admin/{formId}/versions/{version}/restore', 'verb' => 'POST'],
         ['name' => 'formAdmin#designer', 'url' => '/api/forms/admin/{formId}/versions/{version}/designer', 'verb' => 'GET'],
         ['name' => 'formAdmin#saveDesigner', 'url' => '/api/forms/admin/{formId}/versions/{version}/designer', 'verb' => 'PUT'],
         ['name' => 'formAdmin#publish', 'url' => '/api/forms/admin/{formId}/versions/{version}/publish', 'verb' => 'POST'],

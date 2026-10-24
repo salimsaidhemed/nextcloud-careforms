@@ -8,6 +8,7 @@ script('careforms', 'patients');
 script('careforms', 'reports');
 script('careforms', 'audit');
 script('careforms', 'form-designer');
+script('careforms', 'form-version-restore');
 script('careforms', 'form-admin');
 script('careforms', 'review');
 script('careforms', 'printing');

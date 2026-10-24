@@ -53,6 +53,16 @@ class FormVersionService
         return $this->mapper->findDraft($formId);
     }
 
+    public function version(string $formId, int $version): FormVersion
+    {
+        $this->ensureSeeded($formId);
+        try {
+            return $this->mapper->findByFormAndVersion($formId, $version);
+        } catch (DoesNotExistException | MultipleObjectsReturnedException) {
+            throw new \InvalidArgumentException('Form version not found.');
+        }
+    }
+
     /**
      * Create the first lifecycle record for a brand-new designer form.
      *
@@ -80,6 +90,20 @@ class FormVersionService
         $this->ensureSeeded($formId);
         $existing = $this->mapper->findDraft($formId);
         if ($existing !== null) return $existing;
+        return $this->insertDraft($formId, $userId);
+    }
+
+    public function createDraftStrict(string $formId, string $userId): FormVersion
+    {
+        $this->ensureSeeded($formId);
+        if ($this->mapper->findDraft($formId) !== null) {
+            throw new \LogicException('Archive or publish the current draft before restoring another version.');
+        }
+        return $this->insertDraft($formId, $userId);
+    }
+
+    private function insertDraft(string $formId, string $userId): FormVersion
+    {
         $now = time();
         $version = new FormVersion();
         $version->setFormId($formId);

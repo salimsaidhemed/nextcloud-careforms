@@ -108,6 +108,31 @@ final class FormDefinitionService
         ));
     }
 
+    /**
+     * Return a definition only when the requested historical version has an
+     * exact snapshot. Restore must not use the compatibility fallback that
+     * substitutes a nearby definition for legacy lifecycle rows.
+     *
+     * @return array<string, mixed>
+     */
+    public function getRestorableVersion(string $formId, int $version): array
+    {
+        $record = $this->records->findByFormAndVersion($formId, $version);
+        if ($record !== null) {
+            return $this->decodeAndValidate($formId, $record->getDefinitionJson());
+        }
+
+        if ($version === 1 && isset(self::DEFINITIONS[$formId])) {
+            return $this->getBundled($formId);
+        }
+
+        throw new \InvalidArgumentException(sprintf(
+            'CareForms definition "%s" version %d does not have an exact stored snapshot and cannot be restored.',
+            $formId,
+            $version,
+        ));
+    }
+
     /** @return array<string, mixed> */
     private function getBundled(string $formId): array
     {
