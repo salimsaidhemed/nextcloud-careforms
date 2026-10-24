@@ -143,4 +143,36 @@ $case = definition();
 $case['sections'][0]['fields'] = 'invalid';
 expectErrors($validator, $case, ['sections[0].fields must be a non-empty array.']);
 
+// Compatible advanced field constraints validate.
+$case = definition();
+$case['sections'][0]['fields'][0]['minLength'] = 3;
+$case['sections'][0]['fields'][0]['maxLength'] = 20;
+$case['sections'][0]['fields'][0]['pattern'] = '[A-Z]{2}-[0-9]{4}';
+$case['sections'][0]['fields'][0]['validationMessage'] = 'Use format AB-1234.';
+$case['sections'][0]['fields'][] = [
+    'id' => 'score', 'type' => 'number', 'label' => 'Score',
+    'min' => 0, 'max' => 10, 'step' => 0.5,
+];
+expectValid($validator, $case);
+
+// Contradictory, malformed and incompatible constraints fail safely.
+$case = definition();
+$case['sections'][0]['fields'][0]['minLength'] = 10;
+$case['sections'][0]['fields'][0]['maxLength'] = 2;
+$case['sections'][0]['fields'][0]['pattern'] = '[';
+expectErrors($validator, $case, [
+    'sections[0].fields[0].minLength must not be greater than maxLength.',
+    'sections[0].fields[0].pattern must be a valid regular expression.',
+]);
+
+$case = definition();
+$case['sections'][0]['fields'][1]['minLength'] = 1;
+expectErrors($validator, $case, [
+    'sections[0].fields[1].minLength/maxLength/pattern/validationMessage are only valid for text and textarea fields.',
+]);
+
+$case = definition();
+$case['sections'][0]['fields'][] = ['id' => 'score', 'type' => 'number', 'label' => 'Score', 'step' => 0];
+expectErrors($validator, $case, ['sections[0].fields[2].step must be a number greater than zero.']);
+
 fwrite(STDOUT, "FormSchemaValidator tests passed.\n");

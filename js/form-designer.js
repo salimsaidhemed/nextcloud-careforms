@@ -260,14 +260,25 @@
         }
         if(field.type==='number'){
             var numeric=document.createElement('div'); numeric.className='careforms-field-editor-row';
-            numeric.innerHTML='<label>Minimum<input type="number" step="any" data-min></label><label>Maximum<input type="number" step="any" data-max></label><label>Unit<input type="text" data-unit placeholder="e.g. kg, bpm"></label>';
+            numeric.innerHTML='<label>Minimum<input type="number" step="any" data-min></label><label>Maximum<input type="number" step="any" data-max></label><label>Step<input type="number" min="0" step="any" data-step placeholder="e.g. 0.5"></label><label>Unit<input type="text" data-unit placeholder="e.g. kg, bpm"></label>';
             if(field.min!==undefined) numeric.querySelector('[data-min]').value=field.min;
             if(field.max!==undefined) numeric.querySelector('[data-max]').value=field.max;
+            if(field.step!==undefined) numeric.querySelector('[data-step]').value=field.step;
             numeric.querySelector('[data-unit]').value=field.unit || ''; form.appendChild(numeric);
         }
         if(field.type==='textarea'){
             var rows=document.createElement('label'); rows.innerHTML='Visible lines<input type="number" min="1" max="50" data-rows>';
             rows.querySelector('input').value=field.rows || 4; form.appendChild(rows);
+        }
+        if(field.type==='text' || field.type==='textarea'){
+            var validation=document.createElement('details'); validation.className='careforms-field-editor-advanced';
+            validation.innerHTML='<summary>Validation</summary><div><div class="careforms-field-editor-row"><label>Minimum characters<input type="number" min="0" step="1" data-min-length></label><label>Maximum characters<input type="number" min="0" step="1" data-max-length></label></div><label>Pattern (regular expression)<input type="text" data-pattern placeholder="e.g. [A-Z]{2}-[0-9]{4}"></label><label>Pattern error message<input type="text" data-validation-message placeholder="Enter a value in the expected format"></label></div>';
+            if(field.minLength!==undefined) validation.querySelector('[data-min-length]').value=field.minLength;
+            if(field.maxLength!==undefined) validation.querySelector('[data-max-length]').value=field.maxLength;
+            validation.querySelector('[data-pattern]').value=field.pattern || '';
+            validation.querySelector('[data-validation-message]').value=field.validationMessage || '';
+            if(field.minLength!==undefined || field.maxLength!==undefined || field.pattern) validation.open=true;
+            form.appendChild(validation);
         }
 
         var advanced=document.createElement('details'); advanced.className='careforms-field-editor-advanced';
@@ -302,12 +313,28 @@
                 if(unique.length!==values.length){ window.alert('Each choice must be unique. Please rename duplicate choices.'); return; }
                 field.options=unique;
             }
-            var min=form.querySelector('[data-min]'), max=form.querySelector('[data-max]'), unit=form.querySelector('[data-unit]');
+            var min=form.querySelector('[data-min]'), max=form.querySelector('[data-max]'), step=form.querySelector('[data-step]'), unit=form.querySelector('[data-unit]');
             if(min){ if(min.value!=='') field.min=Number(min.value); else delete field.min; }
             if(max){ if(max.value!=='') field.max=Number(max.value); else delete field.max; }
             if(min && max && min.value!=='' && max.value!=='' && Number(min.value)>Number(max.value)){ window.alert('Minimum cannot be greater than maximum.'); return; }
+            if(step){ if(step.value!=='' && Number(step.value)>0) field.step=Number(step.value); else if(step.value!==''){ window.alert('Step must be greater than zero.'); return; } else delete field.step; }
             if(unit){ var u=unit.value.trim(); if(u) field.unit=u; else delete field.unit; }
             var rows=form.querySelector('[data-rows]'); if(rows) field.rows=Math.max(1,Math.min(50,parseInt(rows.value,10)||4));
+            var minLength=form.querySelector('[data-min-length]'), maxLength=form.querySelector('[data-max-length]');
+            if(minLength){ if(minLength.value!=='') field.minLength=Math.max(0,parseInt(minLength.value,10)); else delete field.minLength; }
+            if(maxLength){ if(maxLength.value!=='') field.maxLength=Math.max(0,parseInt(maxLength.value,10)); else delete field.maxLength; }
+            if(minLength && maxLength && minLength.value!=='' && maxLength.value!=='' && Number(minLength.value)>Number(maxLength.value)){ window.alert('Minimum characters cannot be greater than maximum characters.'); return; }
+            var pattern=form.querySelector('[data-pattern]'), validationMessage=form.querySelector('[data-validation-message]');
+            if(pattern){
+                var patternValue=pattern.value.trim();
+                if(patternValue){ try { new RegExp(patternValue); } catch(error){ window.alert('Pattern is not a valid regular expression: '+error.message); return; } field.pattern=patternValue; }
+                else delete field.pattern;
+            }
+            if(validationMessage){
+                var messageValue=validationMessage.value.trim();
+                if(messageValue && !field.pattern){ window.alert('Add a pattern before setting its error message.'); return; }
+                if(messageValue) field.validationMessage=messageValue; else delete field.validationMessage;
+            }
             condition._applyCondition();
             requiredCondition._applyCondition();
             close(); rerender();
@@ -426,6 +453,14 @@
                     if(window.confirm('Delete “'+(field.label || field.id)+'”?')){ section.fields.splice(fieldIndex,1); rerender(); }
                 }));
                 var summary=document.createElement('div'); summary.className='careforms-designer-field-summary'; summary.appendChild(label); summary.appendChild(type);
+                var constraints=[];
+                if(field.minLength!==undefined) constraints.push('min '+field.minLength+' characters');
+                if(field.maxLength!==undefined) constraints.push('max '+field.maxLength+' characters');
+                if(field.pattern) constraints.push('pattern');
+                if(field.min!==undefined) constraints.push('min '+field.min);
+                if(field.max!==undefined) constraints.push('max '+field.max);
+                if(field.step!==undefined) constraints.push('step '+field.step);
+                if(constraints.length){ var validationSummary=document.createElement('small'); validationSummary.className='careforms-condition-summary'; validationSummary.textContent='Validation: '+constraints.join(' · '); summary.appendChild(validationSummary); }
                 if(field.logic && field.logic.showWhen){ var conditionSummary=document.createElement('small'); conditionSummary.className='careforms-condition-summary'; conditionSummary.textContent=window.CareForms.ConditionBuilder.ruleSummary(field.logic.showWhen,fieldsById(state)); summary.appendChild(conditionSummary); }
                 if(field.logic && field.logic.requiredWhen){ var requiredSummary=document.createElement('small'); requiredSummary.className='careforms-condition-summary'; requiredSummary.textContent='Required when '+window.CareForms.ConditionBuilder.ruleSummary(field.logic.requiredWhen,fieldsById(state)).replace(/^Shown when /,''); summary.appendChild(requiredSummary); }
                 row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
@@ -468,11 +503,16 @@
                 if(field.rows) attrs.push('rows='+field.rows);
                 if(field.min!==undefined) attrs.push('min='+field.min);
                 if(field.max!==undefined) attrs.push('max='+field.max);
+                if(field.step!==undefined) attrs.push('step='+field.step);
+                if(field.minLength!==undefined) attrs.push('min_length='+field.minLength);
+                if(field.maxLength!==undefined) attrs.push('max_length='+field.maxLength);
                 if(field.unit) attrs.push('unit='+careFormMlQuote(field.unit));
                 lines.push('    field '+careFormMlQuote(field.label || field.id)+' '+attrs.join(' '));
                 appendLogicRule(lines,field.logic,'showWhen','show_when','      ');
                 appendLogicRule(lines,field.logic,'requiredWhen','required_when','      ');
                 if(field.helpText) lines.push('      help '+careFormMlQuote(field.helpText));
+                if(field.pattern) lines.push('      pattern '+careFormMlQuote(field.pattern));
+                if(field.validationMessage) lines.push('      validation_message '+careFormMlQuote(field.validationMessage));
                 (field.options || []).forEach(function(option){ lines.push('      option '+careFormMlQuote(option)); });
             });
         });
@@ -528,10 +568,21 @@
                     if(x==='required') f.required=true; else if(x==='readonly') f.readOnly=true;
                     else { var p=x.indexOf('='); if(p<1) fail('invalid field attribute '+x); var k=x.slice(0,p),v=careFormMlValue(x.slice(p+1));
                         if(k==='id') f.id=v; else if(k==='type') f.type=v; else if(k==='width') f.width=v; else if(k==='source') f.source=v;
-                        else if(k==='rows'||k==='min'||k==='max') f[k]=Number(v); else if(k==='unit') f.unit=v; else fail('unknown field attribute '+k);
+                        else if(k==='rows'||k==='min'||k==='max'||k==='step') f[k]=Number(v);
+                        else if(k==='min_length'||k==='max_length') f[k==='min_length'?'minLength':'maxLength']=Number(v);
+                        else if(k==='unit') f.unit=v; else fail('unknown field attribute '+k);
                     }
                 });
                 if(!f.id || !f.type) fail('field requires id= and type=');
+                if(f.step!==undefined && (!Number.isFinite(f.step) || f.step<=0)) fail('step must be greater than zero');
+                if(f.type!=='number' && (f.min!==undefined || f.max!==undefined || f.step!==undefined)) fail('min, max and step are only valid for number fields');
+                if(f.min!==undefined && !Number.isFinite(f.min)) fail('min must be numeric');
+                if(f.max!==undefined && !Number.isFinite(f.max)) fail('max must be numeric');
+                if(f.min!==undefined && f.max!==undefined && f.min>f.max) fail('min cannot be greater than max');
+                if(f.minLength!==undefined && (!Number.isInteger(f.minLength) || f.minLength<0)) fail('min_length must be a non-negative integer');
+                if(f.maxLength!==undefined && (!Number.isInteger(f.maxLength) || f.maxLength<0)) fail('max_length must be a non-negative integer');
+                if(f.minLength!==undefined && f.maxLength!==undefined && f.minLength>f.maxLength) fail('min_length cannot be greater than max_length');
+                if(['text','textarea'].indexOf(f.type)===-1 && (f.minLength!==undefined || f.maxLength!==undefined)) fail('min_length and max_length are only valid for text fields');
                 currentSection.fields.push(f); currentField=f; return;
             }
             if(cmd==='show_when' || cmd==='required_when'){
@@ -562,6 +613,20 @@
                 return;
             }
             if(cmd==='help'){ if(!currentField) fail('help must follow a field'); currentField.helpText=careFormMlValue(t[0]); return; }
+            if(cmd==='pattern'){
+                if(!currentField) fail('pattern must follow a field');
+                if(['text','textarea'].indexOf(currentField.type)===-1) fail('pattern is only valid for text fields');
+                var patternValue=careFormMlValue(t[0]); if(!patternValue) fail('pattern requires a regular expression');
+                try { new RegExp(patternValue); } catch(error) { fail('pattern is not a valid regular expression'); }
+                currentField.pattern=patternValue; return;
+            }
+            if(cmd==='validation_message'){
+                if(!currentField) fail('validation_message must follow a field');
+                if(['text','textarea'].indexOf(currentField.type)===-1) fail('validation_message is only valid for text fields');
+                var validationValue=careFormMlValue(t[0]); if(!validationValue) fail('validation_message requires text');
+                if(!currentField.pattern) fail('validation_message requires pattern');
+                currentField.validationMessage=validationValue; return;
+            }
             if(cmd==='option'){ if(!currentField) fail('option must follow a field'); currentField.options=currentField.options || []; currentField.options.push(careFormMlValue(t[0])); return; }
             fail('unknown statement '+cmd);
         });

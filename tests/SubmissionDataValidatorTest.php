@@ -36,4 +36,36 @@ if ($validator->validate($definition, ['has_pain' => true, 'visit_date' => '2026
     throw new RuntimeException('Hidden fields must not be required.');
 }
 
+$definition = [
+    'sections' => [[
+        'id' => 'validation',
+        'fields' => [
+            [
+                'id' => 'reference', 'type' => 'text', 'label' => 'Reference',
+                'minLength' => 3, 'maxLength' => 8,
+                'pattern' => '[A-Z]{2}-[0-9]{2}',
+                'validationMessage' => 'Use format AB-12.',
+            ],
+            ['id' => 'score', 'type' => 'number', 'label' => 'Score', 'min' => 0, 'max' => 10, 'step' => 0.5],
+        ],
+    ]],
+];
+if ($validator->validate($definition, ['reference' => '', 'score' => '']) !== []) {
+    throw new RuntimeException('Empty optional values must not fail advanced constraints.');
+}
+$errors = $validator->validate($definition, ['reference' => 'bad', 'score' => 9.2]);
+if ($errors !== ['Use format AB-12.', 'Score must use increments of 0.5.']) {
+    throw new RuntimeException('Pattern and numeric step constraints were not enforced.');
+}
+$errors = $validator->validate($definition, ['reference' => 'AB-12345', 'score' => 11]);
+if ($errors !== ['Reference must not exceed 8 characters.', 'Use format AB-12.', 'Score must not exceed 10.']) {
+    throw new RuntimeException('Maximum and pattern constraints were not enforced.');
+}
+
+$definition['sections'][0]['fields'][0]['logic']['showWhen'] = ['field' => 'toggle', 'operator' => 'equals', 'value' => true];
+$definition['sections'][0]['fields'][] = ['id' => 'toggle', 'type' => 'checkbox', 'label' => 'Toggle'];
+if ($validator->validate($definition, ['toggle' => false, 'reference' => 'bad', 'score' => 5]) !== []) {
+    throw new RuntimeException('Hidden fields must not fail advanced constraints.');
+}
+
 fwrite(STDOUT, "SubmissionDataValidator tests passed.\n");

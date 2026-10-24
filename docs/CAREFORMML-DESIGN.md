@@ -81,6 +81,24 @@ field "Pain details" id="pain_details" type=textarea
 server-side submission validation both evaluate the rule. Drafts remain
 permissive so partially completed work can still be saved.
 
+## Advanced field validation
+
+Text and textarea fields may declare length and pattern constraints. Numeric
+fields may declare a positive step in addition to minimum and maximum values:
+
+```text
+field "Reference" id="reference" type=text min_length=5 max_length=20
+  pattern "[A-Z]{2}-[0-9]{4}"
+  validation_message "Use format AB-1234."
+
+field "Pain score" id="pain_score" type=number min=0 max=10 step=0.5
+```
+
+`validation_message` requires `pattern`. Empty optional values are not rejected
+by these constraints; use `required` or `required_when` when a value must be
+provided. Final submission is checked by both the browser and server against
+the exact saved form version.
+
 ## Example
 
 ```xml
