@@ -29,8 +29,14 @@ final class SubmissionDataValidator
                     || (isset($field['logic']['requiredWhen'])
                         && $this->evaluateRule($field['logic']['requiredWhen'], $data));
                 $fieldId = $field['id'] ?? null;
-                if ($required && is_string($fieldId) && $this->isRequiredValueEmpty($data[$fieldId] ?? null, (string)($field['type'] ?? ''))) {
+                if (!is_string($fieldId)) continue;
+                $value = $data[$fieldId] ?? null;
+                if ($required && $this->isRequiredValueEmpty($value, (string)($field['type'] ?? ''))) {
                     $errors[] = sprintf('%s is required.', $field['label'] ?? $fieldId);
+                    continue;
+                }
+                if (!$this->isEmpty($value)) {
+                    array_push($errors, ...$this->validateConstraints($field, $value));
                 }
             }
         }
@@ -73,5 +79,67 @@ final class SubmissionDataValidator
     {
         if ($fieldType === 'checkbox' && $value === false) return true;
         return $this->isEmpty($value);
+    }
+
+    /**
+     * @param array<string, mixed> $field
+     * @return list<string>
+     */
+    private function validateConstraints(array $field, mixed $value): array
+    {
+        $label = (string)($field['label'] ?? $field['id'] ?? 'Field');
+        $type = (string)($field['type'] ?? '');
+        $errors = [];
+
+        if (in_array($type, ['text', 'textarea'], true)) {
+            if (!is_string($value)) return [sprintf('%s must be text.', $label)];
+            $length = mb_strlen($value);
+            if (isset($field['minLength']) && $length < (int)$field['minLength']) {
+                $errors[] = sprintf('%s must contain at least %d characters.', $label, (int)$field['minLength']);
+            }
+            if (isset($field['maxLength']) && $length > (int)$field['maxLength']) {
+                $errors[] = sprintf('%s must not exceed %d characters.', $label, (int)$field['maxLength']);
+            }
+            if (isset($field['pattern']) && @preg_match($this->patternExpression((string)$field['pattern']), $value) !== 1) {
+                $errors[] = (string)($field['validationMessage'] ?? sprintf('%s has an invalid format.', $label));
+            }
+        }
+
+        if ($type === 'number') {
+            if (!is_int($value) && !is_float($value)) return [sprintf('%s must be a number.', $label)];
+            $numeric = (float)$value;
+            if (isset($field['min']) && $numeric < (float)$field['min']) {
+                $errors[] = sprintf('%s must be at least %s.', $label, $this->numberLabel($field['min']));
+            }
+            if (isset($field['max']) && $numeric > (float)$field['max']) {
+                $errors[] = sprintf('%s must not exceed %s.', $label, $this->numberLabel($field['max']));
+            }
+            if (isset($field['step'])) {
+                $step = (float)$field['step'];
+                $base = isset($field['min']) ? (float)$field['min'] : 0.0;
+                $steps = ($numeric - $base) / $step;
+                if (abs($steps - round($steps)) > 1.0e-9) {
+                    $errors[] = sprintf('%s must use increments of %s.', $label, $this->numberLabel($field['step']));
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    private function patternExpression(string $pattern): string
+    {
+        foreach (['~', '#', '%', '!', ';', '@', '`', '/', ',', '=', ':', '_', '+', '-'] as $delimiter) {
+            if (!str_contains($pattern, $delimiter)) {
+                return $delimiter . '^(?:' . $pattern . ')$' . $delimiter . 'uD';
+            }
+        }
+        return "\x1F^(?:" . $pattern . ")$\x1FuD";
+    }
+
+    private function numberLabel(mixed $value): string
+    {
+        $label = (string)$value;
+        return str_contains($label, '.') ? rtrim(rtrim($label, '0'), '.') : $label;
     }
 }

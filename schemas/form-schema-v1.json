@@ -68,9 +68,28 @@
                 },
                 "min": { "type": "number" },
                 "max": { "type": "number" },
+                "step": { "type": "number", "exclusiveMinimum": 0 },
+                "minLength": { "type": "integer", "minimum": 0 },
+                "maxLength": { "type": "integer", "minimum": 0 },
+                "pattern": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                "validationMessage": { "type": "string", "minLength": 1, "maxLength": 1000 },
                 "rows": { "type": "integer", "minimum": 1, "maximum": 50 },
                 "defaultValue": {}
-              }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "type": { "const": "number" } }, "required": ["type"] },
+                  "else": { "not": { "anyOf": [{ "required": ["min"] }, { "required": ["max"] }, { "required": ["step"] }] } }
+                },
+                {
+                  "if": { "properties": { "type": { "enum": ["text", "textarea"] } }, "required": ["type"] },
+                  "else": { "not": { "anyOf": [{ "required": ["minLength"] }, { "required": ["maxLength"] }, { "required": ["pattern"] }, { "required": ["validationMessage"] }] } }
+                },
+                {
+                  "if": { "required": ["validationMessage"] },
+                  "then": { "required": ["pattern"] }
+                }
+              ]
             }
           }
         }

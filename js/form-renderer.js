@@ -38,6 +38,26 @@
         return values[field.id];
     }
 
+    function applyFieldConstraints(input, field) {
+        if (field.min !== undefined) input.min = field.min;
+        if (field.max !== undefined) input.max = field.max;
+        if (field.step !== undefined) input.step = field.step;
+        if (field.minLength !== undefined) input.minLength = field.minLength;
+        if (field.maxLength !== undefined) input.maxLength = field.maxLength;
+        if (field.pattern !== undefined) input.pattern = field.pattern;
+
+        if (field.pattern !== undefined && field.validationMessage) {
+            function updatePatternMessage() {
+                input.setCustomValidity('');
+                if (input.value !== '' && input.validity.patternMismatch) {
+                    input.setCustomValidity(field.validationMessage);
+                }
+            }
+            input.addEventListener('input', updatePatternMessage);
+            input.addEventListener('invalid', updatePatternMessage);
+        }
+    }
+
     function createSignatureField(field, readOnly, signature) {
         var wrapper = document.createElement('div');
         wrapper.className = 'careforms-field careforms-signature-field' + fieldWidthClass(field);
@@ -193,8 +213,7 @@
         else { input = document.createElement('input'); input.type = field.type || 'text'; input.value = savedValue; }
         input.id = field.id; input.name = field.id; input.required = Boolean(field.required);
         input.disabled = readOnly || Boolean(field.readOnly);
-        if (field.min !== undefined) input.min = field.min;
-        if (field.max !== undefined) input.max = field.max;
+        applyFieldConstraints(input, field);
         if (field.placeholder) input.placeholder = field.placeholder;
         wrapper.appendChild(input);
         appendUnit(wrapper, field);

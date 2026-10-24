@@ -18,6 +18,20 @@ Field IDs are part of the historical data contract. Once a published form versio
 
 Unknown field types must fail validation before publication.
 
+## Advanced validation constraints
+
+Schema v1 supports these optional, type-specific constraints:
+
+- `text` and `textarea`: `minLength`, `maxLength`, `pattern`, and an optional
+  human-readable `validationMessage` for pattern failures.
+- `number`: `min`, `max`, and positive `step`.
+
+Length values are non-negative integers and minimum must not exceed maximum.
+Patterns are stored without delimiters and must be valid in both browser and
+server regular-expression engines. Constraints do not make an optional field
+required, and hidden fields do not produce constraint errors. Published
+submissions are always validated against their captured form version.
+
 ## text
 
 ### Purpose

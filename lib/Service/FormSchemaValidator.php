@@ -200,6 +200,7 @@ final class FormSchemaValidator
                 if ($type === 'number') {
                     $min = $field['min'] ?? null;
                     $max = $field['max'] ?? null;
+                    $step = $field['step'] ?? null;
 
                     if (array_key_exists('min', $field) && !is_int($min) && !is_float($min)) {
                         $errors[] = $fieldPath . '.min must be numeric.';
@@ -212,9 +213,15 @@ final class FormSchemaValidator
                         && $min > $max) {
                         $errors[] = $fieldPath . '.min must not be greater than max.';
                     }
-                } elseif (array_key_exists('min', $field) || array_key_exists('max', $field)) {
-                    $errors[] = $fieldPath . '.min/max are only valid for number fields.';
+                    if (array_key_exists('step', $field)
+                        && ((!is_int($step) && !is_float($step)) || $step <= 0)) {
+                        $errors[] = $fieldPath . '.step must be a number greater than zero.';
+                    }
+                } elseif (array_key_exists('min', $field) || array_key_exists('max', $field) || array_key_exists('step', $field)) {
+                    $errors[] = $fieldPath . '.min/max/step are only valid for number fields.';
                 }
+
+                $this->validateTextConstraints($field, $type, $fieldPath, $errors);
 
                 if ($type === 'textarea') {
                     if (array_key_exists('rows', $field)
@@ -257,6 +264,64 @@ final class FormSchemaValidator
         }
 
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $field
+     * @param list<string> $errors
+     */
+    private function validateTextConstraints(array $field, string $type, string $path, array &$errors): void
+    {
+        $keys = ['minLength', 'maxLength', 'pattern', 'validationMessage'];
+        $present = array_values(array_filter($keys, static fn (string $key): bool => array_key_exists($key, $field)));
+        if ($present === []) return;
+
+        if (!in_array($type, ['text', 'textarea'], true)) {
+            $errors[] = $path . '.minLength/maxLength/pattern/validationMessage are only valid for text and textarea fields.';
+            return;
+        }
+
+        $minLength = $field['minLength'] ?? null;
+        $maxLength = $field['maxLength'] ?? null;
+        if (array_key_exists('minLength', $field) && (!is_int($minLength) || $minLength < 0)) {
+            $errors[] = $path . '.minLength must be an integer greater than or equal to zero.';
+        }
+        if (array_key_exists('maxLength', $field) && (!is_int($maxLength) || $maxLength < 0)) {
+            $errors[] = $path . '.maxLength must be an integer greater than or equal to zero.';
+        }
+        if (is_int($minLength) && is_int($maxLength) && $minLength > $maxLength) {
+            $errors[] = $path . '.minLength must not be greater than maxLength.';
+        }
+
+        if (array_key_exists('pattern', $field)) {
+            if (!is_string($field['pattern']) || $field['pattern'] === '') {
+                $errors[] = $path . '.pattern must be a non-empty string.';
+            } elseif (mb_strlen($field['pattern']) > 1000) {
+                $errors[] = $path . '.pattern must not exceed 1000 characters.';
+            } elseif (@preg_match($this->patternExpression($field['pattern']), '') === false) {
+                $errors[] = $path . '.pattern must be a valid regular expression.';
+            }
+        }
+
+        if (array_key_exists('validationMessage', $field)) {
+            if (!is_string($field['validationMessage']) || trim($field['validationMessage']) === '') {
+                $errors[] = $path . '.validationMessage must be a non-empty string.';
+            } elseif (mb_strlen($field['validationMessage']) > 1000) {
+                $errors[] = $path . '.validationMessage must not exceed 1000 characters.';
+            } elseif (!array_key_exists('pattern', $field)) {
+                $errors[] = $path . '.validationMessage requires pattern.';
+            }
+        }
+    }
+
+    private function patternExpression(string $pattern): string
+    {
+        foreach (['~', '#', '%', '!', ';', '@', '`', '/', ',', '=', ':', '_', '+', '-'] as $delimiter) {
+            if (!str_contains($pattern, $delimiter)) {
+                return $delimiter . '^(?:' . $pattern . ')$' . $delimiter . 'uD';
+            }
+        }
+        return "\x1F^(?:" . $pattern . ")$\x1FuD";
     }
 
     /** @param list<string> $errors */
