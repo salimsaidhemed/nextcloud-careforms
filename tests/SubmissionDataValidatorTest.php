@@ -53,7 +53,7 @@ $definition = [
 if ($validator->validate($definition, ['reference' => '', 'score' => '']) !== []) {
     throw new RuntimeException('Empty optional values must not fail advanced constraints.');
 }
-$errors = $validator->validate($definition, ['reference' => 'bad', 'score' => 10.2]);
+$errors = $validator->validate($definition, ['reference' => 'bad', 'score' => 9.2]);
 if ($errors !== ['Use format AB-12.', 'Score must use increments of 0.5.']) {
     throw new RuntimeException('Pattern and numeric step constraints were not enforced.');
 }
