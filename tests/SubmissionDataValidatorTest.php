@@ -57,7 +57,7 @@ $errors = $validator->validate($definition, ['reference' => 'bad', 'score' => 9.
 if ($errors !== ['Use format AB-12.', 'Score must use increments of 0.5.']) {
     throw new RuntimeException('Pattern and numeric step constraints were not enforced.');
 }
-$errors = $validator->validate($definition, ['reference' => 'AB-12345', 'score' => 11]);
+$errors = $validator->validate($definition, ['reference' => 'AB-123456', 'score' => 11]);
 if ($errors !== ['Reference must not exceed 8 characters.', 'Use format AB-12.', 'Score must not exceed 10.']) {
     throw new RuntimeException('Maximum and pattern constraints were not enforced.');
 }
