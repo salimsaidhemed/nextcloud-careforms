@@ -23,5 +23,4 @@ assert.strictEqual(logic.evaluateRule({field: 'notes', operator: 'contains', val
 assert.strictEqual(logic.evaluateRule({field: 'score', operator: 'contains', value: 2}, {score: 12}), false);
 
 assert.strictEqual(logic.evaluateRule({field: 'status', operator: 'unsupported', value: 'open'}, {status: 'open'}), false);
-
 console.log('FormLogic tests passed.');

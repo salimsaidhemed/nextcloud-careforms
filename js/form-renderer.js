@@ -150,6 +150,7 @@
         if (field.type === 'checkbox-group' || field.type === 'choice-group') {
             var groupLabel = document.createElement('div');
             groupLabel.className = 'careforms-field-label';
+            groupLabel.dataset.fieldLabel = field.label;
             groupLabel.textContent = field.label + (field.required ? ' *' : '');
             wrapper.appendChild(groupLabel);
             var grid = document.createElement('div');
@@ -185,6 +186,7 @@
 
         var label = document.createElement('label');
         label.className = 'careforms-field-label'; label.htmlFor = field.id;
+        label.dataset.fieldLabel = field.label;
         label.textContent = field.label + (field.required ? ' *' : ''); wrapper.appendChild(label);
         var input;
         if (field.type === 'textarea') { input = document.createElement('textarea'); input.rows = field.rows || 4; input.value = savedValue; }
@@ -234,6 +236,7 @@
                 }
                 control.disabled = true;
                 control.required = false;
+                if (control.setCustomValidity) control.setCustomValidity('');
                 return;
             }
             if (control.dataset.logicManaged === 'true') {
@@ -244,6 +247,37 @@
                 delete control.dataset.logicWasRequired;
             }
         });
+    }
+
+    function setFieldRequired(wrapper, field, required) {
+        var badge = wrapper.querySelector('[data-required-badge]');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'careforms-required-badge';
+            badge.dataset.requiredBadge = 'true';
+            badge.textContent = 'Required';
+            wrapper.insertBefore(badge, wrapper.firstChild);
+        }
+        badge.hidden = !required;
+        wrapper.classList.toggle('is-required', Boolean(required));
+        wrapper.setAttribute('aria-required', required ? 'true' : 'false');
+        var controls = Array.from(wrapper.querySelectorAll('input, textarea, select'));
+        if (field.type === 'checkbox-group') {
+            controls.forEach(function (control) {
+                control.required = false;
+                if (control.setCustomValidity) control.setCustomValidity('');
+            });
+            if (controls[0] && controls[0].setCustomValidity) {
+                var anyChecked = controls.some(function (control) { return control.checked; });
+                controls[0].setCustomValidity(required && !anyChecked ? 'Select at least one option.' : '');
+            }
+        } else {
+            controls.forEach(function (control, index) {
+                control.required = Boolean(required) && (field.type !== 'choice-group' || index === 0);
+            });
+        }
+        var label = wrapper.querySelector('[data-field-label]');
+        if (label) label.textContent = label.dataset.fieldLabel + (required ? ' *' : '');
     }
 
     function updateConditionalVisibility(form, definition) {
@@ -264,7 +298,14 @@
             section.fields.forEach(function (field) {
                 var wrapper = form.querySelector('[data-field-id="' + field.id + '"]');
                 if (!wrapper) return;
-                setControlsVisible(wrapper, sectionVisible && logic.isVisible(field.logic, values));
+                var fieldVisible = sectionVisible && logic.isVisible(field.logic, values);
+                setControlsVisible(wrapper, fieldVisible);
+                if (fieldVisible) {
+                    var conditionallyRequired = field.logic && field.logic.requiredWhen
+                        ? logic.evaluateRule(field.logic.requiredWhen, values)
+                        : false;
+                    setFieldRequired(wrapper, field, Boolean(field.required) || conditionallyRequired);
+                }
             });
         });
     }

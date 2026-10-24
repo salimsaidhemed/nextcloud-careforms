@@ -102,10 +102,15 @@
         return fields;
     }
 
-    function conditionEditor(state, target, excludedFieldId, excludedSectionId) {
+    function conditionEditor(state, target, excludedFieldId, excludedSectionId, ruleName, title, enableLabel) {
+        ruleName=ruleName || 'showWhen';
+        title=title || 'Visibility condition';
+        enableLabel=enableLabel || 'Show this only when a condition is met';
         var helper=window.CareForms && window.CareForms.ConditionBuilder;
         var details=document.createElement('details'); details.className='careforms-condition-editor';
-        details.innerHTML='<summary>Visibility condition</summary><div class="careforms-condition-editor-body"><label class="careforms-check"><input type="checkbox" data-condition-enabled> Show this only when a condition is met</label><div data-condition-controls><label>Controlling field<select data-condition-field></select></label><label>Operator<select data-condition-operator></select></label><label data-condition-value-label>Comparison value<span data-condition-value></span></label></div><p class="careforms-muted" data-condition-empty hidden>Add another eligible field before configuring a condition.</p></div>';
+        details.innerHTML='<summary></summary><div class="careforms-condition-editor-body"><label class="careforms-check"><input type="checkbox" data-condition-enabled> <span data-enable-label></span></label><div data-condition-controls><label>Controlling field<select data-condition-field></select></label><label>Operator<select data-condition-operator></select></label><label data-condition-value-label>Comparison value<span data-condition-value></span></label></div><p class="careforms-muted" data-condition-empty hidden>Add another eligible field before configuring a condition.</p></div>';
+        details.querySelector('summary').textContent=title;
+        details.querySelector('[data-enable-label]').textContent=enableLabel;
         var enabled=details.querySelector('[data-condition-enabled]');
         var controls=details.querySelector('[data-condition-controls]');
         var source=details.querySelector('[data-condition-field]');
@@ -121,7 +126,7 @@
             option.textContent=(item.section.label || item.section.id)+' — '+(item.field.label || item.field.id);
             source.appendChild(option);
         });
-        var existing=target.logic && target.logic.showWhen ? clone(target.logic.showWhen) : null;
+        var existing=target.logic && target.logic[ruleName] ? clone(target.logic[ruleName]) : null;
         enabled.checked=!!existing; details.open=!!existing;
         if(existing && candidates.some(function(item){return item.field.id===existing.field;})) source.value=existing.field;
 
@@ -162,14 +167,14 @@
         }
         details._applyCondition=function(){
             if(!enabled.checked){
-                if(target.logic) delete target.logic.showWhen;
+                if(target.logic) delete target.logic[ruleName];
                 if(target.logic && !Object.keys(target.logic).length) delete target.logic;
                 return;
             }
             var input=valueMount.querySelector('[data-condition-value]');
             var rule=helper.createRule(source.value,operator.value,selectedField(),input ? input.value : '');
             target.logic=target.logic || {};
-            target.logic.showWhen=rule;
+            target.logic[ruleName]=rule;
         };
         return details;
     }
@@ -188,7 +193,7 @@
         form.innerHTML='<label>Section name<input type="text" data-label></label><label>Description<textarea rows="3" data-description></textarea></label>';
         form.querySelector('[data-label]').value=section.label || '';
         form.querySelector('[data-description]').value=section.description || '';
-        var condition=conditionEditor(state,section,null,section.id); form.appendChild(condition);
+        var condition=conditionEditor(state,section,null,section.id,'showWhen','Visibility condition','Show this only when a condition is met'); form.appendChild(condition);
         var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
         var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
         var apply=document.createElement('button'); apply.type='button'; apply.className='primary'; apply.textContent='Apply changes';
@@ -271,7 +276,8 @@
         advanced.querySelector('[data-source]').value=field.source || '';
         advanced.querySelector('[data-readonly]').checked=!!field.readOnly;
         form.appendChild(advanced);
-        var condition=conditionEditor(state,field,field.id); form.appendChild(condition);
+        var condition=conditionEditor(state,field,field.id,null,'showWhen','Visibility condition','Show this only when a condition is met'); form.appendChild(condition);
+        var requiredCondition=conditionEditor(state,field,field.id,null,'requiredWhen','Required condition','Require this field when a condition is met'); form.appendChild(requiredCondition);
 
         var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
         var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
@@ -303,6 +309,7 @@
             if(unit){ var u=unit.value.trim(); if(u) field.unit=u; else delete field.unit; }
             var rows=form.querySelector('[data-rows]'); if(rows) field.rows=Math.max(1,Math.min(50,parseInt(rows.value,10)||4));
             condition._applyCondition();
+            requiredCondition._applyCondition();
             close(); rerender();
         });
     }
@@ -402,7 +409,7 @@
                 var label=document.createElement('span');
                 label.textContent=field.label || field.id;
                 var type=document.createElement('small');
-                type.textContent=field.type + (field.required ? ' · Required' : '') + (field.logic && field.logic.showWhen ? ' · Conditional' : '');
+                type.textContent=field.type + (field.required ? ' · Required' : '') + (field.logic && field.logic.showWhen ? ' · Conditional visibility' : '') + (field.logic && field.logic.requiredWhen ? ' · Conditional required' : '');
                 var fieldActions=document.createElement('div'); fieldActions.className='careforms-designer-field-actions';
                 fieldActions.appendChild(sectionButton('Edit',function(){ editField(field,state,rerender); }));
                 fieldActions.appendChild(sectionButton('Duplicate',function(){
@@ -420,6 +427,7 @@
                 }));
                 var summary=document.createElement('div'); summary.className='careforms-designer-field-summary'; summary.appendChild(label); summary.appendChild(type);
                 if(field.logic && field.logic.showWhen){ var conditionSummary=document.createElement('small'); conditionSummary.className='careforms-condition-summary'; conditionSummary.textContent=window.CareForms.ConditionBuilder.ruleSummary(field.logic.showWhen,fieldsById(state)); summary.appendChild(conditionSummary); }
+                if(field.logic && field.logic.requiredWhen){ var requiredSummary=document.createElement('small'); requiredSummary.className='careforms-condition-summary'; requiredSummary.textContent='Required when '+window.CareForms.ConditionBuilder.ruleSummary(field.logic.requiredWhen,fieldsById(state)).replace(/^Shown when /,''); summary.appendChild(requiredSummary); }
                 row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
             });
             body.appendChild(card);
@@ -432,12 +440,12 @@
         if(typeof value==='boolean' || typeof value==='number') return String(value);
         return careFormMlQuote(value);
     }
-    function appendShowWhen(lines, logic, indent) {
-        if(!logic || !logic.showWhen) return;
-        var rule=logic.showWhen;
+    function appendLogicRule(lines, logic, ruleName, command, indent) {
+        if(!logic || !logic[ruleName]) return;
+        var rule=logic[ruleName];
         var attrs=['field='+careFormMlQuote(rule.field),'operator='+rule.operator];
         if(rule.operator!=='isEmpty' && rule.operator!=='isNotEmpty') attrs.push('value='+careFormMlScalar(rule.value));
-        lines.push(indent+'show_when '+attrs.join(' '));
+        lines.push(indent+command+' '+attrs.join(' '));
     }
     function toCareFormML(state) {
         var lines=['form '+careFormMlQuote(state.name || state.id)];
@@ -449,7 +457,7 @@
         (state.sections || []).forEach(function(section){
             lines.push('');
             lines.push('  section '+careFormMlQuote(section.label || section.id)+' id='+careFormMlQuote(section.id));
-            appendShowWhen(lines,section.logic,'    ');
+            appendLogicRule(lines,section.logic,'showWhen','show_when','    ');
             if(section.description) lines.push('    description '+careFormMlQuote(section.description));
             (section.fields || []).forEach(function(field){
                 var attrs=['id='+careFormMlQuote(field.id),'type='+field.type];
@@ -462,7 +470,8 @@
                 if(field.max!==undefined) attrs.push('max='+field.max);
                 if(field.unit) attrs.push('unit='+careFormMlQuote(field.unit));
                 lines.push('    field '+careFormMlQuote(field.label || field.id)+' '+attrs.join(' '));
-                appendShowWhen(lines,field.logic,'      ');
+                appendLogicRule(lines,field.logic,'showWhen','show_when','      ');
+                appendLogicRule(lines,field.logic,'requiredWhen','required_when','      ');
                 if(field.helpText) lines.push('      help '+careFormMlQuote(field.helpText));
                 (field.options || []).forEach(function(option){ lines.push('      option '+careFormMlQuote(option)); });
             });
@@ -525,29 +534,31 @@
                 if(!f.id || !f.type) fail('field requires id= and type=');
                 currentSection.fields.push(f); currentField=f; return;
             }
-            if(cmd==='show_when'){
+            if(cmd==='show_when' || cmd==='required_when'){
                 var target=currentField || currentSection;
-                if(!target) fail('show_when must follow a section or field');
-                if(target.logic && target.logic.showWhen) fail('only one show_when rule is supported');
+                if(!target) fail(cmd+' must follow a section or field');
+                if(cmd==='required_when' && !currentField) fail('required_when must follow a field');
+                var ruleName=cmd==='show_when' ? 'showWhen' : 'requiredWhen';
+                if(target.logic && target.logic[ruleName]) fail('only one '+cmd+' rule is supported');
                 var values={}, allowed=['field','operator','value'];
                 t.forEach(function(x){
-                    var p=x.indexOf('='); if(p<1) fail('invalid show_when attribute '+x);
+                    var p=x.indexOf('='); if(p<1) fail('invalid '+cmd+' attribute '+x);
                     var key=x.slice(0,p), token=x.slice(p+1);
-                    if(allowed.indexOf(key)===-1) fail('unknown show_when attribute '+key);
-                    if(Object.prototype.hasOwnProperty.call(values,key)) fail('duplicate show_when attribute '+key);
+                    if(allowed.indexOf(key)===-1) fail('unknown '+cmd+' attribute '+key);
+                    if(Object.prototype.hasOwnProperty.call(values,key)) fail('duplicate '+cmd+' attribute '+key);
                     values[key]=key==='value' ? careFormMlScalarValue(token) : careFormMlValue(token);
                 });
-                if(!values.field) fail('show_when requires field=');
-                if(!values.operator) fail('show_when requires operator=');
+                if(!values.field) fail(cmd+' requires field=');
+                if(!values.operator) fail(cmd+' requires operator=');
                 var operators=['equals','notEquals','isEmpty','isNotEmpty','contains'];
-                if(operators.indexOf(values.operator)===-1) fail('unsupported show_when operator '+values.operator);
+                if(operators.indexOf(values.operator)===-1) fail('unsupported '+cmd+' operator '+values.operator);
                 var needsValue=['equals','notEquals','contains'].indexOf(values.operator)!==-1;
                 var hasValue=Object.prototype.hasOwnProperty.call(values,'value');
-                if(needsValue && !hasValue) fail('show_when operator '+values.operator+' requires value=');
-                if(!needsValue && hasValue) fail('show_when operator '+values.operator+' does not accept value=');
+                if(needsValue && !hasValue) fail(cmd+' operator '+values.operator+' requires value=');
+                if(!needsValue && hasValue) fail(cmd+' operator '+values.operator+' does not accept value=');
                 var rule={field:values.field,operator:values.operator}; if(hasValue) rule.value=values.value;
-                target.logic=target.logic || {}; target.logic.showWhen=rule;
-                logicReferences.push({field:values.field,line:i+1});
+                target.logic=target.logic || {}; target.logic[ruleName]=rule;
+                logicReferences.push({field:values.field,line:i+1,command:cmd});
                 return;
             }
             if(cmd==='help'){ if(!currentField) fail('help must follow a field'); currentField.helpText=careFormMlValue(t[0]); return; }
@@ -558,7 +569,7 @@
         var fieldIds={};
         result.sections.forEach(function(section){ (section.fields || []).forEach(function(field){ fieldIds[field.id]=true; }); });
         logicReferences.forEach(function(reference){
-            if(!fieldIds[reference.field]) throw new Error('Line '+reference.line+': show_when references unknown field ID '+reference.field);
+            if(!fieldIds[reference.field]) throw new Error('Line '+reference.line+': '+reference.command+' references unknown field ID '+reference.field);
         });
         return designerState(result);
     }

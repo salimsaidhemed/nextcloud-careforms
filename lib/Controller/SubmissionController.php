@@ -10,6 +10,8 @@ use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
 use OCA\CareForms\Service\FormVersionService;
+use OCA\CareForms\Service\FormDefinitionService;
+use OCA\CareForms\Service\SubmissionDataValidator;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -31,6 +33,8 @@ class SubmissionController extends Controller
         private AccessService $accessService,
         private AuditService $auditService,
         private FormVersionService $formVersions,
+        private FormDefinitionService $formDefinitions,
+        private SubmissionDataValidator $submissionValidator,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -127,6 +131,16 @@ class SubmissionController extends Controller
             return new JSONResponse(['message' => 'This form cannot be submitted in its current workflow state.'], Http::STATUS_CONFLICT);
         }
         if ($submission->getPatientId() === null) return new JSONResponse(['message' => 'This legacy draft has no patient assigned and cannot be submitted.'], Http::STATUS_CONFLICT);
+
+        $definition = $this->formDefinitions->getVersion($submission->getFormId(), (int)$submission->getFormVersion());
+        $validationErrors = $this->submissionValidator->validate($definition, $data);
+        if ($validationErrors !== []) {
+            $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'validation']);
+            return new JSONResponse([
+                'message' => 'Complete all required fields before submitting.',
+                'errors' => $validationErrors,
+            ], Http::STATUS_BAD_REQUEST);
+        }
 
         $signatureData = trim((string)$signatureData);
         if ($signatureData === '' || !str_starts_with($signatureData, 'data:image/png;base64,')) {
