@@ -336,6 +336,63 @@ class FormAdminController extends Controller
     }
 
     #[NoAdminRequired]
+    public function restoreVersion(string $formId, int $version): JSONResponse
+    {
+        $userId = $this->requireManager();
+        if ($userId instanceof JSONResponse) return $userId;
+        if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+
+        if ($this->formVersions->draft($formId) !== null) {
+            return new JSONResponse([
+                'message' => 'Archive or publish the current draft before restoring another version.',
+            ], Http::STATUS_CONFLICT);
+        }
+
+        try {
+            $source = $this->formVersions->version($formId, $version);
+            if ($source->getStatus() === 'draft') {
+                throw new \LogicException('A draft cannot be restored as another draft.');
+            }
+
+            // Resolve and validate the exact historical definition before
+            // creating the lifecycle row for the new draft.
+            $this->definitions->getRestorableVersion($formId, $version);
+            $draft = $this->formVersions->createDraftStrict($formId, $userId);
+            $definition = $this->definitions->cloneVersion(
+                $formId,
+                $version,
+                $draft->getVersionNumber(),
+                $userId,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_NOT_FOUND);
+        } catch (\LogicException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+        $this->auditService->log(
+            $userId,
+            'FORM_VERSION_RESTORE',
+            'form_version',
+            $draft->getId(),
+            $formId,
+            'success',
+            [
+                'sourceVersion' => $version,
+                'version' => $draft->getVersionNumber(),
+            ],
+        );
+
+        return new JSONResponse([
+            'sourceVersion' => $version,
+            'draft' => $draft->jsonSerialize(),
+            'definition' => $definition,
+        ], Http::STATUS_CREATED);
+    }
+
+    #[NoAdminRequired]
     public function designer(string $formId, int $version): JSONResponse
     {
         $userId = $this->requireManager();

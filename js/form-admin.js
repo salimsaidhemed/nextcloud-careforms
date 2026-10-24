@@ -151,7 +151,9 @@
         button.textContent = label;
         button.addEventListener('click', function () {
             button.disabled = true;
-            Promise.resolve(handler()).catch(function (error) {
+            Promise.resolve(handler()).then(function () {
+                button.disabled = false;
+            }).catch(function (error) {
                 notify(error.message);
                 button.disabled = false;
             });
@@ -211,6 +213,7 @@
 
         Promise.all([request('/api/forms/admin', {method:'GET'}),request('/api/forms/admin/groups',{method:'GET'})]).then(function (payload) {
             var forms=payload[0], groups=payload[1];
+            var restoreUi = window.CareForms && window.CareForms.FormVersionRestore;
             mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div><div data-form-admin-actions></div></div>';
             var topActions=mount.querySelector('[data-form-admin-actions]');
             topActions.appendChild(actionButton('+ Create form','',createFormDialog));
@@ -235,6 +238,7 @@
 
                 var versions = document.createElement('div');
                 versions.style.display = 'flex'; versions.style.flexWrap = 'wrap'; versions.style.gap = '8px'; versions.style.marginTop = '8px';
+                var hasDraft = restoreUi ? restoreUi.hasDraft(form.versions) : form.versions.some(function (item) { return item.status === 'draft'; });
                 form.versions.forEach(function (version) {
                     var group = document.createElement('span');
                     group.style.display = 'inline-flex'; group.style.alignItems = 'center'; group.style.gap = '6px';
@@ -249,6 +253,22 @@
                         }));
                         group.appendChild(actionButton('Archive draft', 'careforms-secondary-button', function () {
                             return request('/api/forms/admin/' + encodeURIComponent(form.id) + '/versions/' + version.version + '/archive', {method:'POST'}).then(function(){ render(); });
+                        }));
+                    } else if (!hasDraft) {
+                        var restoreLabel = restoreUi ? restoreUi.actionLabel(version) : (version.status === 'archived' ? 'Restore as new draft' : 'Use as new draft');
+                        group.appendChild(actionButton(restoreLabel, 'careforms-secondary-button', function () {
+                            var message = restoreUi
+                                ? restoreUi.confirmationMessage(version.version, form.nextVersion)
+                                : 'Create draft v' + form.nextVersion + ' from historical v' + version.version + '? The historical version and existing submissions will not be changed.';
+                            if (!window.confirm(message)) return Promise.resolve();
+                            return request('/api/forms/admin/' + encodeURIComponent(form.id) + '/versions/' + version.version + '/restore', {method:'POST'}).then(function (payload) {
+                                notify('Version ' + version.version + ' restored as draft v' + payload.draft.version + '.');
+                                if (!window.CareForms || !window.CareForms.FormDesigner) {
+                                    render();
+                                    return;
+                                }
+                                window.CareForms.FormDesigner.open(form.id, payload.draft.version);
+                            });
                         }));
                     }
                     versions.appendChild(group);
@@ -266,7 +286,7 @@
                 state.appendChild(actionButton(form.enabled ? 'Disable' : 'Enable', form.enabled ? 'careforms-secondary-button' : '', function () {
                     return request('/api/forms/admin/' + encodeURIComponent(form.id), {method:'PUT', body:JSON.stringify({enabled:!form.enabled})}).then(function(){ render(); });
                 }));
-                if (!form.versions.some(function(v){ return v.status === 'draft'; })) {
+                if (!hasDraft) {
                     state.appendChild(actionButton('Create new draft', '', function () {
                         return request('/api/forms/admin/' + encodeURIComponent(form.id) + '/versions', {method:'POST'}).then(function (draft) { notify('Draft version ' + draft.version + ' created.'); render(); });
                     }));
