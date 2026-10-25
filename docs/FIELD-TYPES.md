@@ -45,6 +45,32 @@ Comparisons run only when both values are present. Hidden targets are ignored,
 drafts remain permissive, and final submissions are checked again by the
 server using the submission's exact form version.
 
+### Calculated number fields
+
+A number field may contain a `calculation` with an arithmetic `expression` and
+optional `precision` from 0 through 10. Expressions support numeric constants,
+stable number-field IDs, `+`, `-`, `*`, `/`, parentheses, and unary signs. They
+never execute JavaScript or call functions.
+
+Calculated fields are read-only and update immediately when a dependency
+changes. Empty dependencies leave the result empty. Division by zero produces
+a clear validation error. Definitions with unknown, nonnumeric, self, or
+circular references are rejected. On final submission the server recalculates
+the expected value from the exact form version and rejects altered results.
+
+```json
+{
+  "id": "bmi",
+  "type": "number",
+  "label": "BMI",
+  "readOnly": true,
+  "calculation": {
+    "expression": "weight_kg / (height_m * height_m)",
+    "precision": 2
+  }
+}
+```
+
 ## text
 
 ### Purpose
@@ -90,6 +116,9 @@ HTML number input.
 ### Optional properties
 - `min`
 - `max`
+- `step`
+- `unit`
+- `calculation` for a read-only derived number
 
 ### Stored submission value
 Numeric values should be normalized to a number by the schema-driven submission layer. During compatibility migration, legacy string-encoded numeric values may remain readable.

@@ -6,6 +6,13 @@ namespace OCA\CareForms\Service;
 
 final class SubmissionDataValidator
 {
+    private CalculationEngine $calculationEngine;
+
+    public function __construct(?CalculationEngine $calculationEngine = null)
+    {
+        $this->calculationEngine = $calculationEngine ?? new CalculationEngine();
+    }
+
     /**
      * @param array<string, mixed> $definition
      * @param array<string, mixed> $data
@@ -31,6 +38,26 @@ final class SubmissionDataValidator
                 $fieldId = $field['id'] ?? null;
                 if (!is_string($fieldId)) continue;
                 $value = $data[$fieldId] ?? null;
+                $calculation = $field['calculation'] ?? null;
+                if (is_array($calculation) && is_string($calculation['expression'] ?? null)) {
+                    $result = $this->calculationEngine->evaluate(
+                        $calculation['expression'],
+                        $data,
+                        isset($calculation['precision']) && is_int($calculation['precision']) ? $calculation['precision'] : null,
+                    );
+                    if ($result['status'] === 'error') {
+                        $errors[] = sprintf('%s could not be calculated: %s', $field['label'] ?? $fieldId, $result['error'] ?? 'Invalid calculation.');
+                        continue;
+                    }
+                    if ($result['status'] === 'empty') {
+                        if (!$this->isEmpty($value)) {
+                            $errors[] = sprintf('%s does not match its calculated value.', $field['label'] ?? $fieldId);
+                        }
+                    } elseif ((!is_int($value) && !is_float($value))
+                        || abs((float)$value - (float)$result['value']) > 1.0e-9) {
+                        $errors[] = sprintf('%s does not match its calculated value.', $field['label'] ?? $fieldId);
+                    }
+                }
                 if ($required && $this->isRequiredValueEmpty($value, (string)($field['type'] ?? ''))) {
                     $errors[] = sprintf('%s is required.', $field['label'] ?? $fieldId);
                     continue;

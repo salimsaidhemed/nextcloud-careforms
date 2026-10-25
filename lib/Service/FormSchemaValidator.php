@@ -6,6 +6,13 @@ namespace OCA\CareForms\Service;
 
 final class FormSchemaValidator
 {
+    private CalculationEngine $calculationEngine;
+
+    public function __construct(?CalculationEngine $calculationEngine = null)
+    {
+        $this->calculationEngine = $calculationEngine ?? new CalculationEngine();
+    }
+
     public const DEFAULT_SCHEMA_VERSION = 1;
     public const SUPPORTED_SCHEMA_VERSIONS = [1];
 
@@ -170,6 +177,9 @@ final class FormSchemaValidator
                 if (array_key_exists('validation', $field)) {
                     $this->validateFieldValidation($field['validation'], $fieldPath . '.validation', $errors);
                 }
+                if (array_key_exists('calculation', $field)) {
+                    $this->validateCalculation($field, $fieldPath, $errors);
+                }
 
                 if (array_key_exists('required', $field) && !is_bool($field['required'])) {
                     $errors[] = $fieldPath . '.required must be a boolean.';
@@ -283,10 +293,117 @@ final class FormSchemaValidator
                     $fieldTypes,
                     $errors,
                 );
+                $this->validateCalculationReferences(
+                    $field,
+                    sprintf('%s.fields[%d]', $sectionPath, $fieldIndex),
+                    $fieldTypes,
+                    $errors,
+                );
             }
         }
 
+        $this->validateCalculationCycles($sections, $errors);
+
         return $errors;
+    }
+
+    /** @param array<string, mixed> $field @param list<string> $errors */
+    private function validateCalculation(array $field, string $path, array &$errors): void
+    {
+        $calculation = $field['calculation'];
+        if (!is_array($calculation)) {
+            $errors[] = $path . '.calculation must be an object.';
+            return;
+        }
+        $unexpected = array_diff(array_keys($calculation), ['expression', 'precision']);
+        if ($unexpected !== []) {
+            $errors[] = $path . '.calculation contains unsupported properties: ' . implode(', ', $unexpected) . '.';
+        }
+        if (($field['type'] ?? null) !== 'number') {
+            $errors[] = $path . '.calculation is only valid for number fields.';
+        }
+        if (($field['readOnly'] ?? false) !== true) {
+            $errors[] = $path . '.readOnly must be true for calculated fields.';
+        }
+        $expression = $calculation['expression'] ?? null;
+        if (!is_string($expression) || trim($expression) === '') {
+            $errors[] = $path . '.calculation.expression must be a non-empty string.';
+        } elseif (strlen($expression) > 1000) {
+            $errors[] = $path . '.calculation.expression must not exceed 1000 characters.';
+        } else {
+            try {
+                $this->calculationEngine->parse($expression);
+            } catch (\InvalidArgumentException $error) {
+                $errors[] = $path . '.calculation.expression is invalid: ' . $error->getMessage();
+            }
+        }
+        if (array_key_exists('precision', $calculation)
+            && (!is_int($calculation['precision']) || $calculation['precision'] < 0 || $calculation['precision'] > 10)) {
+            $errors[] = $path . '.calculation.precision must be an integer between 0 and 10.';
+        }
+    }
+
+    /** @param array<string, mixed> $field @param array<string, string> $fieldTypes @param list<string> $errors */
+    private function validateCalculationReferences(array $field, string $path, array $fieldTypes, array &$errors): void
+    {
+        $calculation = $field['calculation'] ?? null;
+        $expression = is_array($calculation) ? ($calculation['expression'] ?? null) : null;
+        if (!is_string($expression) || trim($expression) === '') return;
+        try {
+            $references = $this->calculationEngine->references($expression);
+        } catch (\InvalidArgumentException) {
+            return;
+        }
+        foreach ($references as $reference) {
+            if ($reference === ($field['id'] ?? null)) {
+                $errors[] = $path . '.calculation.expression must not reference its own field.';
+            } elseif (!isset($fieldTypes[$reference])) {
+                $errors[] = sprintf('%s.calculation.expression references unknown field ID "%s".', $path, $reference);
+            } elseif ($fieldTypes[$reference] !== 'number') {
+                $errors[] = sprintf('%s.calculation.expression field "%s" must be a number field.', $path, $reference);
+            }
+        }
+    }
+
+    /** @param array<int, mixed> $sections @param list<string> $errors */
+    private function validateCalculationCycles(array $sections, array &$errors): void
+    {
+        $dependencies = [];
+        $paths = [];
+        foreach ($sections as $sectionIndex => $section) {
+            if (!is_array($section) || !is_array($section['fields'] ?? null)) continue;
+            foreach ($section['fields'] as $fieldIndex => $field) {
+                if (!is_array($field) || !is_string($field['id'] ?? null) || !is_array($field['calculation'] ?? null)) continue;
+                $expression = $field['calculation']['expression'] ?? null;
+                if (!is_string($expression)) continue;
+                try { $dependencies[$field['id']] = $this->calculationEngine->references($expression); }
+                catch (\InvalidArgumentException) { $dependencies[$field['id']] = []; }
+                $paths[$field['id']] = sprintf('sections[%d].fields[%d].calculation.expression', $sectionIndex, $fieldIndex);
+            }
+        }
+        foreach ($dependencies as $id => $items) {
+            $dependencies[$id] = array_values(array_filter($items, static fn (string $item): bool => isset($dependencies[$item])));
+        }
+        $visiting = [];
+        $visited = [];
+        $reported = [];
+        $walk = function (string $id) use (&$walk, &$visiting, &$visited, &$reported, $dependencies, $paths, &$errors): bool {
+            if (isset($visiting[$id])) return true;
+            if (isset($visited[$id])) return false;
+            $visiting[$id] = true;
+            $cyclic = false;
+            foreach ($dependencies[$id] ?? [] as $next) {
+                if ($walk($next)) $cyclic = true;
+            }
+            unset($visiting[$id]);
+            $visited[$id] = true;
+            if ($cyclic && !isset($reported[$id])) {
+                $errors[] = $paths[$id] . ' contains a circular calculated-field dependency.';
+                $reported[$id] = true;
+            }
+            return $cyclic;
+        };
+        foreach (array_keys($dependencies) as $id) $walk($id);
     }
 
     /** @param list<string> $errors */

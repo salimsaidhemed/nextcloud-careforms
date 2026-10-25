@@ -3,6 +3,7 @@
 var assert = require('assert');
 global.window = {CareForms: {}};
 require('../js/cross-field-validation.js');
+require('../js/calculation-engine.js');
 require('../js/form-designer.js');
 
 var ml = window.CareForms.FormDesigner;
@@ -37,7 +38,11 @@ var definition = {
                         requiredWhen: {field: 'has_pain', operator: 'equals', value: true}
                     }
                 },
-                {id: 'baseline_score', type: 'number', label: 'Baseline score'}
+                {id: 'baseline_score', type: 'number', label: 'Baseline score'},
+                {
+                    id: 'combined_score', type: 'number', label: 'Combined score', readOnly: true,
+                    calculation: {expression: 'pain_score + baseline_score', precision: 1}
+                }
             ]
         },
         {
@@ -68,6 +73,7 @@ assert.ok(source.includes('min_length=5 max_length=200'));
 assert.ok(source.includes('pattern "[A-Za-z ]+"'));
 assert.ok(source.includes('validation_message "Use letters and spaces only."'));
 assert.ok(source.includes('compare field="baseline_score" operator=greaterThanOrEqual message="Pain score must be at least the baseline score."'));
+assert.ok(source.includes('calculate expression="pain_score + baseline_score" precision=1'));
 assert.ok(source.includes('show_when field="pain_score" operator=notEquals value=0'));
 assert.ok(source.includes('show_when field="pain_score" operator=isNotEmpty'));
 
@@ -77,6 +83,7 @@ assert.deepStrictEqual(parsed.sections[1].logic, definition.sections[1].logic);
 assert.deepStrictEqual(parsed.sections[1].fields[0].logic, definition.sections[1].fields[0].logic);
 assert.strictEqual(parsed.sections[0].fields[1].step, 0.5);
 assert.deepStrictEqual(parsed.sections[0].fields[1].validation, definition.sections[0].fields[1].validation);
+assert.deepStrictEqual(parsed.sections[0].fields[3].calculation, definition.sections[0].fields[3].calculation);
 assert.strictEqual(parsed.sections[1].fields[0].minLength, 5);
 assert.strictEqual(parsed.sections[1].fields[0].validationMessage, 'Use letters and spaces only.');
 
@@ -124,5 +131,14 @@ assert.strictEqual(ml.fromCareFormML(comparisonForward, definition).sections[0].
 expectError(comparisonForward.replace('field="controller" operator=notEquals message="Values must differ."', 'field="missing" operator=notEquals message="Values must differ."'), 'compare references unknown field ID missing');
 expectError(comparisonForward.replace('field="controller" operator=notEquals message="Values must differ."', 'field="details" operator=notEquals message="Values must differ."'), 'compare must reference a different field');
 expectError(comparisonForward.replace('operator=notEquals message="Values must differ."', 'operator=greaterThan message="Values must differ."'), 'compare operator greaterThan is not compatible');
+
+var calculationForward = forward
+    .replace('type=text', 'type=number')
+    .replace('show_when field="controller" operator=contains value="yes"', 'calculate expression="controller + 1" precision=2')
+    .replace('id="controller" type=text', 'id="controller" type=number');
+assert.strictEqual(ml.fromCareFormML(calculationForward, definition).sections[0].fields[0].calculation.expression, 'controller + 1');
+expectError(calculationForward.replace('controller + 1', 'missing + 1'), 'Calculation references unknown field ID missing.');
+expectError(calculationForward.replace('controller + 1', 'details + 1'), 'A calculation cannot reference its own field.');
+expectError(calculationForward.replace('precision=2', 'precision=20'), 'precision must be an integer between 0 and 10');
 
 console.log('CareFormsML logic tests passed.');

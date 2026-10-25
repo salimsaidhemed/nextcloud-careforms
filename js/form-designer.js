@@ -226,6 +226,51 @@
         };
         return details;
     }
+
+    function calculationEditor(state, target) {
+        var helper=window.CareForms && window.CareForms.CalculationEngine;
+        var details=document.createElement('details'); details.className='careforms-condition-editor';
+        details.innerHTML='<summary>Calculated value</summary><div class="careforms-condition-editor-body"><label class="careforms-check"><input type="checkbox" data-calculation-enabled> Calculate this field automatically</label><div data-calculation-controls><label>Formula<input type="text" data-calculation-expression placeholder="e.g. weight_kg / (height_m * height_m)"></label><div class="careforms-field-editor-row"><label>Insert number field<select data-calculation-field></select></label><button type="button" class="careforms-secondary-button" data-insert-field>Insert field ID</button></div><label>Decimal places<input type="number" min="0" max="10" step="1" data-calculation-precision placeholder="Keep full precision"></label><p class="careforms-muted">Use number field IDs, numeric constants, +, −, ×, ÷, and parentheses. The result is read-only.</p></div><p class="careforms-muted" data-calculation-empty hidden>Add another number field before configuring a calculation.</p></div>';
+        var enabled=details.querySelector('[data-calculation-enabled]'), controls=details.querySelector('[data-calculation-controls]');
+        var expression=details.querySelector('[data-calculation-expression]'), precision=details.querySelector('[data-calculation-precision]');
+        var source=details.querySelector('[data-calculation-field]'), empty=details.querySelector('[data-calculation-empty]');
+        var candidates=allFields(state).filter(function(item){ return item.field.id!==target.id && item.field.type==='number'; });
+        candidates.forEach(function(item){ var option=document.createElement('option'); option.value=item.field.id; option.textContent=(item.section.label || item.section.id)+' — '+(item.field.label || item.field.id); source.appendChild(option); });
+        var existing=target.calculation ? clone(target.calculation) : null;
+        enabled.checked=!!existing; details.open=!!existing; expression.value=existing ? existing.expression : '';
+        if(existing && existing.precision!==undefined) precision.value=existing.precision;
+        function updateEnabled(){ controls.hidden=!enabled.checked; }
+        updateEnabled(); enabled.addEventListener('change',updateEnabled);
+        if(!candidates.length && !existing) empty.hidden=false;
+        details.querySelector('[data-insert-field]').addEventListener('click',function(){
+            if(!source.value) return;
+            var start=expression.selectionStart===null ? expression.value.length : expression.selectionStart;
+            var end=expression.selectionEnd===null ? start : expression.selectionEnd;
+            expression.setRangeText(source.value,start,end,'end'); expression.focus();
+        });
+        details._applyCalculation=function(){
+            if(!enabled.checked){ delete target.calculation; return true; }
+            var value=expression.value.trim();
+            if(!value){ window.alert('Add a formula for the calculated field.'); return false; }
+            var errors=helper.validate(value,fieldsById(state),target.id);
+            if(errors.length){ window.alert(errors[0]); return false; }
+            var next={expression:value};
+            if(precision.value!==''){
+                var places=Number(precision.value);
+                if(!Number.isInteger(places) || places<0 || places>10){ window.alert('Decimal places must be an integer between 0 and 10.'); return false; }
+                next.precision=places;
+            }
+            var previous=target.calculation; target.calculation=next;
+            if(helper.cycleFields(allFields(state).map(function(item){return item.field;})).length){
+                if(previous) target.calculation=previous; else delete target.calculation;
+                window.alert('Calculated fields cannot contain circular dependencies.'); return false;
+            }
+            target.readOnly=true;
+            return true;
+        };
+        return details;
+    }
+
     function fieldId(state,label) {
         var base=(label || 'field').toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').replace(/^[^a-z]+/,'') || 'field';
         var ids=allFieldIds(state), id=base, n=2;
@@ -338,6 +383,8 @@
         var condition=conditionEditor(state,field,field.id,null,'showWhen','Visibility condition','Show this only when a condition is met'); form.appendChild(condition);
         var requiredCondition=conditionEditor(state,field,field.id,null,'requiredWhen','Required condition','Require this field when a condition is met'); form.appendChild(requiredCondition);
         var comparison=comparisonEditor(state,field); form.appendChild(comparison);
+        var calculation=null;
+        if(field.type==='number'){ calculation=calculationEditor(state,field); form.appendChild(calculation); }
 
         var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
         var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
@@ -385,6 +432,7 @@
                 if(messageValue) field.validationMessage=messageValue; else delete field.validationMessage;
             }
             if(!comparison._applyComparison()) return;
+            if(calculation && !calculation._applyCalculation()) return;
             condition._applyCondition();
             requiredCondition._applyCondition();
             close(); rerender();
@@ -486,7 +534,7 @@
                 var label=document.createElement('span');
                 label.textContent=field.label || field.id;
                 var type=document.createElement('small');
-                type.textContent=field.type + (field.required ? ' · Required' : '') + (field.logic && field.logic.showWhen ? ' · Conditional visibility' : '') + (field.logic && field.logic.requiredWhen ? ' · Conditional required' : '');
+                type.textContent=field.type + (field.required ? ' · Required' : '') + (field.calculation ? ' · Calculated' : '') + (field.logic && field.logic.showWhen ? ' · Conditional visibility' : '') + (field.logic && field.logic.requiredWhen ? ' · Conditional required' : '');
                 var fieldActions=document.createElement('div'); fieldActions.className='careforms-designer-field-actions';
                 fieldActions.appendChild(sectionButton('Edit',function(){ editField(field,state,rerender); }));
                 fieldActions.appendChild(sectionButton('Duplicate',function(){
@@ -512,6 +560,7 @@
                 if(field.step!==undefined) constraints.push('step '+field.step);
                 if(constraints.length){ var validationSummary=document.createElement('small'); validationSummary.className='careforms-condition-summary'; validationSummary.textContent='Validation: '+constraints.join(' · '); summary.appendChild(validationSummary); }
                 if(field.validation && field.validation.compare){ var comparisonSummary=document.createElement('small'); comparisonSummary.className='careforms-condition-summary'; comparisonSummary.textContent='Cross-field: '+window.CareForms.CrossFieldValidation.ruleSummary(field.validation.compare,fieldsById(state),field); summary.appendChild(comparisonSummary); }
+                if(field.calculation){ var calculationSummary=document.createElement('small'); calculationSummary.className='careforms-condition-summary'; calculationSummary.textContent='Calculation: '+window.CareForms.CalculationEngine.summary(field.calculation); summary.appendChild(calculationSummary); }
                 if(field.logic && field.logic.showWhen){ var conditionSummary=document.createElement('small'); conditionSummary.className='careforms-condition-summary'; conditionSummary.textContent=window.CareForms.ConditionBuilder.ruleSummary(field.logic.showWhen,fieldsById(state)); summary.appendChild(conditionSummary); }
                 if(field.logic && field.logic.requiredWhen){ var requiredSummary=document.createElement('small'); requiredSummary.className='careforms-condition-summary'; requiredSummary.textContent='Required when '+window.CareForms.ConditionBuilder.ruleSummary(field.logic.requiredWhen,fieldsById(state)).replace(/^Shown when /,''); summary.appendChild(requiredSummary); }
                 row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
@@ -565,6 +614,7 @@
                 if(field.pattern) lines.push('      pattern '+careFormMlQuote(field.pattern));
                 if(field.validationMessage) lines.push('      validation_message '+careFormMlQuote(field.validationMessage));
                 if(field.validation && field.validation.compare){ var compare=field.validation.compare; lines.push('      compare field='+careFormMlQuote(compare.field)+' operator='+compare.operator+' message='+careFormMlQuote(compare.message)); }
+                if(field.calculation){ var calculationLine='      calculate expression='+careFormMlQuote(field.calculation.expression); if(field.calculation.precision!==undefined) calculationLine+=' precision='+field.calculation.precision; lines.push(calculationLine); }
                 (field.options || []).forEach(function(option){ lines.push('      option '+careFormMlQuote(option)); });
             });
         });
@@ -591,7 +641,7 @@
     }
     function fromCareFormML(text, original) {
         var result=clone(original), currentSection=null, currentField=null;
-        var logicReferences=[], comparisonReferences=[];
+        var logicReferences=[], comparisonReferences=[], calculationReferences=[];
         result.sections=[];
         var lines=text.split(/\r?\n/);
         lines.forEach(function(raw,i){
@@ -699,6 +749,30 @@
                 comparisonReferences.push({target:currentField,field:comparisonValues.field,operator:comparisonValues.operator,line:i+1});
                 return;
             }
+            if(cmd==='calculate'){
+                if(!currentField) fail('calculate must follow a field');
+                if(currentField.type!=='number') fail('calculate is only valid for number fields');
+                if(currentField.calculation) fail('only one calculate statement is supported');
+                var calculationValues={}, calculationAllowed=['expression','precision'];
+                t.forEach(function(x){
+                    var p=x.indexOf('='); if(p<1) fail('invalid calculate attribute '+x);
+                    var key=x.slice(0,p), value=careFormMlValue(x.slice(p+1));
+                    if(calculationAllowed.indexOf(key)===-1) fail('unknown calculate attribute '+key);
+                    if(Object.prototype.hasOwnProperty.call(calculationValues,key)) fail('duplicate calculate attribute '+key);
+                    calculationValues[key]=value;
+                });
+                if(!calculationValues.expression || !calculationValues.expression.trim()) fail('calculate requires expression=');
+                var engine=window.CareForms && window.CareForms.CalculationEngine;
+                try { engine.parse(calculationValues.expression); } catch(error) { fail('invalid calculation expression: '+error.message); }
+                var calculationRule={expression:calculationValues.expression};
+                if(calculationValues.precision!==undefined){
+                    var calculationPrecision=Number(calculationValues.precision);
+                    if(!Number.isInteger(calculationPrecision) || calculationPrecision<0 || calculationPrecision>10) fail('calculate precision must be an integer between 0 and 10');
+                    calculationRule.precision=calculationPrecision;
+                }
+                currentField.calculation=calculationRule; currentField.readOnly=true;
+                calculationReferences.push({target:currentField,line:i+1}); return;
+            }
             if(cmd==='option'){ if(!currentField) fail('option must follow a field'); currentField.options=currentField.options || []; currentField.options.push(careFormMlValue(t[0])); return; }
             fail('unknown statement '+cmd);
         });
@@ -717,6 +791,16 @@
                 throw new Error('Line '+reference.line+': compare operator '+reference.operator+' is not compatible with these field types');
             }
         });
+        var calculationHelper=window.CareForms && window.CareForms.CalculationEngine;
+        calculationReferences.forEach(function(reference){
+            var errors=calculationHelper.validate(reference.target.calculation.expression,parsedFields,reference.target.id);
+            if(errors.length) throw new Error('Line '+reference.line+': '+errors[0]);
+        });
+        var cycles=calculationHelper.cycleFields(allFields(result).map(function(item){return item.field;}));
+        if(cycles.length){
+            var cycleReference=calculationReferences.find(function(reference){return cycles.indexOf(reference.target.id)!==-1;});
+            throw new Error('Line '+(cycleReference ? cycleReference.line : 1)+': calculated fields cannot contain circular dependencies');
+        }
         return designerState(result);
     }
 

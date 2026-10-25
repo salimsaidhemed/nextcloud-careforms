@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../lib/Service/CalculationEngine.php';
 require_once __DIR__ . '/../lib/Service/SubmissionDataValidator.php';
 
 use OCA\CareForms\Service\SubmissionDataValidator;
@@ -113,6 +114,32 @@ foreach ($operatorCases as $operator => [$validActual, $expected, $invalidActual
     if ($actualErrors !== []) throw new RuntimeException('Operator ' . $operator . ' rejected a valid comparison.');
     $actualErrors = $validator->validate($definition, ['source' => $expected, 'target' => $invalidActual]);
     if ($actualErrors !== ['Comparison failed.']) throw new RuntimeException('Operator ' . $operator . ' accepted an invalid comparison.');
+}
+
+$definition = ['sections' => [[
+    'id' => 'measurements',
+    'fields' => [
+        ['id' => 'weight', 'type' => 'number', 'label' => 'Weight'],
+        ['id' => 'height', 'type' => 'number', 'label' => 'Height'],
+        [
+            'id' => 'bmi', 'type' => 'number', 'label' => 'BMI', 'readOnly' => true,
+            'calculation' => ['expression' => 'weight / (height * height)', 'precision' => 2],
+        ],
+    ],
+]];
+if ($validator->validate($definition, ['weight' => 70, 'height' => 1.75, 'bmi' => 22.86]) !== []) {
+    throw new RuntimeException('A valid calculated value was rejected.');
+}
+$errors = $validator->validate($definition, ['weight' => 70, 'height' => 1.75, 'bmi' => 99]);
+if ($errors !== ['BMI does not match its calculated value.']) {
+    throw new RuntimeException('Calculated-value tampering was not rejected.');
+}
+$errors = $validator->validate($definition, ['weight' => 70, 'height' => 0, 'bmi' => '']);
+if ($errors !== ['BMI could not be calculated: Division by zero.']) {
+    throw new RuntimeException('Division by zero was not reported safely.');
+}
+if ($validator->validate($definition, ['weight' => '', 'height' => 1.75, 'bmi' => '']) !== []) {
+    throw new RuntimeException('Empty calculation dependencies must remain non-blocking.');
 }
 
 fwrite(STDOUT, "SubmissionDataValidator tests passed.\n");
