@@ -62,6 +62,30 @@ $case['sections'][0]['fields'][0]['logic']['showWhen'] = [
 ];
 expectValid($validator, $case);
 
+// Logic lint rules reject self references, incompatible operators and stale option values.
+$case = definition();
+$case['sections'][0]['fields'][0]['logic']['showWhen'] = ['field' => 'details_text', 'operator' => 'equals', 'value' => 'x'];
+expectErrors($validator, $case, ['sections[0].fields[0].logic.showWhen.field must reference a different field.']);
+
+$case = definition();
+$case['sections'][0]['fields'][] = ['id' => 'score', 'type' => 'number', 'label' => 'Score'];
+$case['sections'][0]['fields'][0]['logic']['showWhen'] = ['field' => 'score', 'operator' => 'contains', 'value' => 1];
+expectErrors($validator, $case, ['sections[0].fields[0].logic.showWhen.operator "contains" is not compatible with field "score".']);
+
+$case = definition();
+$case['sections'][0]['fields'][] = ['id' => 'status', 'type' => 'choice-group', 'label' => 'Status', 'options' => ['Open', 'Closed']];
+$case['sections'][0]['fields'][0]['logic']['showWhen'] = ['field' => 'status', 'operator' => 'equals', 'value' => 'Missing'];
+expectErrors($validator, $case, ['sections[0].fields[0].logic.showWhen.value "Missing" is not an option of field "status".']);
+
+$case = definition();
+$case['sections'][0]['fields'][0]['logic']['showWhen'] = ['field' => 'has_details', 'operator' => 'equals', 'value' => true];
+$case['sections'][0]['fields'][1]['logic']['showWhen'] = ['field' => 'details_text', 'operator' => 'isNotEmpty'];
+expectErrors($validator, $case, [
+    'sections[0].fields[0].logic contains a circular conditional-logic dependency.',
+    'sections[0].fields[1].logic contains a circular conditional-logic dependency.',
+]);
+
+
 // Fields may become required conditionally, independently of visibility.
 $case = definition();
 $case['sections'][0]['fields'][0]['logic']['requiredWhen'] = [

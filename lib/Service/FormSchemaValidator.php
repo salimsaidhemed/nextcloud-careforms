@@ -283,7 +283,7 @@ final class FormSchemaValidator
                 continue;
             }
             $sectionPath = sprintf('sections[%d]', $sectionIndex);
-            $this->validateLogicReferences($section['logic'] ?? null, $sectionPath . '.logic', $fieldIds, $errors);
+            $this->validateLogicReferences($section['logic'] ?? null, $sectionPath . '.logic', $fieldIds, $fieldTypes, $fieldOptions, $errors);
             $fields = $section['fields'] ?? null;
             if (!is_array($fields)) {
                 continue;
@@ -296,7 +296,10 @@ final class FormSchemaValidator
                     $field['logic'] ?? null,
                     sprintf('%s.fields[%d].logic', $sectionPath, $fieldIndex),
                     $fieldIds,
+                    $fieldTypes,
+                    $fieldOptions,
                     $errors,
+                    is_string($field['id'] ?? null) ? $field['id'] : null,
                 );
                 $this->validateComparisonReference(
                     $field['validation'] ?? null,
@@ -324,8 +327,46 @@ final class FormSchemaValidator
 
         $this->validateCalculationCycles($sections, $errors);
         $this->validateOptionDependencyCycles($sections, $errors);
+        $this->validateLogicCycles($sections, $errors);
 
         return $errors;
+    }
+
+    /** @param array<int, mixed> $sections @param list<string> $errors */
+    private function validateLogicCycles(array $sections, array &$errors): void
+    {
+        $dependencies = [];
+        $paths = [];
+        foreach ($sections as $sectionIndex => $section) {
+            if (!is_array($section) || !is_array($section['fields'] ?? null)) continue;
+            foreach ($section['fields'] as $fieldIndex => $field) {
+                if (!is_array($field) || !is_string($field['id'] ?? null)) continue;
+                $id = $field['id'];
+                $dependencies[$id] = [];
+                $rule = is_array($field['logic'] ?? null) ? ($field['logic']['showWhen'] ?? null) : null;
+                if (is_array($rule) && is_string($rule['field'] ?? null)) $dependencies[$id][] = $rule['field'];
+                $paths[$id] = sprintf('sections[%d].fields[%d].logic', $sectionIndex, $fieldIndex);
+            }
+        }
+        $visiting = [];
+        $visited = [];
+        $stack = [];
+        $cycles = [];
+        $walk = function (string $id) use (&$walk, &$visiting, &$visited, &$stack, &$cycles, $dependencies): void {
+            if (isset($visiting[$id])) {
+                foreach (array_slice($stack, $visiting[$id]) as $item) $cycles[$item] = true;
+                return;
+            }
+            if (isset($visited[$id])) return;
+            $visiting[$id] = count($stack);
+            $stack[] = $id;
+            foreach ($dependencies[$id] ?? [] as $next) if (isset($dependencies[$next])) $walk($next);
+            array_pop($stack);
+            unset($visiting[$id]);
+            $visited[$id] = true;
+        };
+        foreach (array_keys($dependencies) as $id) $walk($id);
+        foreach (array_keys($cycles) as $id) $errors[] = $paths[$id] . ' contains a circular conditional-logic dependency.';
     }
 
     /** @param array<string, mixed> $field @param list<string> $errors */
@@ -730,17 +771,46 @@ final class FormSchemaValidator
 
     /**
      * @param array<string, bool> $fieldIds
+     * @param array<string, string> $fieldTypes
+     * @param array<string, array<int, mixed>> $fieldOptions
      * @param list<string> $errors
      */
-    private function validateLogicReferences(mixed $logic, string $path, array $fieldIds, array &$errors): void
+    private function validateLogicReferences(
+        mixed $logic,
+        string $path,
+        array $fieldIds,
+        array $fieldTypes,
+        array $fieldOptions,
+        array &$errors,
+        ?string $targetFieldId = null,
+    ): void
     {
         if (!is_array($logic)) return;
         foreach (['showWhen', 'requiredWhen'] as $ruleName) {
             if (!is_array($logic[$ruleName] ?? null)) continue;
-            $field = $logic[$ruleName]['field'] ?? null;
-            if (is_string($field) && preg_match('/^[a-z][a-z0-9_]*$/', $field) === 1 && !isset($fieldIds[$field])) {
-                $errors[] = sprintf('%s.%s.field references unknown field ID "%s".', $path, $ruleName, $field);
+            $rule = $logic[$ruleName];
+            $field = $rule['field'] ?? null;
+            if (!is_string($field) || preg_match('/^[a-z][a-z0-9_]*$/', $field) !== 1) continue;
+            $rulePath = $path . '.' . $ruleName;
+            if (!isset($fieldIds[$field])) { $errors[] = sprintf('%s.field references unknown field ID "%s".', $rulePath, $field); continue; }
+            if ($targetFieldId !== null && $field === $targetFieldId) $errors[] = $rulePath . '.field must reference a different field.';
+            $operator = $rule['operator'] ?? null;
+            $compatible = match ($fieldTypes[$field] ?? '') {
+                'checkbox-group' => ['contains', 'isEmpty', 'isNotEmpty'],
+                'checkbox', 'number', 'date', 'time' => ['equals', 'notEquals', 'isEmpty', 'isNotEmpty'],
+                default => self::LOGIC_VISIBILITY_OPERATORS,
+            };
+            if (is_string($operator) && in_array($operator, self::LOGIC_VISIBILITY_OPERATORS, true) && !in_array($operator, $compatible, true)) {
+                $errors[] = sprintf('%s.operator "%s" is not compatible with field "%s".', $rulePath, $operator, $field);
             }
+            if (!array_key_exists('value', $rule)) continue;
+            if (in_array($operator, ['isEmpty', 'isNotEmpty'], true)) continue;
+            $value = $rule['value'];
+            if (in_array($fieldTypes[$field] ?? '', ['choice-group', 'checkbox-group'], true) && !in_array($value, $fieldOptions[$field] ?? [], true)) {
+                $errors[] = sprintf('%s.value "%s" is not an option of field "%s".', $rulePath, (string)$value, $field);
+            }
+            if (($fieldTypes[$field] ?? '') === 'checkbox' && !is_bool($value)) $errors[] = $rulePath . '.value must be a boolean for a checkbox field.';
+            if (($fieldTypes[$field] ?? '') === 'number' && !is_int($value) && !is_float($value)) $errors[] = $rulePath . '.value must be numeric for a number field.';
         }
     }
 

@@ -513,6 +513,20 @@ Recommended implementation:
 - reuse canonical JSON structures directly
 - reuse FormSchemaValidator server-side before save/publish
 - reuse FormRenderer for preview
+
+### Logic linting
+
+The designer runs a shared client-side lint pass whenever Design or Preview is
+opened. It reports field-specific blocking errors for stale or self references,
+incompatible operators and values, invalid cross-field comparisons, broken
+calculation expressions, invalid dependent-option mappings, and dependency
+cycles. Design mode highlights the affected field and remains editable. Preview
+is paused until blocking errors are fixed, and each issue links back to the
+affected section or field.
+
+Client-side linting is guidance, not a trust boundary. `FormSchemaValidator`
+enforces the corresponding rules again on the server, and the publish endpoint
+validates the exact draft definition before changing its lifecycle state.
 - add CareFormML parser/serializer as a separate module
 - persist designer changes only as versioned draft definitions
 

@@ -458,6 +458,18 @@ class FormAdminController extends Controller
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
         if (!$this->definitions->exists($formId)) return new JSONResponse(['message' => 'Unknown CareForms form.'], Http::STATUS_NOT_FOUND);
+        try {
+            $definition = $this->definitions->getVersion($formId, $version);
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            return new JSONResponse(['message' => 'This draft cannot be published until its definition is valid: ' . $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+        }
+        $errors = $this->schemaValidator->validate($definition);
+        if ($errors !== []) {
+            return new JSONResponse([
+                'message' => 'This draft contains logic or schema errors and cannot be published.',
+                'errors' => $errors,
+            ], Http::STATUS_UNPROCESSABLE_ENTITY);
+        }
         try { $published = $this->formVersions->publish($formId, $version); }
         catch (\InvalidArgumentException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_NOT_FOUND); }
         catch (\LogicException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_CONFLICT); }
