@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../lib/Service/CalculationEngine.php';
 require_once __DIR__ . '/../lib/Service/FormSchemaValidator.php';
 
 use OCA\CareForms\Service\FormSchemaValidator;
@@ -212,6 +213,45 @@ $case['sections'][0]['fields'][0]['validation']['compare'] = [
 ];
 expectErrors($validator, $case, [
     'sections[0].fields[0].validation.compare operator greaterThan is not compatible with text and checkbox fields.',
+]);
+
+// Calculated number fields use safe arithmetic expressions and stable field IDs.
+$case = definition();
+$case['sections'][0]['fields'][] = ['id' => 'weight', 'type' => 'number', 'label' => 'Weight'];
+$case['sections'][0]['fields'][] = ['id' => 'height', 'type' => 'number', 'label' => 'Height'];
+$case['sections'][0]['fields'][] = [
+    'id' => 'bmi', 'type' => 'number', 'label' => 'BMI', 'readOnly' => true,
+    'calculation' => ['expression' => 'weight / (height * height)', 'precision' => 2],
+];
+expectValid($validator, $case);
+
+$case['sections'][0]['fields'][4]['calculation']['expression'] = 'weight + missing';
+expectErrors($validator, $case, ['sections[0].fields[4].calculation.expression references unknown field ID "missing".']);
+
+$case = definition();
+$case['sections'][0]['fields'][] = [
+    'id' => 'invalid', 'type' => 'text', 'label' => 'Invalid', 'readOnly' => false,
+    'calculation' => ['expression' => 'has_details + 1', 'precision' => 11],
+];
+expectErrors($validator, $case, [
+    'sections[0].fields[2].calculation is only valid for number fields.',
+    'sections[0].fields[2].readOnly must be true for calculated fields.',
+    'sections[0].fields[2].calculation.precision must be an integer between 0 and 10.',
+    'sections[0].fields[2].calculation.expression field "has_details" must be a number field.',
+]);
+
+$case = definition();
+$case['sections'][0]['fields'][] = [
+    'id' => 'first_total', 'type' => 'number', 'label' => 'First', 'readOnly' => true,
+    'calculation' => ['expression' => 'second_total + 1'],
+];
+$case['sections'][0]['fields'][] = [
+    'id' => 'second_total', 'type' => 'number', 'label' => 'Second', 'readOnly' => true,
+    'calculation' => ['expression' => 'first_total + 1'],
+];
+expectErrors($validator, $case, [
+    'sections[0].fields[2].calculation.expression contains a circular calculated-field dependency.',
+    'sections[0].fields[3].calculation.expression contains a circular calculated-field dependency.',
 ]);
 
 fwrite(STDOUT, "FormSchemaValidator tests passed.\n");

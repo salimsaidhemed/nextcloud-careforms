@@ -212,7 +212,11 @@
         if (field.type === 'textarea') { input = document.createElement('textarea'); input.rows = field.rows || 4; input.value = savedValue; }
         else { input = document.createElement('input'); input.type = field.type || 'text'; input.value = savedValue; }
         input.id = field.id; input.name = field.id; input.required = Boolean(field.required);
-        input.disabled = readOnly || Boolean(field.readOnly);
+        input.disabled = readOnly || (Boolean(field.readOnly) && !field.calculation);
+        if (field.calculation) {
+            input.readOnly = true;
+            input.setAttribute('aria-readonly', 'true');
+        }
         applyFieldConstraints(input, field);
         if (field.placeholder) input.placeholder = field.placeholder;
         wrapper.appendChild(input);
@@ -317,6 +321,42 @@
             control.setCustomValidity(comparison.message || 'This value does not match the related field.');
             control.dataset.crossFieldInvalid = 'true';
         }
+    }
+
+    function updateCalculations(form, definition) {
+        var engine = window.CareForms && window.CareForms.CalculationEngine;
+        if (!engine) return;
+        var calculated = [];
+        sectionsFor(definition).forEach(function (section) {
+            section.fields.forEach(function (field) { if (field.calculation) calculated.push(field); });
+        });
+        for (var pass = 0; pass < calculated.length + 1; pass++) {
+            var values = collectData(form, definition, false), changed = false;
+            calculated.forEach(function (field) {
+                var input = form.elements[field.id];
+                if (!input) return;
+                if (input.dataset.calculationInvalid === 'true') {
+                    input.setCustomValidity(''); delete input.dataset.calculationInvalid;
+                }
+                var result = engine.evaluate(field.calculation.expression, values, field.calculation.precision);
+                var next = result.status === 'ok' ? String(result.value) : '';
+                if (input.value !== next) { input.value = next; changed = true; }
+                if (result.status === 'error') {
+                    input.setCustomValidity((field.label || field.id) + ' could not be calculated: ' + result.error);
+                    input.dataset.calculationInvalid = 'true';
+                }
+            });
+            if (!changed) break;
+        }
+    }
+
+    function refreshFormState(form, definition) {
+        // Apply visibility first so hidden dependencies are omitted exactly as
+        // they will be from the submitted payload, then recalculate and let the
+        // new results drive any rules that depend on calculated fields.
+        updateConditionalVisibility(form, definition);
+        updateCalculations(form, definition);
+        updateConditionalVisibility(form, definition);
     }
 
     function updateConditionalVisibility(form, definition) {
@@ -439,12 +479,12 @@
             actions.appendChild(clearButton); actions.appendChild(draftButton); actions.appendChild(submitButton); form.appendChild(actions);
         }
         layout.appendChild(form); mountNode.appendChild(layout);
-        updateConditionalVisibility(form, definition);
+        refreshFormState(form, definition);
         if (!readOnly) {
-            form.addEventListener('input', function () { updateConditionalVisibility(form, definition); });
-            form.addEventListener('change', function () { updateConditionalVisibility(form, definition); });
+            form.addEventListener('input', function () { refreshFormState(form, definition); });
+            form.addEventListener('change', function () { refreshFormState(form, definition); });
             form.addEventListener('reset', function () {
-                window.setTimeout(function () { updateConditionalVisibility(form, definition); }, 0);
+                window.setTimeout(function () { refreshFormState(form, definition); }, 0);
             });
         }
     }
@@ -453,6 +493,7 @@
         render: renderForm,
         collectData: collectData,
         collectSignature: collectSignature,
-        updateConditionalVisibility: updateConditionalVisibility
+        updateConditionalVisibility: updateConditionalVisibility,
+        updateCalculations: updateCalculations
     };
 }());

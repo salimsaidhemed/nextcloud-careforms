@@ -117,6 +117,24 @@ are limited to matching number, date, or time fields. Equality also supports
 compatible text, choice, and checkbox values. Validation waits until both
 values are present; required rules remain responsible for missing values.
 
+## Calculated fields
+
+A numeric field can derive its value from other number fields with `calculate`:
+
+```text
+field "Weight (kg)" id="weight_kg" type=number
+field "Height (m)" id="height_m" type=number
+field "BMI" id="bmi" type=number readonly
+  calculate expression="weight_kg / (height_m * height_m)" precision=2
+```
+
+The expression language is intentionally restricted to number-field IDs,
+numeric constants, `+`, `-`, `*`, `/`, parentheses, and unary signs. The parser
+rejects unknown or nonnumeric references, self references, circular calculated
+dependencies, unsupported tokens, and precision outside 0–10. Runtime Preview
+updates the read-only result immediately, while final submission is verified
+again by the server against the captured form version.
+
 ## Example
 
 ```xml
