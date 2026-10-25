@@ -211,6 +211,14 @@ final class FormSchemaValidator
                     $errors[] = sprintf('%s.width must be one of: %s.', $fieldPath, implode(', ', self::FIELD_WIDTHS));
                 }
 
+                if (array_key_exists('presentation', $field)) {
+                    if ($type !== 'choice-group') {
+                        $errors[] = $fieldPath . '.presentation is only valid for choice-group fields.';
+                    } elseif (!is_string($field['presentation']) || !in_array($field['presentation'], ['radio', 'dropdown'], true)) {
+                        $errors[] = $fieldPath . '.presentation must be radio or dropdown.';
+                    }
+                }
+
                 if (array_key_exists('source', $field)
                     && (!is_string($field['source']) || !in_array($field['source'], self::FIELD_SOURCES, true))) {
                     $errors[] = sprintf('%s.source must be one of: %s.', $fieldPath, implode(', ', self::FIELD_SOURCES));

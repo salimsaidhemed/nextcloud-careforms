@@ -295,9 +295,14 @@ Selected options are listed as human-readable values.
 Select exactly one value from a predefined set.
 
 ### Rendering
-Radio-button group in schema v1.
+The optional `presentation` property controls the UI without changing the
+stored value:
 
-A future visual designer may offer display alternatives such as a dropdown without changing the logical field type.
+- `dropdown`: compact native combo box, recommended for dependent or longer lists.
+- `radio`: all choices remain immediately visible, suitable for a few short options.
+
+Existing definitions without `presentation` continue to render as radio
+buttons. Newly created **Select one** fields default to `dropdown`.
 
 ### Required properties
 - `options`

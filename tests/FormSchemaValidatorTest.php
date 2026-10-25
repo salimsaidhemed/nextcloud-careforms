@@ -258,7 +258,7 @@ expectErrors($validator, $case, [
 $case = definition();
 $case['sections'][0]['fields'][] = [
     'id' => 'country', 'type' => 'choice-group', 'label' => 'Country',
-    'options' => ['United States', 'Canada'],
+    'options' => ['United States', 'Canada'], 'presentation' => 'dropdown',
 ];
 $case['sections'][0]['fields'][] = [
     'id' => 'region', 'type' => 'checkbox-group', 'label' => 'Region',
@@ -269,6 +269,10 @@ $case['sections'][0]['fields'][] = [
     ]],
 ];
 expectValid($validator, $case);
+
+$case['sections'][0]['fields'][2]['presentation'] = 'tiles';
+expectErrors($validator, $case, ['sections[0].fields[2].presentation must be radio or dropdown.']);
+$case['sections'][0]['fields'][2]['presentation'] = 'dropdown';
 
 $case['sections'][0]['fields'][3]['optionDependency']['rules'][1]['options'][] = 'Madrid';
 expectErrors($validator, $case, [

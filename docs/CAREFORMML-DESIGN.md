@@ -142,11 +142,11 @@ field. `options_from` identifies the controller and each `option_when` statement
 maps one controller value to a JSON string array of target options:
 
 ```text
-field "Country" id="country" type=choice-group
+field "Country" id="country" type=choice-group presentation=dropdown
   option "United States"
   option "Canada"
 
-field "Region" id="region" type=choice-group
+field "Region" id="region" type=choice-group presentation=dropdown
   options_from field="country"
   option_when value="United States" options="[\"California\",\"Texas\"]"
   option_when value="Canada" options="[\"Ontario\",\"Quebec\"]"
@@ -155,6 +155,10 @@ field "Region" id="region" type=choice-group
   option "Ontario"
   option "Quebec"
 ```
+
+Single-choice fields may add `presentation=dropdown` for a compact combo box;
+`presentation=radio` keeps all choices visible. Existing fields without the
+attribute retain radio-button rendering.
 
 Multiple controller selections expose the union of the matching mappings.
 References and option values are validated after the complete form has been

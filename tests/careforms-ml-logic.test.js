@@ -44,7 +44,7 @@ var definition = {
                     id: 'combined_score', type: 'number', label: 'Combined score', readOnly: true,
                     calculation: {expression: 'pain_score + baseline_score', precision: 1}
                 },
-                {id: 'country', type: 'choice-group', label: 'Country', options: ['United States','Canada']},
+                {id: 'country', type: 'choice-group', label: 'Country', presentation:'dropdown', options: ['United States','Canada']},
                 {
                     id: 'region', type: 'checkbox-group', label: 'Region',
                     options: ['California','Texas','Ontario','Quebec'],
@@ -85,6 +85,7 @@ assert.ok(source.includes('validation_message "Use letters and spaces only."'));
 assert.ok(source.includes('compare field="baseline_score" operator=greaterThanOrEqual message="Pain score must be at least the baseline score."'));
 assert.ok(source.includes('calculate expression="pain_score + baseline_score" precision=1'));
 assert.ok(source.includes('options_from field="country"'));
+assert.ok(source.includes('id="country" type=choice-group presentation=dropdown'));
 assert.ok(source.includes('option_when value="United States" options="[\\"California\\",\\"Texas\\"]"'));
 assert.ok(source.includes('show_when field="pain_score" operator=notEquals value=0'));
 assert.ok(source.includes('show_when field="pain_score" operator=isNotEmpty'));
@@ -97,6 +98,7 @@ assert.strictEqual(parsed.sections[0].fields[1].step, 0.5);
 assert.deepStrictEqual(parsed.sections[0].fields[1].validation, definition.sections[0].fields[1].validation);
 assert.deepStrictEqual(parsed.sections[0].fields[3].calculation, definition.sections[0].fields[3].calculation);
 assert.deepStrictEqual(parsed.sections[0].fields[5].optionDependency, definition.sections[0].fields[5].optionDependency);
+assert.strictEqual(parsed.sections[0].fields[4].presentation,'dropdown');
 assert.strictEqual(parsed.sections[1].fields[0].minLength, 5);
 assert.strictEqual(parsed.sections[1].fields[0].validationMessage, 'Use letters and spaces only.');
 

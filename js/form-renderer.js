@@ -173,6 +173,23 @@
             groupLabel.dataset.fieldLabel = field.label;
             groupLabel.textContent = field.label + (field.required ? ' *' : '');
             wrapper.appendChild(groupLabel);
+            if (field.type === 'choice-group' && field.presentation === 'dropdown') {
+                var select = document.createElement('select');
+                select.id = field.id; select.name = field.id;
+                select.disabled = readOnly || Boolean(field.readOnly);
+                select.dataset.optionBaseDisabled = select.disabled ? 'true' : 'false';
+                var placeholderOption = document.createElement('option');
+                placeholderOption.value = ''; placeholderOption.textContent = 'Select an option';
+                select.appendChild(placeholderOption);
+                field.options.forEach(function(option){
+                    var selectOption=document.createElement('option');
+                    selectOption.value=option; selectOption.textContent=option; selectOption.dataset.optionValue=option;
+                    select.appendChild(selectOption);
+                });
+                select.value = savedValue || '';
+                select.required = Boolean(field.required);
+                wrapper.appendChild(select); appendHelp(wrapper, field); return wrapper;
+            }
             var grid = document.createElement('div');
             grid.className = 'careforms-checkbox-grid';
             field.options.forEach(function (option, index) {
@@ -238,6 +255,8 @@
                     data[field.id] = Array.from(form.querySelectorAll('input[name="' + field.id + '[]"]:checked')).map(function (input) { return input.value; }); return;
                 }
                 if (field.type === 'choice-group') {
+                    var dropdown=form.querySelector('select[name="' + field.id + '"]');
+                    if(dropdown){ data[field.id]=dropdown.value; return; }
                     var selected = form.querySelector('input[name="' + field.id + '"]:checked'); data[field.id] = selected ? selected.value : ''; return;
                 }
                 var input = form.elements[field.id]; if (!input) return;
@@ -280,7 +299,7 @@
             var optionLabel=control.closest && control.closest('[data-option-value]');
             return !control.disabled && (!optionLabel || !optionLabel.hidden);
         });
-        if(field.optionDependency && activeControls.length===0) required=false;
+        if(field.optionDependency && (activeControls.length===0 || activeControls.some(function(control){return control.dataset.hasActiveOptions==='false';}))) required=false;
         var badge = wrapper.querySelector('[data-required-badge]');
         if (!badge) {
             badge = document.createElement('span');
@@ -372,6 +391,17 @@
                 var wrapper=form.querySelector('[data-field-id="'+field.id+'"]');
                 if(!wrapper) return;
                 var active=helper.activeOptions(field.optionDependency,values[field.optionDependency.field],field.options || []);
+                var select=wrapper.querySelector('select[name="'+field.id+'"]');
+                if(select){
+                    select.dataset.hasActiveOptions=active.length ? 'true' : 'false';
+                    select.querySelectorAll('option[data-option-value]').forEach(function(option){
+                        var available=active.indexOf(option.value)!==-1;
+                        option.hidden=!available; option.disabled=!available;
+                        if(!available && option.selected){ select.value=''; changed=true; }
+                    });
+                    select.disabled=wrapper.hidden || select.dataset.optionBaseDisabled==='true';
+                    return;
+                }
                 wrapper.querySelectorAll('[data-option-value]').forEach(function(label){
                     var input=label.querySelector('input'), available=active.indexOf(label.dataset.optionValue)!==-1;
                     label.hidden=!available; label.setAttribute('aria-hidden',available?'false':'true');

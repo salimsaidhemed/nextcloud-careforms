@@ -79,7 +79,7 @@
         {type:'date',label:'Date',description:'Calendar date'},
         {type:'time',label:'Time',description:'Time of day'},
         {type:'checkbox',label:'Yes / No',description:'Single yes/no checkbox'},
-        {type:'choice-group',label:'Select one',description:'Choose one option',defaults:{options:['Option 1','Option 2']}},
+        {type:'choice-group',label:'Select one',description:'Compact dropdown for one option',defaults:{options:['Option 1','Option 2'],presentation:'dropdown'}},
         {type:'checkbox-group',label:'Multiple choice',description:'Choose one or more options',defaults:{options:['Option 1','Option 2']}},
         {type:'signature',label:'Signature',description:'Electronic signature'}
     ];
@@ -411,6 +411,11 @@
             choices.querySelector('[data-add-option]').addEventListener('click',function(){ optionValues.push('New choice'); renderOptions(); });
             choices._optionValues=optionValues; choices._renderOptions=renderOptions; renderOptions(); form.appendChild(choices);
         }
+        if(field.type==='choice-group'){
+            var presentation=document.createElement('label');
+            presentation.innerHTML='Choice display<select data-presentation><option value="dropdown">Dropdown</option><option value="radio">Radio buttons</option></select>';
+            presentation.querySelector('select').value=field.presentation || 'radio'; form.appendChild(presentation);
+        }
         if(field.type==='number'){
             var numeric=document.createElement('div'); numeric.className='careforms-field-editor-row';
             numeric.innerHTML='<label>Minimum<input type="number" step="any" data-min></label><label>Maximum<input type="number" step="any" data-max></label><label>Step<input type="number" min="0" step="any" data-step placeholder="e.g. 0.5"></label><label>Unit<input type="text" data-unit placeholder="e.g. kg, bpm"></label>';
@@ -474,6 +479,8 @@
                 if(unique.length!==values.length){ window.alert('Each choice must be unique. Please rename duplicate choices.'); return; }
                 field.options=unique;
             }
+            var presentationInput=form.querySelector('[data-presentation]');
+            if(presentationInput) field.presentation=presentationInput.value;
             var min=form.querySelector('[data-min]'), max=form.querySelector('[data-max]'), step=form.querySelector('[data-step]'), unit=form.querySelector('[data-unit]');
             if(min){ if(min.value!=='') field.min=Number(min.value); else delete field.min; }
             if(max){ if(max.value!=='') field.max=Number(max.value); else delete field.max; }
@@ -666,6 +673,7 @@
                 if(field.required) attrs.push('required');
                 if(field.readOnly) attrs.push('readonly');
                 if(field.width) attrs.push('width='+field.width);
+                if(field.presentation) attrs.push('presentation='+field.presentation);
                 if(field.source) attrs.push('source='+careFormMlQuote(field.source));
                 if(field.rows) attrs.push('rows='+field.rows);
                 if(field.min!==undefined) attrs.push('min='+field.min);
@@ -740,7 +748,7 @@
                 attrs.forEach(function(x){
                     if(x==='required') f.required=true; else if(x==='readonly') f.readOnly=true;
                     else { var p=x.indexOf('='); if(p<1) fail('invalid field attribute '+x); var k=x.slice(0,p),v=careFormMlValue(x.slice(p+1));
-                        if(k==='id') f.id=v; else if(k==='type') f.type=v; else if(k==='width') f.width=v; else if(k==='source') f.source=v;
+                        if(k==='id') f.id=v; else if(k==='type') f.type=v; else if(k==='width') f.width=v; else if(k==='source') f.source=v; else if(k==='presentation') f.presentation=v;
                         else if(k==='rows'||k==='min'||k==='max'||k==='step') f[k]=Number(v);
                         else if(k==='min_length'||k==='max_length') f[k==='min_length'?'minLength':'maxLength']=Number(v);
                         else if(k==='unit') f.unit=v; else fail('unknown field attribute '+k);
@@ -749,6 +757,8 @@
                 if(!f.id || !f.type) fail('field requires id= and type=');
                 if(f.step!==undefined && (!Number.isFinite(f.step) || f.step<=0)) fail('step must be greater than zero');
                 if(f.type!=='number' && (f.min!==undefined || f.max!==undefined || f.step!==undefined)) fail('min, max and step are only valid for number fields');
+                if(f.presentation!==undefined && f.type!=='choice-group') fail('presentation is only valid for choice-group fields');
+                if(f.presentation!==undefined && ['radio','dropdown'].indexOf(f.presentation)===-1) fail('presentation must be radio or dropdown');
                 if(f.min!==undefined && !Number.isFinite(f.min)) fail('min must be numeric');
                 if(f.max!==undefined && !Number.isFinite(f.max)) fail('max must be numeric');
                 if(f.min!==undefined && f.max!==undefined && f.min>f.max) fail('min cannot be greater than max');

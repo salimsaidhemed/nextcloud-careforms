@@ -54,6 +54,7 @@
                 "placeholder": { "type": "string", "maxLength": 255 },
                 "unit": { "type": "string", "maxLength": 32 },
                 "width": { "type": "string", "enum": ["full", "half", "third"] },
+                "presentation": { "type": "string", "enum": ["radio", "dropdown"] },
                 "readOnly": { "type": "boolean", "default": false },
                 "source": {
                   "type": "string",
@@ -109,6 +110,12 @@
                       "type": { "enum": ["choice-group", "checkbox-group"] }
                     },
                     "required": ["options"]
+                  }
+                },
+                {
+                  "if": { "required": ["presentation"] },
+                  "then": {
+                    "properties": { "type": { "const": "choice-group" } }
                   }
                 }
               ]
