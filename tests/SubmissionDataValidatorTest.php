@@ -126,7 +126,7 @@ $definition = ['sections' => [[
             'calculation' => ['expression' => 'weight / (height * height)', 'precision' => 2],
         ],
     ],
-]];
+]]];
 if ($validator->validate($definition, ['weight' => 70, 'height' => 1.75, 'bmi' => 22.86]) !== []) {
     throw new RuntimeException('A valid calculated value was rejected.');
 }
