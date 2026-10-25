@@ -254,4 +254,39 @@ expectErrors($validator, $case, [
     'sections[0].fields[3].calculation.expression contains a circular calculated-field dependency.',
 ]);
 
+// Choice fields may expose option subsets selected by another choice field.
+$case = definition();
+$case['sections'][0]['fields'][] = [
+    'id' => 'country', 'type' => 'choice-group', 'label' => 'Country',
+    'options' => ['United States', 'Canada'],
+];
+$case['sections'][0]['fields'][] = [
+    'id' => 'region', 'type' => 'checkbox-group', 'label' => 'Region',
+    'options' => ['California', 'Texas', 'Ontario', 'Quebec'],
+    'optionDependency' => ['field' => 'country', 'rules' => [
+        ['value' => 'United States', 'options' => ['California', 'Texas']],
+        ['value' => 'Canada', 'options' => ['Ontario', 'Quebec']],
+    ]],
+];
+expectValid($validator, $case);
+
+$case['sections'][0]['fields'][3]['optionDependency']['rules'][1]['options'][] = 'Madrid';
+expectErrors($validator, $case, [
+    'sections[0].fields[3].optionDependency.rules[1].options contains "Madrid", which is not an option of field "region".',
+]);
+
+$case = definition();
+$case['sections'][0]['fields'][] = [
+    'id' => 'first_choice', 'type' => 'choice-group', 'label' => 'First', 'options' => ['A'],
+    'optionDependency' => ['field' => 'second_choice', 'rules' => [['value' => 'B', 'options' => ['A']]]],
+];
+$case['sections'][0]['fields'][] = [
+    'id' => 'second_choice', 'type' => 'choice-group', 'label' => 'Second', 'options' => ['B'],
+    'optionDependency' => ['field' => 'first_choice', 'rules' => [['value' => 'A', 'options' => ['B']]]],
+];
+expectErrors($validator, $case, [
+    'sections[0].fields[2].optionDependency contains a circular option dependency.',
+    'sections[0].fields[3].optionDependency contains a circular option dependency.',
+]);
+
 fwrite(STDOUT, "FormSchemaValidator tests passed.\n");

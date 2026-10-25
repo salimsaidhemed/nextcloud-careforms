@@ -142,4 +142,41 @@ if ($validator->validate($definition, ['weight' => '', 'height' => 1.75, 'bmi' =
     throw new RuntimeException('Empty calculation dependencies must remain non-blocking.');
 }
 
+$definition = [
+    'sections' => [[
+        'id' => 'location',
+        'fields' => [
+            ['id' => 'country', 'type' => 'choice-group', 'label' => 'Country', 'options' => ['United States', 'Canada']],
+            [
+                'id' => 'region', 'type' => 'checkbox-group', 'label' => 'Region', 'required' => true,
+                'options' => ['California', 'Texas', 'Ontario', 'Quebec'],
+                'optionDependency' => ['field' => 'country', 'rules' => [
+                    ['value' => 'United States', 'options' => ['California', 'Texas']],
+                    ['value' => 'Canada', 'options' => ['Ontario', 'Quebec']],
+                ]],
+            ],
+        ],
+    ]],
+];
+if ($validator->validate($definition, ['country' => 'Canada', 'region' => ['Ontario']]) !== []) {
+    throw new RuntimeException('An active dependent option was rejected.');
+}
+$errors = $validator->validate($definition, ['country' => 'Canada', 'region' => ['California']]);
+if ($errors !== ['Region contains an option that is not available for the selected response.']) {
+    throw new RuntimeException('An inactive dependent option was not rejected.');
+}
+$errors = $validator->validate($definition, ['country' => 'Canada', 'region' => 'Ontario']);
+if ($errors !== ['Region must be a list of options.']) {
+    throw new RuntimeException('A malformed dependent multiple-choice value was not rejected.');
+}
+if ($validator->validate($definition, ['country' => '', 'region' => []]) !== []) {
+    throw new RuntimeException('Required dependent choices with no active options must remain non-blocking.');
+}
+$definition['sections'][0]['fields'][0] = [
+    'id' => 'country', 'type' => 'checkbox-group', 'label' => 'Country', 'options' => ['United States', 'Canada'],
+];
+if ($validator->validate($definition, ['country' => ['United States', 'Canada'], 'region' => ['Texas', 'Quebec']]) !== []) {
+    throw new RuntimeException('Multiple controller selections did not expose the union of dependent options.');
+}
+
 fwrite(STDOUT, "SubmissionDataValidator tests passed.\n");

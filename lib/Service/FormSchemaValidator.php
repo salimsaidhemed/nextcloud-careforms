@@ -99,6 +99,7 @@ final class FormSchemaValidator
         $sectionIds = [];
         $fieldIds = [];
         $fieldTypes = [];
+        $fieldOptions = [];
 
         foreach ($sections as $sectionIndex => $section) {
             $sectionPath = sprintf('sections[%d]', $sectionIndex);
@@ -169,6 +170,7 @@ final class FormSchemaValidator
                 }
                 if (is_string($fieldId) && $fieldId !== '') {
                     $fieldTypes[$fieldId] = $type;
+                    $fieldOptions[$fieldId] = is_array($field['options'] ?? null) ? $field['options'] : [];
                 }
 
                 if (array_key_exists('logic', $field)) {
@@ -179,6 +181,9 @@ final class FormSchemaValidator
                 }
                 if (array_key_exists('calculation', $field)) {
                     $this->validateCalculation($field, $fieldPath, $errors);
+                }
+                if (array_key_exists('optionDependency', $field)) {
+                    $this->validateOptionDependency($field, $fieldPath, $errors);
                 }
 
                 if (array_key_exists('required', $field) && !is_bool($field['required'])) {
@@ -299,12 +304,118 @@ final class FormSchemaValidator
                     $fieldTypes,
                     $errors,
                 );
+                $this->validateOptionDependencyReferences(
+                    $field,
+                    sprintf('%s.fields[%d]', $sectionPath, $fieldIndex),
+                    $fieldTypes,
+                    $fieldOptions,
+                    $errors,
+                );
             }
         }
 
         $this->validateCalculationCycles($sections, $errors);
+        $this->validateOptionDependencyCycles($sections, $errors);
 
         return $errors;
+    }
+
+    /** @param array<string, mixed> $field @param list<string> $errors */
+    private function validateOptionDependency(array $field, string $path, array &$errors): void
+    {
+        $dependency = $field['optionDependency'];
+        if (!is_array($dependency)) {
+            $errors[] = $path . '.optionDependency must be an object.';
+            return;
+        }
+        $unexpected = array_diff(array_keys($dependency), ['field', 'rules']);
+        if ($unexpected !== []) {
+            $errors[] = $path . '.optionDependency contains unsupported properties: ' . implode(', ', $unexpected) . '.';
+        }
+        if (!in_array($field['type'] ?? null, ['choice-group', 'checkbox-group'], true)) {
+            $errors[] = $path . '.optionDependency is only valid for choice-group and checkbox-group fields.';
+        }
+        if (!is_string($dependency['field'] ?? null) || preg_match('/^[a-z][a-z0-9_]*$/', $dependency['field']) !== 1) {
+            $errors[] = $path . '.optionDependency.field must be a valid field ID.';
+        }
+        $rules = $dependency['rules'] ?? null;
+        if (!is_array($rules) || $rules === []) {
+            $errors[] = $path . '.optionDependency.rules must be a non-empty array.';
+            return;
+        }
+        $seen = [];
+        foreach ($rules as $index => $rule) {
+            $rulePath = sprintf('%s.optionDependency.rules[%d]', $path, $index);
+            if (!is_array($rule)) { $errors[] = $rulePath . ' must be an object.'; continue; }
+            $unexpectedRule = array_diff(array_keys($rule), ['value', 'options']);
+            if ($unexpectedRule !== []) $errors[] = $rulePath . ' contains unsupported properties: ' . implode(', ', $unexpectedRule) . '.';
+            $value = $rule['value'] ?? null;
+            if (!is_string($value) || trim($value) === '') {
+                $errors[] = $rulePath . '.value must be a non-empty string.';
+            } elseif (isset($seen[$value])) {
+                $errors[] = $path . '.optionDependency.rules must not repeat controller value "' . $value . '".';
+            } else {
+                $seen[$value] = true;
+            }
+            $this->validateStringList($rule['options'] ?? null, $rulePath . '.options', $errors);
+        }
+    }
+
+    /** @param array<string, mixed> $field @param array<string, string> $fieldTypes @param array<string, array<int, mixed>> $fieldOptions @param list<string> $errors */
+    private function validateOptionDependencyReferences(array $field, string $path, array $fieldTypes, array $fieldOptions, array &$errors): void
+    {
+        $dependency = $field['optionDependency'] ?? null;
+        if (!is_array($dependency) || !is_string($dependency['field'] ?? null)) return;
+        $sourceId = $dependency['field'];
+        $targetId = (string)($field['id'] ?? '');
+        if (!isset($fieldTypes[$sourceId])) {
+            $errors[] = sprintf('%s.optionDependency.field references unknown field ID "%s".', $path, $sourceId);
+            return;
+        }
+        if ($sourceId === $targetId) {
+            $errors[] = $path . '.optionDependency.field must reference a different field.';
+            return;
+        }
+        if (!in_array($fieldTypes[$sourceId], ['choice-group', 'checkbox-group'], true)) {
+            $errors[] = $path . '.optionDependency.field must reference a choice-group or checkbox-group field.';
+        }
+        foreach (is_array($dependency['rules'] ?? null) ? $dependency['rules'] : [] as $index => $rule) {
+            if (!is_array($rule)) continue;
+            $value = $rule['value'] ?? null;
+            if (is_string($value) && !in_array($value, $fieldOptions[$sourceId] ?? [], true)) {
+                $errors[] = sprintf('%s.optionDependency.rules[%d].value "%s" is not an option of field "%s".', $path, $index, $value, $sourceId);
+            }
+            foreach (is_array($rule['options'] ?? null) ? $rule['options'] : [] as $option) {
+                if (is_string($option) && !in_array($option, $fieldOptions[$targetId] ?? [], true)) {
+                    $errors[] = sprintf('%s.optionDependency.rules[%d].options contains "%s", which is not an option of field "%s".', $path, $index, $option, $targetId);
+                }
+            }
+        }
+    }
+
+    /** @param array<int, mixed> $sections @param list<string> $errors */
+    private function validateOptionDependencyCycles(array $sections, array &$errors): void
+    {
+        $dependencies=[]; $paths=[];
+        foreach ($sections as $sectionIndex => $section) {
+            if (!is_array($section) || !is_array($section['fields'] ?? null)) continue;
+            foreach ($section['fields'] as $fieldIndex => $field) {
+                if (!is_array($field) || !is_string($field['id'] ?? null) || !is_array($field['optionDependency'] ?? null)) continue;
+                $source=$field['optionDependency']['field'] ?? null;
+                if (is_string($source)) $dependencies[$field['id']]=$source;
+                $paths[$field['id']]=sprintf('sections[%d].fields[%d].optionDependency', $sectionIndex, $fieldIndex);
+            }
+        }
+        $visiting=[]; $visited=[]; $stack=[]; $cycles=[];
+        $walk=function(string $id) use (&$walk,&$visiting,&$visited,&$stack,&$cycles,$dependencies): void {
+            if (isset($visiting[$id])) { foreach (array_slice($stack,$visiting[$id]) as $item) $cycles[$item]=true; return; }
+            if (isset($visited[$id])) return;
+            $visiting[$id]=count($stack); $stack[]=$id;
+            $next=$dependencies[$id] ?? null; if (is_string($next) && isset($dependencies[$next])) $walk($next);
+            array_pop($stack); unset($visiting[$id]); $visited[$id]=true;
+        };
+        foreach (array_keys($dependencies) as $id) $walk($id);
+        foreach (array_keys($cycles) as $id) $errors[]=$paths[$id] . ' contains a circular option dependency.';
     }
 
     /** @param array<string, mixed> $field @param list<string> $errors */
