@@ -71,6 +71,35 @@ the expected value from the exact form version and rejects altered results.
 }
 ```
 
+### Choice-dependent options
+
+A `choice-group` or `checkbox-group` may contain an `optionDependency` that
+maps each option of another choice field to a subset of the target field's
+canonical options. A multiple-choice controller exposes the union of every
+matching subset while preserving the target's declared option order.
+
+```json
+{
+  "id": "region",
+  "type": "choice-group",
+  "label": "Region",
+  "options": ["California", "Texas", "Ontario", "Quebec"],
+  "optionDependency": {
+    "field": "country",
+    "rules": [
+      {"value": "United States", "options": ["California", "Texas"]},
+      {"value": "Canada", "options": ["Ontario", "Quebec"]}
+    ]
+  }
+}
+```
+
+When the controller is empty or unmatched, no target options are active.
+Inactive options are hidden, disabled, and removed from the current answer.
+Definitions reject unknown, incompatible, self, and circular references and
+any rule value not present in the corresponding canonical option list. Final
+submission is checked again by the server using the captured form version.
+
 ## text
 
 ### Purpose
@@ -266,9 +295,14 @@ Selected options are listed as human-readable values.
 Select exactly one value from a predefined set.
 
 ### Rendering
-Radio-button group in schema v1.
+The optional `presentation` property controls the UI without changing the
+stored value:
 
-A future visual designer may offer display alternatives such as a dropdown without changing the logical field type.
+- `dropdown`: compact native combo box, recommended for dependent or longer lists.
+- `radio`: all choices remain immediately visible, suitable for a few short options.
+
+Existing definitions without `presentation` continue to render as radio
+buttons. Newly created **Select one** fields default to `dropdown`.
 
 ### Required properties
 - `options`

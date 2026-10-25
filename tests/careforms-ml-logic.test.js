@@ -4,6 +4,7 @@ var assert = require('assert');
 global.window = {CareForms: {}};
 require('../js/cross-field-validation.js');
 require('../js/calculation-engine.js');
+require('../js/choice-option-dependency.js');
 require('../js/form-designer.js');
 
 var ml = window.CareForms.FormDesigner;
@@ -42,6 +43,15 @@ var definition = {
                 {
                     id: 'combined_score', type: 'number', label: 'Combined score', readOnly: true,
                     calculation: {expression: 'pain_score + baseline_score', precision: 1}
+                },
+                {id: 'country', type: 'choice-group', label: 'Country', presentation:'dropdown', options: ['United States','Canada']},
+                {
+                    id: 'region', type: 'checkbox-group', label: 'Region',
+                    options: ['California','Texas','Ontario','Quebec'],
+                    optionDependency: {field:'country',rules:[
+                        {value:'United States',options:['California','Texas']},
+                        {value:'Canada',options:['Ontario','Quebec']}
+                    ]}
                 }
             ]
         },
@@ -74,6 +84,9 @@ assert.ok(source.includes('pattern "[A-Za-z ]+"'));
 assert.ok(source.includes('validation_message "Use letters and spaces only."'));
 assert.ok(source.includes('compare field="baseline_score" operator=greaterThanOrEqual message="Pain score must be at least the baseline score."'));
 assert.ok(source.includes('calculate expression="pain_score + baseline_score" precision=1'));
+assert.ok(source.includes('options_from field="country"'));
+assert.ok(source.includes('id="country" type=choice-group presentation=dropdown'));
+assert.ok(source.includes('option_when value="United States" options="[\\"California\\",\\"Texas\\"]"'));
 assert.ok(source.includes('show_when field="pain_score" operator=notEquals value=0'));
 assert.ok(source.includes('show_when field="pain_score" operator=isNotEmpty'));
 
@@ -84,6 +97,8 @@ assert.deepStrictEqual(parsed.sections[1].fields[0].logic, definition.sections[1
 assert.strictEqual(parsed.sections[0].fields[1].step, 0.5);
 assert.deepStrictEqual(parsed.sections[0].fields[1].validation, definition.sections[0].fields[1].validation);
 assert.deepStrictEqual(parsed.sections[0].fields[3].calculation, definition.sections[0].fields[3].calculation);
+assert.deepStrictEqual(parsed.sections[0].fields[5].optionDependency, definition.sections[0].fields[5].optionDependency);
+assert.strictEqual(parsed.sections[0].fields[4].presentation,'dropdown');
 assert.strictEqual(parsed.sections[1].fields[0].minLength, 5);
 assert.strictEqual(parsed.sections[1].fields[0].validationMessage, 'Use letters and spaces only.');
 
@@ -140,5 +155,18 @@ assert.strictEqual(ml.fromCareFormML(calculationForward, definition).sections[0]
 expectError(calculationForward.replace('controller + 1', 'missing + 1'), 'Calculation references unknown field ID missing.');
 expectError(calculationForward.replace('controller + 1', 'details + 1'), 'A calculation cannot reference its own field.');
 expectError(calculationForward.replace('precision=2', 'precision=20'), 'precision must be an integer between 0 and 10');
+
+var optionForward=[
+    'form "Dependent choices"','  id "dependent-choices"','  version 1','  schema 1','  category "Tests"',
+    '  section "Choices" id="choices"',
+    '    field "Country" id="country" type=choice-group','      option "United States"','      option "Canada"',
+    '    field "Region" id="region" type=choice-group','      options_from field="country"',
+    '      option_when value="United States" options="[\\"California\\",\\"Texas\\"]"',
+    '      option_when value="Canada" options="[\\"Ontario\\",\\"Quebec\\"]"',
+    '      option "California"','      option "Texas"','      option "Ontario"','      option "Quebec"'
+].join('\n');
+assert.deepStrictEqual(ml.fromCareFormML(optionForward,definition).sections[0].fields[1].optionDependency.rules[1].options,['Ontario','Quebec']);
+expectError(optionForward.replace('field="country"','field="missing"'),'references unknown field ID missing');
+expectError(optionForward.replace('\\"Ontario\\",\\"Quebec\\"','\\"Ontario\\",\\"Madrid\\"'),'Dependent option Madrid is not an option');
 
 console.log('CareFormsML logic tests passed.');

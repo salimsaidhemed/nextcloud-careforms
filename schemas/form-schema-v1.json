@@ -54,6 +54,7 @@
                 "placeholder": { "type": "string", "maxLength": 255 },
                 "unit": { "type": "string", "maxLength": 32 },
                 "width": { "type": "string", "enum": ["full", "half", "third"] },
+                "presentation": { "type": "string", "enum": ["radio", "dropdown"] },
                 "readOnly": { "type": "boolean", "default": false },
                 "source": {
                   "type": "string",
@@ -62,6 +63,7 @@
                 "logic": { "$ref": "#/definitions/fieldLogic" },
                 "validation": { "$ref": "#/definitions/fieldValidation" },
                 "calculation": { "$ref": "#/definitions/calculation" },
+                "optionDependency": { "$ref": "#/definitions/optionDependency" },
                 "options": {
                   "type": "array",
                   "minItems": 1,
@@ -99,6 +101,21 @@
                       "readOnly": { "const": true }
                     },
                     "required": ["readOnly"]
+                  }
+                },
+                {
+                  "if": { "required": ["optionDependency"] },
+                  "then": {
+                    "properties": {
+                      "type": { "enum": ["choice-group", "checkbox-group"] }
+                    },
+                    "required": ["options"]
+                  }
+                },
+                {
+                  "if": { "required": ["presentation"] },
+                  "then": {
+                    "properties": { "type": { "const": "choice-group" } }
                   }
                 }
               ]
@@ -200,6 +217,37 @@
       "properties": {
         "expression": { "type": "string", "minLength": 1, "maxLength": 1000 },
         "precision": { "type": "integer", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "optionDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "rules"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "options"],
+            "properties": {
+              "value": { "type": "string", "minLength": 1, "maxLength": 255 },
+              "options": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1, "maxLength": 255 },
+                "uniqueItems": true
+              }
+            }
+          }
+        }
       }
     }
   }

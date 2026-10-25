@@ -135,6 +135,36 @@ dependencies, unsupported tokens, and precision outside 0–10. Runtime Preview
 updates the read-only result immediately, while final submission is verified
 again by the server against the captured form version.
 
+## Choice-dependent options
+
+Choice fields can filter their options using another single- or multiple-choice
+field. `options_from` identifies the controller and each `option_when` statement
+maps one controller value to a JSON string array of target options:
+
+```text
+field "Country" id="country" type=choice-group presentation=dropdown
+  option "United States"
+  option "Canada"
+
+field "Region" id="region" type=choice-group presentation=dropdown
+  options_from field="country"
+  option_when value="United States" options="[\"California\",\"Texas\"]"
+  option_when value="Canada" options="[\"Ontario\",\"Quebec\"]"
+  option "California"
+  option "Texas"
+  option "Ontario"
+  option "Quebec"
+```
+
+Single-choice fields may add `presentation=dropdown` for a compact combo box;
+`presentation=radio` keeps all choices visible. Existing fields without the
+attribute retain radio-button rendering.
+
+Multiple controller selections expose the union of the matching mappings.
+References and option values are validated after the complete form has been
+parsed, allowing forward references while still rejecting incompatible fields,
+invalid options, and dependency cycles.
+
 ## Example
 
 ```xml

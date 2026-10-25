@@ -173,11 +173,29 @@
             groupLabel.dataset.fieldLabel = field.label;
             groupLabel.textContent = field.label + (field.required ? ' *' : '');
             wrapper.appendChild(groupLabel);
+            if (field.type === 'choice-group' && field.presentation === 'dropdown') {
+                var select = document.createElement('select');
+                select.id = field.id; select.name = field.id;
+                select.disabled = readOnly || Boolean(field.readOnly);
+                select.dataset.optionBaseDisabled = select.disabled ? 'true' : 'false';
+                var placeholderOption = document.createElement('option');
+                placeholderOption.value = ''; placeholderOption.textContent = 'Select an option';
+                select.appendChild(placeholderOption);
+                field.options.forEach(function(option){
+                    var selectOption=document.createElement('option');
+                    selectOption.value=option; selectOption.textContent=option; selectOption.dataset.optionValue=option;
+                    select.appendChild(selectOption);
+                });
+                select.value = savedValue || '';
+                select.required = Boolean(field.required);
+                wrapper.appendChild(select); appendHelp(wrapper, field); return wrapper;
+            }
             var grid = document.createElement('div');
             grid.className = 'careforms-checkbox-grid';
             field.options.forEach(function (option, index) {
                 var optionLabel = document.createElement('label');
                 optionLabel.className = 'careforms-checkbox-option';
+                optionLabel.dataset.optionValue = option;
                 var input = document.createElement('input');
                 input.type = field.type === 'choice-group' ? 'radio' : 'checkbox';
                 input.name = field.type === 'choice-group' ? field.id : field.id + '[]';
@@ -185,6 +203,7 @@
                 input.id = field.id + '-' + index;
                 input.checked = field.type === 'choice-group' ? savedValue === option : Array.isArray(savedValue) && savedValue.indexOf(option) !== -1;
                 input.disabled = readOnly || Boolean(field.readOnly);
+                input.dataset.optionBaseDisabled = input.disabled ? 'true' : 'false';
                 if (field.required && index === 0) input.required = true;
                 var text = document.createElement('span'); text.textContent = option;
                 optionLabel.appendChild(input); optionLabel.appendChild(text); grid.appendChild(optionLabel);
@@ -236,6 +255,8 @@
                     data[field.id] = Array.from(form.querySelectorAll('input[name="' + field.id + '[]"]:checked')).map(function (input) { return input.value; }); return;
                 }
                 if (field.type === 'choice-group') {
+                    var dropdown=form.querySelector('select[name="' + field.id + '"]');
+                    if(dropdown){ data[field.id]=dropdown.value; return; }
                     var selected = form.querySelector('input[name="' + field.id + '"]:checked'); data[field.id] = selected ? selected.value : ''; return;
                 }
                 var input = form.elements[field.id]; if (!input) return;
@@ -273,6 +294,12 @@
     }
 
     function setFieldRequired(wrapper, field, required) {
+        var controls = Array.from(wrapper.querySelectorAll('input, textarea, select'));
+        var activeControls = controls.filter(function(control){
+            var optionLabel=control.closest && control.closest('[data-option-value]');
+            return !control.disabled && (!optionLabel || !optionLabel.hidden);
+        });
+        if(field.optionDependency && (activeControls.length===0 || activeControls.some(function(control){return control.dataset.hasActiveOptions==='false';}))) required=false;
         var badge = wrapper.querySelector('[data-required-badge]');
         if (!badge) {
             badge = document.createElement('span');
@@ -284,18 +311,18 @@
         badge.hidden = !required;
         wrapper.classList.toggle('is-required', Boolean(required));
         wrapper.setAttribute('aria-required', required ? 'true' : 'false');
-        var controls = Array.from(wrapper.querySelectorAll('input, textarea, select'));
         if (field.type === 'checkbox-group') {
             controls.forEach(function (control) {
                 control.required = false;
                 if (control.setCustomValidity) control.setCustomValidity('');
             });
-            if (controls[0] && controls[0].setCustomValidity) {
-                var anyChecked = controls.some(function (control) { return control.checked; });
-                controls[0].setCustomValidity(required && !anyChecked ? 'Select at least one option.' : '');
+            if (activeControls[0] && activeControls[0].setCustomValidity) {
+                var anyChecked = activeControls.some(function (control) { return control.checked; });
+                activeControls[0].setCustomValidity(required && !anyChecked ? 'Select at least one option.' : '');
             }
         } else {
-            controls.forEach(function (control, index) {
+            controls.forEach(function (control) { control.required=false; });
+            activeControls.forEach(function (control, index) {
                 control.required = Boolean(required) && (field.type !== 'choice-group' || index === 0);
             });
         }
@@ -304,7 +331,8 @@
     }
 
     function setCrossFieldValidity(wrapper, field, values) {
-        var control = wrapper.querySelector('input, textarea, select');
+        var controls=Array.from(wrapper.querySelectorAll('input, textarea, select'));
+        var control = controls.find(function(item){ return !item.disabled; }) || controls[0];
         if (!control || !control.setCustomValidity) return;
         if (control.dataset.crossFieldInvalid === 'true') {
             control.setCustomValidity('');
@@ -350,12 +378,50 @@
         }
     }
 
+    function updateDependentOptions(form, definition) {
+        var helper=window.CareForms && window.CareForms.ChoiceOptionDependency;
+        if(!helper) return;
+        var dependent=[];
+        sectionsFor(definition).forEach(function(section){
+            section.fields.forEach(function(field){ if(field.optionDependency) dependent.push(field); });
+        });
+        for(var pass=0; pass<dependent.length+1; pass++){
+            var values=collectData(form,definition,false), changed=false;
+            dependent.forEach(function(field){
+                var wrapper=form.querySelector('[data-field-id="'+field.id+'"]');
+                if(!wrapper) return;
+                var active=helper.activeOptions(field.optionDependency,values[field.optionDependency.field],field.options || []);
+                var select=wrapper.querySelector('select[name="'+field.id+'"]');
+                if(select){
+                    select.dataset.hasActiveOptions=active.length ? 'true' : 'false';
+                    select.querySelectorAll('option[data-option-value]').forEach(function(option){
+                        var available=active.indexOf(option.value)!==-1;
+                        option.hidden=!available; option.disabled=!available;
+                        if(!available && option.selected){ select.value=''; changed=true; }
+                    });
+                    select.disabled=wrapper.hidden || select.dataset.optionBaseDisabled==='true';
+                    return;
+                }
+                wrapper.querySelectorAll('[data-option-value]').forEach(function(label){
+                    var input=label.querySelector('input'), available=active.indexOf(label.dataset.optionValue)!==-1;
+                    label.hidden=!available; label.setAttribute('aria-hidden',available?'false':'true');
+                    input.disabled=wrapper.hidden || input.dataset.optionBaseDisabled==='true' || !available;
+                    if(!available && input.checked){ input.checked=false; changed=true; }
+                });
+            });
+            if(!changed) break;
+        }
+    }
+
     function refreshFormState(form, definition) {
         // Apply visibility first so hidden dependencies are omitted exactly as
         // they will be from the submitted payload, then recalculate and let the
         // new results drive any rules that depend on calculated fields.
         updateConditionalVisibility(form, definition);
+        updateDependentOptions(form, definition);
         updateCalculations(form, definition);
+        updateConditionalVisibility(form, definition);
+        updateDependentOptions(form, definition);
         updateConditionalVisibility(form, definition);
     }
 
@@ -494,6 +560,7 @@
         collectData: collectData,
         collectSignature: collectSignature,
         updateConditionalVisibility: updateConditionalVisibility,
-        updateCalculations: updateCalculations
+        updateCalculations: updateCalculations,
+        updateDependentOptions: updateDependentOptions
     };
 }());

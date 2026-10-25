@@ -58,6 +58,32 @@ final class SubmissionDataValidator
                         $errors[] = sprintf('%s does not match its calculated value.', $field['label'] ?? $fieldId);
                     }
                 }
+                $optionDependency = $field['optionDependency'] ?? null;
+                if (is_array($optionDependency)) {
+                    $activeOptions = $this->activeDependentOptions(
+                        $optionDependency,
+                        $data[$optionDependency['field'] ?? ''] ?? null,
+                        is_array($field['options'] ?? null) ? $field['options'] : [],
+                    );
+                    if ($activeOptions === []) $required = false;
+                    if (($field['type'] ?? null) === 'checkbox-group' && !$this->isEmpty($value) && !is_array($value)) {
+                        $errors[] = sprintf('%s must be a list of options.', $field['label'] ?? $fieldId);
+                        $selected = [];
+                    } elseif (($field['type'] ?? null) === 'choice-group' && !$this->isEmpty($value) && !is_string($value)) {
+                        $errors[] = sprintf('%s must be a single option.', $field['label'] ?? $fieldId);
+                        $selected = [];
+                    } else {
+                        $selected = ($field['type'] ?? null) === 'checkbox-group'
+                            ? (is_array($value) ? $value : [])
+                            : ($this->isEmpty($value) ? [] : [$value]);
+                    }
+                    foreach ($selected as $selectedOption) {
+                        if (!is_string($selectedOption) || !in_array($selectedOption, $activeOptions, true)) {
+                            $errors[] = sprintf('%s contains an option that is not available for the selected response.', $field['label'] ?? $fieldId);
+                            break;
+                        }
+                    }
+                }
                 if ($required && $this->isRequiredValueEmpty($value, (string)($field['type'] ?? ''))) {
                     $errors[] = sprintf('%s is required.', $field['label'] ?? $fieldId);
                     continue;
@@ -76,6 +102,25 @@ final class SubmissionDataValidator
             }
         }
         return $errors;
+    }
+
+    /** @param array<string, mixed> $dependency @param array<int, mixed> $targetOptions @return list<string> */
+    private function activeDependentOptions(array $dependency, mixed $controllerValue, array $targetOptions): array
+    {
+        $selected = is_array($controllerValue)
+            ? $controllerValue
+            : ($this->isEmpty($controllerValue) ? [] : [$controllerValue]);
+        $allowed = [];
+        foreach (is_array($dependency['rules'] ?? null) ? $dependency['rules'] : [] as $rule) {
+            if (!is_array($rule) || !in_array($rule['value'] ?? null, $selected, true)) continue;
+            foreach (is_array($rule['options'] ?? null) ? $rule['options'] : [] as $option) {
+                if (is_string($option)) $allowed[$option] = true;
+            }
+        }
+        return array_values(array_filter(
+            $targetOptions,
+            static fn (mixed $option): bool => is_string($option) && isset($allowed[$option]),
+        ));
     }
 
     /** @param array<string, mixed> $data */

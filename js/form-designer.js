@@ -79,7 +79,7 @@
         {type:'date',label:'Date',description:'Calendar date'},
         {type:'time',label:'Time',description:'Time of day'},
         {type:'checkbox',label:'Yes / No',description:'Single yes/no checkbox'},
-        {type:'choice-group',label:'Select one',description:'Choose one option',defaults:{options:['Option 1','Option 2']}},
+        {type:'choice-group',label:'Select one',description:'Compact dropdown for one option',defaults:{options:['Option 1','Option 2'],presentation:'dropdown'}},
         {type:'checkbox-group',label:'Multiple choice',description:'Choose one or more options',defaults:{options:['Option 1','Option 2']}},
         {type:'signature',label:'Signature',description:'Electronic signature'}
     ];
@@ -271,6 +271,64 @@
         return details;
     }
 
+    function optionDependencyEditor(state, target) {
+        var helper=window.CareForms && window.CareForms.ChoiceOptionDependency;
+        var details=document.createElement('details'); details.className='careforms-condition-editor';
+        details.innerHTML='<summary>Choice-dependent options</summary><div class="careforms-condition-editor-body"><label class="careforms-check"><input type="checkbox" data-option-dependency-enabled> Filter options using another choice field</label><div data-option-dependency-controls><label>Controlling field<select data-option-dependency-field></select></label><p class="careforms-muted">Choose which options are available for each controlling response.</p><div data-option-dependency-rules></div></div><p class="careforms-muted" data-option-dependency-empty hidden>Add another single- or multiple-choice field before configuring dependent options.</p></div>';
+        var enabled=details.querySelector('[data-option-dependency-enabled]'), controls=details.querySelector('[data-option-dependency-controls]');
+        var source=details.querySelector('[data-option-dependency-field]'), rulesMount=details.querySelector('[data-option-dependency-rules]'), empty=details.querySelector('[data-option-dependency-empty]');
+        var candidates=allFields(state).filter(function(item){ return item.field.id!==target.id && helper.choiceTypes.indexOf(item.field.type)!==-1; });
+        candidates.forEach(function(item){ var option=document.createElement('option'); option.value=item.field.id; option.textContent=(item.section.label || item.section.id)+' — '+(item.field.label || item.field.id); source.appendChild(option); });
+        var existing=target.optionDependency ? clone(target.optionDependency) : null, mappings={}, targetOptions=(target.options || []).slice();
+        if(existing) (existing.rules || []).forEach(function(rule){ mappings[rule.value]=(rule.options || []).slice(); });
+        enabled.checked=!!existing; details.open=!!existing;
+        if(existing && candidates.some(function(item){return item.field.id===existing.field;})) source.value=existing.field;
+        function selectedField(){ var match=candidates.find(function(item){return item.field.id===source.value;}); return match ? match.field : null; }
+        function capture(){
+            rulesMount.querySelectorAll('[data-controller-value]').forEach(function(row){
+                mappings[row.dataset.controllerValue]=Array.from(row.querySelectorAll('input:checked')).map(function(input){return input.value;});
+            });
+        }
+        function renderRules(){
+            rulesMount.innerHTML=''; var controller=selectedField();
+            (controller ? controller.options || [] : []).forEach(function(controllerOption){
+                var row=document.createElement('div'); row.className='careforms-choice-editor'; row.dataset.controllerValue=controllerOption;
+                var heading=document.createElement('strong'); heading.textContent=controllerOption; row.appendChild(heading);
+                var grid=document.createElement('div'); grid.className='careforms-checkbox-grid';
+                targetOptions.forEach(function(targetOption){
+                    var label=document.createElement('label'); label.className='careforms-checkbox-option';
+                    var checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.value=targetOption;
+                    checkbox.checked=(mappings[controllerOption] || []).indexOf(targetOption)!==-1;
+                    var text=document.createElement('span'); text.textContent=targetOption; label.appendChild(checkbox); label.appendChild(text); grid.appendChild(label);
+                });
+                row.appendChild(grid); rulesMount.appendChild(row);
+            });
+        }
+        function updateEnabled(){ controls.hidden=!enabled.checked; }
+        if(!candidates.length){ enabled.disabled=true; enabled.checked=false; controls.hidden=true; empty.hidden=false; }
+        else {
+            updateEnabled(); renderRules(); enabled.addEventListener('change',updateEnabled);
+            source.addEventListener('change',function(){ mappings={}; renderRules(); });
+        }
+        details._refreshTargets=function(options){ capture(); targetOptions=options.slice(); renderRules(); };
+        details._applyOptionDependency=function(options){
+            if(!enabled.checked){ delete target.optionDependency; return true; }
+            capture(); var controller=selectedField(), rules=[];
+            (controller.options || []).forEach(function(value){
+                var selected=(mappings[value] || []).filter(function(option){return options.indexOf(option)!==-1;});
+                if(selected.length) rules.push({value:value,options:selected});
+            });
+            if(!rules.length){ window.alert('Select at least one dependent option mapping.'); return false; }
+            var previous=target.optionDependency; target.optionDependency={field:controller.id,rules:rules};
+            if(helper.cycleFields(allFields(state).map(function(item){return item.field;})).length){
+                if(previous) target.optionDependency=previous; else delete target.optionDependency;
+                window.alert('Choice fields cannot contain circular option dependencies.'); return false;
+            }
+            return true;
+        };
+        return details;
+    }
+
     function fieldId(state,label) {
         var base=(label || 'field').toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').replace(/^[^a-z]+/,'') || 'field';
         var ids=allFieldIds(state), id=base, n=2;
@@ -328,6 +386,7 @@
 
         if(field.type==='choice-group' || field.type==='checkbox-group'){
             var choices=document.createElement('div'); choices.className='careforms-choice-editor';
+            choices.dataset.choiceEditor='true';
             choices.innerHTML='<div class="careforms-choice-editor-head"><div><strong>Choices</strong><p class="careforms-muted">Add, rename and reorder the options shown to users.</p></div><button type="button" class="careforms-secondary-button" data-add-option>+ Add choice</button></div><div data-option-list></div>';
             var optionList=choices.querySelector('[data-option-list]');
             var optionValues=clone(field.options || []);
@@ -337,7 +396,7 @@
                     var row=document.createElement('div'); row.className='careforms-choice-row';
                     row.innerHTML='<span class="careforms-choice-handle">☰</span><input type="text" data-option><div class="careforms-choice-actions"></div>';
                     row.querySelector('[data-option]').value=value;
-                    row.querySelector('[data-option]').addEventListener('input',function(){ optionValues[index]=this.value; });
+                    row.querySelector('[data-option]').addEventListener('input',function(){ optionValues[index]=this.value; if(choices._onOptionsChanged) choices._onOptionsChanged(); });
                     var a=row.querySelector('.careforms-choice-actions');
                     var up=document.createElement('button'); up.type='button'; up.textContent='↑'; up.disabled=index===0;
                     up.addEventListener('click',function(){ var v=optionValues.splice(index,1)[0]; optionValues.splice(index-1,0,v); renderOptions(); });
@@ -347,9 +406,15 @@
                     remove.addEventListener('click',function(){ if(optionValues.length===1){ window.alert('Choice fields require at least one option.'); return; } optionValues.splice(index,1); renderOptions(); });
                     a.appendChild(up); a.appendChild(down); a.appendChild(remove); optionList.appendChild(row);
                 });
+                if(choices._onOptionsChanged) choices._onOptionsChanged();
             }
             choices.querySelector('[data-add-option]').addEventListener('click',function(){ optionValues.push('New choice'); renderOptions(); });
             choices._optionValues=optionValues; choices._renderOptions=renderOptions; renderOptions(); form.appendChild(choices);
+        }
+        if(field.type==='choice-group'){
+            var presentation=document.createElement('label');
+            presentation.innerHTML='Choice display<select data-presentation><option value="dropdown">Dropdown</option><option value="radio">Radio buttons</option></select>';
+            presentation.querySelector('select').value=field.presentation || 'radio'; form.appendChild(presentation);
         }
         if(field.type==='number'){
             var numeric=document.createElement('div'); numeric.className='careforms-field-editor-row';
@@ -385,6 +450,11 @@
         var comparison=comparisonEditor(state,field); form.appendChild(comparison);
         var calculation=null;
         if(field.type==='number'){ calculation=calculationEditor(state,field); form.appendChild(calculation); }
+        var optionDependency=null;
+        if(field.type==='choice-group' || field.type==='checkbox-group'){
+            optionDependency=optionDependencyEditor(state,field); form.appendChild(optionDependency);
+            if(choices){ choices._onOptionsChanged=function(){ optionDependency._refreshTargets(optionValues.map(function(value){return value.trim();}).filter(Boolean)); }; }
+        }
 
         var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
         var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
@@ -401,7 +471,7 @@
             var width=form.querySelector('[data-width]').value; if(width) field.width=width; else delete field.width;
             var source=advanced.querySelector('[data-source]').value; if(source) field.source=source; else delete field.source;
             if(advanced.querySelector('[data-readonly]').checked) field.readOnly=true; else delete field.readOnly;
-            var choiceEditor=form.querySelector('.careforms-choice-editor');
+            var choiceEditor=form.querySelector('[data-choice-editor]');
             if(choiceEditor){
                 var values=choiceEditor._optionValues.map(function(v){return v.trim();}).filter(Boolean);
                 var unique=values.filter(function(v,i){return values.indexOf(v)===i;});
@@ -409,6 +479,8 @@
                 if(unique.length!==values.length){ window.alert('Each choice must be unique. Please rename duplicate choices.'); return; }
                 field.options=unique;
             }
+            var presentationInput=form.querySelector('[data-presentation]');
+            if(presentationInput) field.presentation=presentationInput.value;
             var min=form.querySelector('[data-min]'), max=form.querySelector('[data-max]'), step=form.querySelector('[data-step]'), unit=form.querySelector('[data-unit]');
             if(min){ if(min.value!=='') field.min=Number(min.value); else delete field.min; }
             if(max){ if(max.value!=='') field.max=Number(max.value); else delete field.max; }
@@ -433,6 +505,7 @@
             }
             if(!comparison._applyComparison()) return;
             if(calculation && !calculation._applyCalculation()) return;
+            if(optionDependency && !optionDependency._applyOptionDependency(field.options || [])) return;
             condition._applyCondition();
             requiredCondition._applyCondition();
             close(); rerender();
@@ -561,6 +634,7 @@
                 if(constraints.length){ var validationSummary=document.createElement('small'); validationSummary.className='careforms-condition-summary'; validationSummary.textContent='Validation: '+constraints.join(' · '); summary.appendChild(validationSummary); }
                 if(field.validation && field.validation.compare){ var comparisonSummary=document.createElement('small'); comparisonSummary.className='careforms-condition-summary'; comparisonSummary.textContent='Cross-field: '+window.CareForms.CrossFieldValidation.ruleSummary(field.validation.compare,fieldsById(state),field); summary.appendChild(comparisonSummary); }
                 if(field.calculation){ var calculationSummary=document.createElement('small'); calculationSummary.className='careforms-condition-summary'; calculationSummary.textContent='Calculation: '+window.CareForms.CalculationEngine.summary(field.calculation); summary.appendChild(calculationSummary); }
+                if(field.optionDependency){ var optionSummary=document.createElement('small'); optionSummary.className='careforms-condition-summary'; optionSummary.textContent=window.CareForms.ChoiceOptionDependency.summary(field.optionDependency,fieldsById(state)); summary.appendChild(optionSummary); }
                 if(field.logic && field.logic.showWhen){ var conditionSummary=document.createElement('small'); conditionSummary.className='careforms-condition-summary'; conditionSummary.textContent=window.CareForms.ConditionBuilder.ruleSummary(field.logic.showWhen,fieldsById(state)); summary.appendChild(conditionSummary); }
                 if(field.logic && field.logic.requiredWhen){ var requiredSummary=document.createElement('small'); requiredSummary.className='careforms-condition-summary'; requiredSummary.textContent='Required when '+window.CareForms.ConditionBuilder.ruleSummary(field.logic.requiredWhen,fieldsById(state)).replace(/^Shown when /,''); summary.appendChild(requiredSummary); }
                 row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
@@ -599,6 +673,7 @@
                 if(field.required) attrs.push('required');
                 if(field.readOnly) attrs.push('readonly');
                 if(field.width) attrs.push('width='+field.width);
+                if(field.presentation) attrs.push('presentation='+field.presentation);
                 if(field.source) attrs.push('source='+careFormMlQuote(field.source));
                 if(field.rows) attrs.push('rows='+field.rows);
                 if(field.min!==undefined) attrs.push('min='+field.min);
@@ -615,6 +690,10 @@
                 if(field.validationMessage) lines.push('      validation_message '+careFormMlQuote(field.validationMessage));
                 if(field.validation && field.validation.compare){ var compare=field.validation.compare; lines.push('      compare field='+careFormMlQuote(compare.field)+' operator='+compare.operator+' message='+careFormMlQuote(compare.message)); }
                 if(field.calculation){ var calculationLine='      calculate expression='+careFormMlQuote(field.calculation.expression); if(field.calculation.precision!==undefined) calculationLine+=' precision='+field.calculation.precision; lines.push(calculationLine); }
+                if(field.optionDependency){
+                    lines.push('      options_from field='+careFormMlQuote(field.optionDependency.field));
+                    (field.optionDependency.rules || []).forEach(function(rule){ lines.push('      option_when value='+careFormMlQuote(rule.value)+' options='+careFormMlQuote(JSON.stringify(rule.options || []))); });
+                }
                 (field.options || []).forEach(function(option){ lines.push('      option '+careFormMlQuote(option)); });
             });
         });
@@ -641,7 +720,7 @@
     }
     function fromCareFormML(text, original) {
         var result=clone(original), currentSection=null, currentField=null;
-        var logicReferences=[], comparisonReferences=[], calculationReferences=[];
+        var logicReferences=[], comparisonReferences=[], calculationReferences=[], optionDependencyReferences=[];
         result.sections=[];
         var lines=text.split(/\r?\n/);
         lines.forEach(function(raw,i){
@@ -669,7 +748,7 @@
                 attrs.forEach(function(x){
                     if(x==='required') f.required=true; else if(x==='readonly') f.readOnly=true;
                     else { var p=x.indexOf('='); if(p<1) fail('invalid field attribute '+x); var k=x.slice(0,p),v=careFormMlValue(x.slice(p+1));
-                        if(k==='id') f.id=v; else if(k==='type') f.type=v; else if(k==='width') f.width=v; else if(k==='source') f.source=v;
+                        if(k==='id') f.id=v; else if(k==='type') f.type=v; else if(k==='width') f.width=v; else if(k==='source') f.source=v; else if(k==='presentation') f.presentation=v;
                         else if(k==='rows'||k==='min'||k==='max'||k==='step') f[k]=Number(v);
                         else if(k==='min_length'||k==='max_length') f[k==='min_length'?'minLength':'maxLength']=Number(v);
                         else if(k==='unit') f.unit=v; else fail('unknown field attribute '+k);
@@ -678,6 +757,8 @@
                 if(!f.id || !f.type) fail('field requires id= and type=');
                 if(f.step!==undefined && (!Number.isFinite(f.step) || f.step<=0)) fail('step must be greater than zero');
                 if(f.type!=='number' && (f.min!==undefined || f.max!==undefined || f.step!==undefined)) fail('min, max and step are only valid for number fields');
+                if(f.presentation!==undefined && f.type!=='choice-group') fail('presentation is only valid for choice-group fields');
+                if(f.presentation!==undefined && ['radio','dropdown'].indexOf(f.presentation)===-1) fail('presentation must be radio or dropdown');
                 if(f.min!==undefined && !Number.isFinite(f.min)) fail('min must be numeric');
                 if(f.max!==undefined && !Number.isFinite(f.max)) fail('max must be numeric');
                 if(f.min!==undefined && f.max!==undefined && f.min>f.max) fail('min cannot be greater than max');
@@ -773,6 +854,33 @@
                 currentField.calculation=calculationRule; currentField.readOnly=true;
                 calculationReferences.push({target:currentField,line:i+1}); return;
             }
+            if(cmd==='options_from'){
+                if(!currentField) fail('options_from must follow a field');
+                if(['choice-group','checkbox-group'].indexOf(currentField.type)===-1) fail('options_from is only valid for choice fields');
+                if(currentField.optionDependency) fail('only one options_from statement is supported');
+                if(t.length!==1 || t[0].indexOf('field=')!==0) fail('options_from requires field=');
+                var optionSource=careFormMlValue(t[0].slice(6));
+                if(!optionSource) fail('options_from requires field=');
+                currentField.optionDependency={field:optionSource,rules:[]};
+                optionDependencyReferences.push({target:currentField,line:i+1}); return;
+            }
+            if(cmd==='option_when'){
+                if(!currentField || !currentField.optionDependency) fail('option_when must follow options_from');
+                var optionWhenValues={}, optionWhenAllowed=['value','options'];
+                t.forEach(function(x){
+                    var p=x.indexOf('='); if(p<1) fail('invalid option_when attribute '+x);
+                    var key=x.slice(0,p), value=x.slice(p+1);
+                    if(optionWhenAllowed.indexOf(key)===-1) fail('unknown option_when attribute '+key);
+                    if(Object.prototype.hasOwnProperty.call(optionWhenValues,key)) fail('duplicate option_when attribute '+key);
+                    optionWhenValues[key]=careFormMlValue(value);
+                });
+                if(!optionWhenValues.value) fail('option_when requires value=');
+                if(!optionWhenValues.options) fail('option_when requires options=');
+                var dependentOptions;
+                try { dependentOptions=JSON.parse(optionWhenValues.options); } catch(error) { fail('option_when options must be a JSON string array'); }
+                if(!Array.isArray(dependentOptions) || !dependentOptions.length || dependentOptions.some(function(option){return typeof option!=='string' || !option.trim();})) fail('option_when options must be a non-empty JSON string array');
+                currentField.optionDependency.rules.push({value:optionWhenValues.value,options:dependentOptions}); return;
+            }
             if(cmd==='option'){ if(!currentField) fail('option must follow a field'); currentField.options=currentField.options || []; currentField.options.push(careFormMlValue(t[0])); return; }
             fail('unknown statement '+cmd);
         });
@@ -800,6 +908,17 @@
         if(cycles.length){
             var cycleReference=calculationReferences.find(function(reference){return cycles.indexOf(reference.target.id)!==-1;});
             throw new Error('Line '+(cycleReference ? cycleReference.line : 1)+': calculated fields cannot contain circular dependencies');
+        }
+        var optionHelper=window.CareForms && window.CareForms.ChoiceOptionDependency;
+        optionDependencyReferences.forEach(function(reference){
+            if(!reference.target.optionDependency.rules.length) throw new Error('Line '+reference.line+': options_from requires at least one option_when rule');
+            var errors=optionHelper.validate(reference.target,parsedFields);
+            if(errors.length) throw new Error('Line '+reference.line+': '+errors[0]);
+        });
+        var optionCycles=optionHelper.cycleFields(allFields(result).map(function(item){return item.field;}));
+        if(optionCycles.length){
+            var optionCycleReference=optionDependencyReferences.find(function(reference){return optionCycles.indexOf(reference.target.id)!==-1;});
+            throw new Error('Line '+(optionCycleReference ? optionCycleReference.line : 1)+': choice fields cannot contain circular option dependencies');
         }
         return designerState(result);
     }
