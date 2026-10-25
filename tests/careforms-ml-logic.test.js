@@ -2,6 +2,7 @@
 
 var assert = require('assert');
 global.window = {CareForms: {}};
+require('../js/cross-field-validation.js');
 require('../js/form-designer.js');
 
 var ml = window.CareForms.FormDesigner;
@@ -24,11 +25,19 @@ var definition = {
                     min: 0,
                     max: 10,
                     step: 0.5,
+                    validation: {
+                        compare: {
+                            field: 'baseline_score',
+                            operator: 'greaterThanOrEqual',
+                            message: 'Pain score must be at least the baseline score.'
+                        }
+                    },
                     logic: {
                         showWhen: {field: 'has_pain', operator: 'equals', value: true},
                         requiredWhen: {field: 'has_pain', operator: 'equals', value: true}
                     }
-                }
+                },
+                {id: 'baseline_score', type: 'number', label: 'Baseline score'}
             ]
         },
         {
@@ -58,6 +67,7 @@ assert.ok(source.includes('min=0 max=10 step=0.5'));
 assert.ok(source.includes('min_length=5 max_length=200'));
 assert.ok(source.includes('pattern "[A-Za-z ]+"'));
 assert.ok(source.includes('validation_message "Use letters and spaces only."'));
+assert.ok(source.includes('compare field="baseline_score" operator=greaterThanOrEqual message="Pain score must be at least the baseline score."'));
 assert.ok(source.includes('show_when field="pain_score" operator=notEquals value=0'));
 assert.ok(source.includes('show_when field="pain_score" operator=isNotEmpty'));
 
@@ -66,6 +76,7 @@ assert.deepStrictEqual(parsed.sections[0].fields[1].logic, definition.sections[0
 assert.deepStrictEqual(parsed.sections[1].logic, definition.sections[1].logic);
 assert.deepStrictEqual(parsed.sections[1].fields[0].logic, definition.sections[1].fields[0].logic);
 assert.strictEqual(parsed.sections[0].fields[1].step, 0.5);
+assert.deepStrictEqual(parsed.sections[0].fields[1].validation, definition.sections[0].fields[1].validation);
 assert.strictEqual(parsed.sections[1].fields[0].minLength, 5);
 assert.strictEqual(parsed.sections[1].fields[0].validationMessage, 'Use letters and spaces only.');
 
@@ -104,5 +115,14 @@ expectError(requiredForward.replace('required_when field="controller" operator=e
 expectError(forward.replace('type=text', 'type=text min_length=10 max_length=2'), 'min_length cannot be greater than max_length');
 expectError(forward.replace('type=text', 'type=text step=0'), 'step must be greater than zero');
 expectError(forward.replace('show_when field="controller" operator=contains value="yes"', 'pattern "["'), 'pattern is not a valid regular expression');
+
+var comparisonForward = forward.replace(
+    'show_when field="controller" operator=contains value="yes"',
+    'show_when field="controller" operator=contains value="yes"\n      compare field="controller" operator=notEquals message="Values must differ."'
+);
+assert.strictEqual(ml.fromCareFormML(comparisonForward, definition).sections[0].fields[0].validation.compare.message, 'Values must differ.');
+expectError(comparisonForward.replace('field="controller" operator=notEquals message="Values must differ."', 'field="missing" operator=notEquals message="Values must differ."'), 'compare references unknown field ID missing');
+expectError(comparisonForward.replace('field="controller" operator=notEquals message="Values must differ."', 'field="details" operator=notEquals message="Values must differ."'), 'compare must reference a different field');
+expectError(comparisonForward.replace('operator=notEquals message="Values must differ."', 'operator=greaterThan message="Values must differ."'), 'compare operator greaterThan is not compatible');
 
 console.log('CareFormsML logic tests passed.');

@@ -1,6 +1,7 @@
 <?php
 
 script('careforms', 'form-logic');
+script('careforms', 'cross-field-validation');
 script('careforms', 'form-renderer');
 script('careforms', 'form-condition-builder');
 script('careforms', 'page');

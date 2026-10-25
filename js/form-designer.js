@@ -178,6 +178,54 @@
         };
         return details;
     }
+
+    function comparisonEditor(state, target) {
+        var helper=window.CareForms && window.CareForms.CrossFieldValidation;
+        var details=document.createElement('details'); details.className='careforms-condition-editor';
+        details.innerHTML='<summary>Cross-field validation</summary><div class="careforms-condition-editor-body"><label class="careforms-check"><input type="checkbox" data-comparison-enabled> Compare this value with another field</label><div data-comparison-controls><label>Other field<select data-comparison-field></select></label><label>Rule<select data-comparison-operator></select></label><label>Error message<input type="text" data-comparison-message placeholder="Explain how the values must relate"></label></div><p class="careforms-muted" data-comparison-empty hidden>Add another compatible field before configuring a comparison.</p></div>';
+        var enabled=details.querySelector('[data-comparison-enabled]');
+        var controls=details.querySelector('[data-comparison-controls]');
+        var source=details.querySelector('[data-comparison-field]');
+        var operator=details.querySelector('[data-comparison-operator]');
+        var message=details.querySelector('[data-comparison-message]');
+        var empty=details.querySelector('[data-comparison-empty]');
+        var candidates=allFields(state).filter(function(item){
+            return item.field.id!==target.id && helper.operatorsFor(target,item.field).length>0;
+        });
+        candidates.forEach(function(item){
+            var option=document.createElement('option'); option.value=item.field.id;
+            option.textContent=(item.section.label || item.section.id)+' — '+(item.field.label || item.field.id);
+            source.appendChild(option);
+        });
+        var existing=target.validation && target.validation.compare ? clone(target.validation.compare) : null;
+        enabled.checked=!!existing; details.open=!!existing;
+        if(existing && candidates.some(function(item){return item.field.id===existing.field;})) source.value=existing.field;
+        message.value=existing ? existing.message : '';
+
+        function selectedField(){ var match=candidates.find(function(item){return item.field.id===source.value;}); return match ? match.field : null; }
+        function renderOperators(preserved){
+            operator.innerHTML='';
+            helper.operatorsFor(target,selectedField()).forEach(function(name){
+                var option=document.createElement('option'); option.value=name; option.textContent=helper.labels[name]; operator.appendChild(option);
+            });
+            if(Array.from(operator.options).some(function(option){return option.value===preserved;})) operator.value=preserved;
+        }
+        function updateEnabled(){ controls.hidden=!enabled.checked; }
+        if(!candidates.length){ enabled.disabled=true; enabled.checked=false; controls.hidden=true; empty.hidden=false; }
+        else {
+            renderOperators(existing && existing.operator); updateEnabled();
+            enabled.addEventListener('change',updateEnabled);
+            source.addEventListener('change',function(){ renderOperators(null); });
+        }
+        details._applyComparison=function(){
+            if(!enabled.checked){ delete target.validation; return true; }
+            var messageValue=message.value.trim();
+            if(!messageValue){ window.alert('Add an error message for the cross-field validation rule.'); return false; }
+            target.validation={compare:{field:source.value,operator:operator.value,message:messageValue}};
+            return true;
+        };
+        return details;
+    }
     function fieldId(state,label) {
         var base=(label || 'field').toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').replace(/^[^a-z]+/,'') || 'field';
         var ids=allFieldIds(state), id=base, n=2;
@@ -289,6 +337,7 @@
         form.appendChild(advanced);
         var condition=conditionEditor(state,field,field.id,null,'showWhen','Visibility condition','Show this only when a condition is met'); form.appendChild(condition);
         var requiredCondition=conditionEditor(state,field,field.id,null,'requiredWhen','Required condition','Require this field when a condition is met'); form.appendChild(requiredCondition);
+        var comparison=comparisonEditor(state,field); form.appendChild(comparison);
 
         var actions=document.createElement('div'); actions.className='careforms-field-editor-footer';
         var cancel=document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel';
@@ -335,6 +384,7 @@
                 if(messageValue && !field.pattern){ window.alert('Add a pattern before setting its error message.'); return; }
                 if(messageValue) field.validationMessage=messageValue; else delete field.validationMessage;
             }
+            if(!comparison._applyComparison()) return;
             condition._applyCondition();
             requiredCondition._applyCondition();
             close(); rerender();
@@ -461,6 +511,7 @@
                 if(field.max!==undefined) constraints.push('max '+field.max);
                 if(field.step!==undefined) constraints.push('step '+field.step);
                 if(constraints.length){ var validationSummary=document.createElement('small'); validationSummary.className='careforms-condition-summary'; validationSummary.textContent='Validation: '+constraints.join(' · '); summary.appendChild(validationSummary); }
+                if(field.validation && field.validation.compare){ var comparisonSummary=document.createElement('small'); comparisonSummary.className='careforms-condition-summary'; comparisonSummary.textContent='Cross-field: '+window.CareForms.CrossFieldValidation.ruleSummary(field.validation.compare,fieldsById(state),field); summary.appendChild(comparisonSummary); }
                 if(field.logic && field.logic.showWhen){ var conditionSummary=document.createElement('small'); conditionSummary.className='careforms-condition-summary'; conditionSummary.textContent=window.CareForms.ConditionBuilder.ruleSummary(field.logic.showWhen,fieldsById(state)); summary.appendChild(conditionSummary); }
                 if(field.logic && field.logic.requiredWhen){ var requiredSummary=document.createElement('small'); requiredSummary.className='careforms-condition-summary'; requiredSummary.textContent='Required when '+window.CareForms.ConditionBuilder.ruleSummary(field.logic.requiredWhen,fieldsById(state)).replace(/^Shown when /,''); summary.appendChild(requiredSummary); }
                 row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
@@ -513,13 +564,14 @@
                 if(field.helpText) lines.push('      help '+careFormMlQuote(field.helpText));
                 if(field.pattern) lines.push('      pattern '+careFormMlQuote(field.pattern));
                 if(field.validationMessage) lines.push('      validation_message '+careFormMlQuote(field.validationMessage));
+                if(field.validation && field.validation.compare){ var compare=field.validation.compare; lines.push('      compare field='+careFormMlQuote(compare.field)+' operator='+compare.operator+' message='+careFormMlQuote(compare.message)); }
                 (field.options || []).forEach(function(option){ lines.push('      option '+careFormMlQuote(option)); });
             });
         });
         return lines.join('\n');
     }
     function careFormMlTokens(line) {
-        var out=[], re=/"(?:\\.|[^"\\])*"|[^\s]+/g, match;
+        var out=[], re=/(?:[^\s"=]+)=(?:"(?:\\.|[^"\\])*"|[^\s]+)|"(?:\\.|[^"\\])*"|[^\s]+/g, match;
         while((match=re.exec(line))!==null) out.push(match[0]);
         return out;
     }
@@ -539,7 +591,7 @@
     }
     function fromCareFormML(text, original) {
         var result=clone(original), currentSection=null, currentField=null;
-        var logicReferences=[];
+        var logicReferences=[], comparisonReferences=[];
         result.sections=[];
         var lines=text.split(/\r?\n/);
         lines.forEach(function(raw,i){
@@ -627,6 +679,26 @@
                 if(!currentField.pattern) fail('validation_message requires pattern');
                 currentField.validationMessage=validationValue; return;
             }
+            if(cmd==='compare'){
+                if(!currentField) fail('compare must follow a field');
+                if(currentField.validation && currentField.validation.compare) fail('only one compare rule is supported');
+                var comparisonValues={}, comparisonAllowed=['field','operator','message'];
+                t.forEach(function(x){
+                    var p=x.indexOf('='); if(p<1) fail('invalid compare attribute '+x);
+                    var key=x.slice(0,p), value=careFormMlValue(x.slice(p+1));
+                    if(comparisonAllowed.indexOf(key)===-1) fail('unknown compare attribute '+key);
+                    if(Object.prototype.hasOwnProperty.call(comparisonValues,key)) fail('duplicate compare attribute '+key);
+                    comparisonValues[key]=value;
+                });
+                if(!comparisonValues.field) fail('compare requires field=');
+                if(!comparisonValues.operator) fail('compare requires operator=');
+                if(!comparisonValues.message || !comparisonValues.message.trim()) fail('compare requires message=');
+                var comparisonOperators=['equals','notEquals','greaterThan','greaterThanOrEqual','lessThan','lessThanOrEqual'];
+                if(comparisonOperators.indexOf(comparisonValues.operator)===-1) fail('unsupported compare operator '+comparisonValues.operator);
+                currentField.validation={compare:{field:comparisonValues.field,operator:comparisonValues.operator,message:comparisonValues.message}};
+                comparisonReferences.push({target:currentField,field:comparisonValues.field,operator:comparisonValues.operator,line:i+1});
+                return;
+            }
             if(cmd==='option'){ if(!currentField) fail('option must follow a field'); currentField.options=currentField.options || []; currentField.options.push(careFormMlValue(t[0])); return; }
             fail('unknown statement '+cmd);
         });
@@ -635,6 +707,15 @@
         result.sections.forEach(function(section){ (section.fields || []).forEach(function(field){ fieldIds[field.id]=true; }); });
         logicReferences.forEach(function(reference){
             if(!fieldIds[reference.field]) throw new Error('Line '+reference.line+': '+reference.command+' references unknown field ID '+reference.field);
+        });
+        var parsedFields=fieldsById(result), comparisonHelper=window.CareForms && window.CareForms.CrossFieldValidation;
+        comparisonReferences.forEach(function(reference){
+            var sourceField=parsedFields[reference.field];
+            if(!sourceField) throw new Error('Line '+reference.line+': compare references unknown field ID '+reference.field);
+            if(reference.field===reference.target.id) throw new Error('Line '+reference.line+': compare must reference a different field');
+            if(!comparisonHelper || comparisonHelper.operatorsFor(reference.target,sourceField).indexOf(reference.operator)===-1) {
+                throw new Error('Line '+reference.line+': compare operator '+reference.operator+' is not compatible with these field types');
+            }
         });
         return designerState(result);
     }

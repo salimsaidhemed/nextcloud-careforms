@@ -31,6 +31,14 @@ final class FormSchemaValidator
         'contains',
     ];
 
+    public const CROSS_FIELD_EQUALITY_OPERATORS = ['equals', 'notEquals'];
+    public const CROSS_FIELD_ORDERED_OPERATORS = [
+        'greaterThan',
+        'greaterThanOrEqual',
+        'lessThan',
+        'lessThanOrEqual',
+    ];
+
     public const FIELD_SOURCES = [
         'manual',
         'patient.name',
@@ -83,6 +91,7 @@ final class FormSchemaValidator
 
         $sectionIds = [];
         $fieldIds = [];
+        $fieldTypes = [];
 
         foreach ($sections as $sectionIndex => $section) {
             $sectionPath = sprintf('sections[%d]', $sectionIndex);
@@ -151,9 +160,15 @@ final class FormSchemaValidator
                     );
                     continue;
                 }
+                if (is_string($fieldId) && $fieldId !== '') {
+                    $fieldTypes[$fieldId] = $type;
+                }
 
                 if (array_key_exists('logic', $field)) {
                     $this->validateLogic($field['logic'], $fieldPath . '.logic', true, $errors);
+                }
+                if (array_key_exists('validation', $field)) {
+                    $this->validateFieldValidation($field['validation'], $fieldPath . '.validation', $errors);
                 }
 
                 if (array_key_exists('required', $field) && !is_bool($field['required'])) {
@@ -260,10 +275,118 @@ final class FormSchemaValidator
                     $fieldIds,
                     $errors,
                 );
+                $this->validateComparisonReference(
+                    $field['validation'] ?? null,
+                    (string)($field['id'] ?? ''),
+                    (string)($field['type'] ?? ''),
+                    sprintf('%s.fields[%d].validation', $sectionPath, $fieldIndex),
+                    $fieldTypes,
+                    $errors,
+                );
             }
         }
 
         return $errors;
+    }
+
+    /** @param list<string> $errors */
+    private function validateFieldValidation(mixed $validation, string $path, array &$errors): void
+    {
+        if (!is_array($validation)) {
+            $errors[] = $path . ' must be an object.';
+            return;
+        }
+        $unexpected = array_diff(array_keys($validation), ['compare']);
+        if ($unexpected !== []) {
+            $errors[] = $path . ' contains unsupported properties: ' . implode(', ', $unexpected) . '.';
+        }
+        if (!array_key_exists('compare', $validation)) {
+            $errors[] = $path . '.compare is required.';
+            return;
+        }
+        $rule = $validation['compare'];
+        if (!is_array($rule)) {
+            $errors[] = $path . '.compare must be an object.';
+            return;
+        }
+        $unexpectedRule = array_diff(array_keys($rule), ['field', 'operator', 'message']);
+        if ($unexpectedRule !== []) {
+            $errors[] = $path . '.compare contains unsupported properties: ' . implode(', ', $unexpectedRule) . '.';
+        }
+        if (!is_string($rule['field'] ?? null) || preg_match('/^[a-z][a-z0-9_]*$/', $rule['field']) !== 1) {
+            $errors[] = $path . '.compare.field must be a valid field ID.';
+        }
+        $operators = array_merge(self::CROSS_FIELD_EQUALITY_OPERATORS, self::CROSS_FIELD_ORDERED_OPERATORS);
+        if (!is_string($rule['operator'] ?? null) || !in_array($rule['operator'], $operators, true)) {
+            $errors[] = $path . '.compare.operator must be one of: ' . implode(', ', $operators) . '.';
+        }
+        $message = $rule['message'] ?? null;
+        if (!is_string($message) || trim($message) === '') {
+            $errors[] = $path . '.compare.message must be a non-empty string.';
+        } elseif (mb_strlen($message) > 1000) {
+            $errors[] = $path . '.compare.message must not exceed 1000 characters.';
+        }
+    }
+
+    /**
+     * @param array<string, string> $fieldTypes
+     * @param list<string> $errors
+     */
+    private function validateComparisonReference(
+        mixed $validation,
+        string $targetId,
+        string $targetType,
+        string $path,
+        array $fieldTypes,
+        array &$errors,
+    ): void {
+        if (!is_array($validation) || !is_array($validation['compare'] ?? null)) return;
+        $rule = $validation['compare'];
+        $sourceId = $rule['field'] ?? null;
+        $operator = $rule['operator'] ?? null;
+        if (!is_string($sourceId) || preg_match('/^[a-z][a-z0-9_]*$/', $sourceId) !== 1) return;
+        if (!isset($fieldTypes[$sourceId])) {
+            $errors[] = sprintf('%s.compare.field references unknown field ID "%s".', $path, $sourceId);
+            return;
+        }
+        if ($sourceId === $targetId) {
+            $errors[] = $path . '.compare.field must reference a different field.';
+            return;
+        }
+        if (!is_string($operator)) return;
+        $operators = array_merge(self::CROSS_FIELD_EQUALITY_OPERATORS, self::CROSS_FIELD_ORDERED_OPERATORS);
+        if (!in_array($operator, $operators, true)) return;
+        $allowed = $this->comparisonOperatorsFor($targetType, $fieldTypes[$sourceId]);
+        if (!in_array($operator, $allowed, true)) {
+            $errors[] = sprintf(
+                '%s.compare operator %s is not compatible with %s and %s fields.',
+                $path,
+                $operator,
+                $targetType,
+                $fieldTypes[$sourceId],
+            );
+        }
+    }
+
+    /** @return list<string> */
+    private function comparisonOperatorsFor(string $targetType, string $sourceType): array
+    {
+        $targetFamily = $this->comparisonFamily($targetType);
+        $sourceFamily = $this->comparisonFamily($sourceType);
+        if ($targetFamily === null || $targetFamily !== $sourceFamily) return [];
+        if (in_array($targetFamily, ['number', 'date', 'time'], true)) {
+            return array_merge(self::CROSS_FIELD_EQUALITY_OPERATORS, self::CROSS_FIELD_ORDERED_OPERATORS);
+        }
+        return self::CROSS_FIELD_EQUALITY_OPERATORS;
+    }
+
+    private function comparisonFamily(string $type): ?string
+    {
+        return match ($type) {
+            'text', 'textarea', 'choice-group' => 'text',
+            'number', 'date', 'time', 'checkbox' => $type,
+            default => null,
+        };
     }
 
     /**

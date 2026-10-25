@@ -99,6 +99,24 @@ by these constraints; use `required` or `required_when` when a value must be
 provided. Final submission is checked by both the browser and server against
 the exact saved form version.
 
+## Cross-field validation
+
+A field can compare its value with another compatible field by using
+`compare`. The rule stores the other field's stable ID, an operator, and the
+message shown when validation fails:
+
+```text
+field "Start date" id="start_date" type=date
+field "End date" id="end_date" type=date
+  compare field="start_date" operator=greaterThanOrEqual message="End date must be on or after the start date."
+```
+
+Supported operators are `equals`, `notEquals`, `greaterThan`,
+`greaterThanOrEqual`, `lessThan`, and `lessThanOrEqual`. Ordered comparisons
+are limited to matching number, date, or time fields. Equality also supports
+compatible text, choice, and checkbox values. Validation waits until both
+values are present; required rules remain responsible for missing values.
+
 ## Example
 
 ```xml
