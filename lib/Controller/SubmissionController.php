@@ -12,6 +12,8 @@ use OCA\CareForms\Service\AuditService;
 use OCA\CareForms\Service\FormVersionService;
 use OCA\CareForms\Service\FormDefinitionService;
 use OCA\CareForms\Service\SubmissionDataValidator;
+use OCA\CareForms\Service\SubmissionIntegrityPresenter;
+use OCA\CareForms\Service\SubmissionIntegrityService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -35,6 +37,8 @@ class SubmissionController extends Controller
         private FormVersionService $formVersions,
         private FormDefinitionService $formDefinitions,
         private SubmissionDataValidator $submissionValidator,
+        private SubmissionIntegrityService $submissionIntegrity,
+        private SubmissionIntegrityPresenter $submissionPresenter,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -48,7 +52,7 @@ class SubmissionController extends Controller
             $this->mapper->findAllByUser($userId),
             fn (Submission $submission): bool => $this->accessService->canAccessForm($submission->getFormId(), $userId),
         ));
-        return new JSONResponse(array_map(static fn (Submission $submission): array => $submission->jsonSerialize(), $submissions));
+        return new JSONResponse(array_map(fn (Submission $submission): array => $this->submissionPresenter->serialize($submission), $submissions));
     }
 
     #[NoAdminRequired]
@@ -58,7 +62,7 @@ class SubmissionController extends Controller
         if ($submission instanceof JSONResponse) return $submission;
         $userId = $this->getUserId();
         if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_VIEW', 'submission', $id, $submission->getFormId());
-        return new JSONResponse($submission->jsonSerialize());
+        return new JSONResponse($this->submissionPresenter->serialize($submission));
     }
 
     #[NoAdminRequired]
@@ -98,7 +102,7 @@ class SubmissionController extends Controller
         $submission->setUpdatedAt($now);
         $saved = $this->mapper->insert($submission);
         $this->auditService->log($userId, 'SUBMISSION_CREATE', 'submission', $saved->getId(), $formId, 'success', ['version' => $publishedVersion]);
-        return new JSONResponse($saved->jsonSerialize(), Http::STATUS_CREATED);
+        return new JSONResponse($this->submissionPresenter->serialize($saved), Http::STATUS_CREATED);
     }
 
     #[NoAdminRequired]
@@ -115,7 +119,7 @@ class SubmissionController extends Controller
         $submission->setUpdatedAt(time());
         $saved = $this->mapper->update($submission);
         if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_UPDATE', 'submission', $id, $submission->getFormId());
-        return new JSONResponse($saved->jsonSerialize());
+        return new JSONResponse($this->submissionPresenter->serialize($saved));
     }
 
     #[NoAdminRequired]
@@ -152,13 +156,15 @@ class SubmissionController extends Controller
 
         $now = time();
         $encodedData = $this->encodeData($data);
-        $integrityMaterial = implode('|', [
-            $submission->getFormId(),
-            $submission->getFormVersion(),
-            (string)$submission->getPatientId(),
-            $encodedData,
-            $userId,
-            (string)$now,
+        $integrity = $this->submissionIntegrity->create($definition, [
+            'formId' => $submission->getFormId(),
+            'formVersion' => $submission->getFormVersion(),
+            'patientId' => $submission->getPatientId(),
+            'data' => $encodedData,
+            'signedBy' => $userId,
+            'signerName' => $user->getDisplayName(),
+            'signedAt' => $now,
+            'signatureData' => $signatureData,
         ]);
 
         $submission->setData($encodedData);
@@ -172,10 +178,12 @@ class SubmissionController extends Controller
         $submission->setSignerName($user->getDisplayName());
         $submission->setSignedAt($now);
         $submission->setSignatureData($signatureData);
-        $submission->setIntegrityHash(hash('sha256', $integrityMaterial));
+        $submission->setIntegrityVersion($integrity['integrityVersion']);
+        $submission->setDefinitionHash($integrity['definitionHash']);
+        $submission->setIntegrityHash($integrity['integrityHash']);
         $saved = $this->mapper->update($submission);
         $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'success', ['version' => (int)$submission->getFormVersion(), 'signed' => true]);
-        return new JSONResponse($saved->jsonSerialize());
+        return new JSONResponse($this->submissionPresenter->serialize($saved));
     }
 
     private function getUserId(): ?string

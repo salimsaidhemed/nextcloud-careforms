@@ -20,7 +20,7 @@
         return item ? Object.assign({}, item, {version:Number(version) || item.version}) : null;
     }
     function signatureInfo(submission) {
-        return {signatureData:submission.signatureData,signedBy:submission.signedBy,signerName:submission.signerName,signedAt:submission.signedAt,integrityHash:submission.integrityHash};
+        return {signatureData:submission.signatureData,signedBy:submission.signedBy,signerName:submission.signerName,signedAt:submission.signedAt,integrityHash:submission.integrityHash,integrity:submission.integrity};
     }
 
     function renderQueue() {
@@ -39,7 +39,10 @@
                 var main = document.createElement('span'); main.className = 'careforms-submission-main'; main.innerHTML = '<strong></strong><span></span>';
                 main.querySelector('strong').textContent = patient ? patient.displayName : 'Patient #' + submission.patientId;
                 main.querySelector('span').textContent = d.name + ' v' + submission.formVersion + ' · Submitted ' + (submission.submittedAt ? new Date(submission.submittedAt * 1000).toLocaleString() : '—');
-                var status = document.createElement('span'); status.className = 'careforms-status careforms-status-submitted'; status.textContent = 'Awaiting review';
+                var status = document.createElement('span');
+                var integrityFailed=submission.integrity && submission.integrity.valid===false;
+                status.className = 'careforms-status '+(integrityFailed?'careforms-status-returned':'careforms-status-submitted');
+                status.textContent = integrityFailed ? 'Integrity failed' : (submission.integrity && submission.integrity.status==='legacy-valid' ? 'Legacy verified' : 'Awaiting review');
                 item.appendChild(main); item.appendChild(status); item.addEventListener('click', function () {
                     request('/api/form-definitions/' + encodeURIComponent(submission.formId) + '/' + encodeURIComponent(submission.formVersion), {method:'GET'})
                         .then(function (versionDefinition) { renderReview(submission, versionDefinition, patient, mount); })
@@ -56,6 +59,11 @@
         var box = document.createElement('section'); box.className = 'careforms-review-actions';
         box.innerHTML = '<h3>Supervisor Review</h3><p class="careforms-muted">Approve this signed submission, or return it with a correction note. Returning it invalidates the current signature and requires the submitter to sign again.</p><textarea rows="3" placeholder="Correction note (required when returning)"></textarea><div><button type="button" class="careforms-secondary-button" data-review="return">Return for correction</button> <button type="button" class="careforms-primary-button" data-review="approve">Approve</button></div>';
         mount.appendChild(box);
+        if(submission.integrity && submission.integrity.valid===false){
+            var warning=document.createElement('p'); warning.className='careforms-info-banner'; warning.textContent=submission.integrity.message || 'Integrity verification failed. Return this submission for correction.';
+            box.insertBefore(warning,box.querySelector('textarea'));
+            box.querySelector('[data-review="approve"]').disabled=true;
+        }
         box.querySelector('[data-review="approve"]').addEventListener('click', function () { decide('approve'); });
         box.querySelector('[data-review="return"]').addEventListener('click', function () { decide('return'); });
         function decide(action) {

@@ -7,6 +7,7 @@ namespace OCA\CareForms\Controller;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
+use OCA\CareForms\Service\SubmissionIntegrityPresenter;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -22,6 +23,7 @@ class ReviewController extends Controller
         private SubmissionMapper $submissions,
         private AccessService $accessService,
         private AuditService $auditService,
+        private SubmissionIntegrityPresenter $submissionPresenter,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -36,7 +38,7 @@ class ReviewController extends Controller
             $this->submissions->findAwaitingReview(),
             fn ($submission): bool => $this->accessService->canReviewForm($submission->getFormId(), $userId),
         ));
-        return new JSONResponse(array_map(static fn ($submission): array => $submission->jsonSerialize(), $items));
+        return new JSONResponse(array_map(fn ($submission): array => $this->submissionPresenter->serialize($submission), $items));
     }
 
     #[NoAdminRequired]
@@ -62,6 +64,13 @@ class ReviewController extends Controller
         if ($action === 'return' && $note === '') {
             return new JSONResponse(['message' => 'A return note is required so the submitter knows what to correct.'], Http::STATUS_BAD_REQUEST);
         }
+        if ($action === 'approve') {
+            $verification = $this->submissionPresenter->verification($submission);
+            if ($verification['valid'] !== true) {
+                $this->auditService->log($userId, 'SUBMISSION_REVIEW', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'integrity']);
+                return new JSONResponse(['message' => 'This submission cannot be approved because its integrity could not be verified.', 'integrity' => $verification], Http::STATUS_CONFLICT);
+            }
+        }
 
         $submission->setStatus($action === 'approve' ? 'approved' : 'returned');
         $submission->setReviewedBy($userId);
@@ -73,6 +82,8 @@ class ReviewController extends Controller
             $submission->setSignedAt(null);
             $submission->setSignatureData(null);
             $submission->setIntegrityHash(null);
+            $submission->setIntegrityVersion(null);
+            $submission->setDefinitionHash(null);
         }
         $submission->setUpdatedAt(time());
         $saved = $this->submissions->update($submission);
@@ -87,7 +98,7 @@ class ReviewController extends Controller
             ['decision' => $action]
         );
 
-        return new JSONResponse($saved->jsonSerialize());
+        return new JSONResponse($this->submissionPresenter->serialize($saved));
     }
 
     private function requireReviewer(): string|JSONResponse

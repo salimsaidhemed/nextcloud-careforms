@@ -1,5 +1,24 @@
 # CareForms Changelog
 
+## [0.4.0] - 2026-10-26
+
+### Added
+- Conditional visibility and conditional required fields across schema, designer, CareFormsML, Preview, runtime, and server validation.
+- Advanced field constraints, cross-field comparisons, calculated fields, and choice-dependent options.
+- Compact dropdown presentation for single-choice fields.
+- Designer-side logic linting with field-level remediation and cycle detection.
+- Versioned submission integrity that binds signed data and signature content to the exact historical form definition.
+
+### Changed
+- Preview pauses when blocking form-logic errors are present.
+- Publishing revalidates the exact draft definition.
+- Historical submission views load exact definition snapshots instead of substituting the currently published definition.
+- Signed submissions expose verified, legacy-valid, invalid, unavailable, or unsigned integrity status.
+
+### Compatibility
+- Nextcloud 31
+- Existing integrity hashes remain readable through the legacy verification path.
+
 ## [0.3.0] - 2026-09-17
 
 ### Added
