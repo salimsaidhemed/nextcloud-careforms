@@ -46,6 +46,39 @@
         body.insertBefore(summary,body.firstChild); saveState.textContent='Not saved — '+errors.length+' issue'+(errors.length===1?'':'s');
     }
 
+    function lintIssues(state) {
+        var linter=window.CareForms && window.CareForms.FormLogicLinter;
+        return linter ? linter.lint(state) : [];
+    }
+    function renderLogicIssues(issues,state,body,options) {
+        options=options || {};
+        if(!issues.length) return null;
+        var summary=document.createElement('div');
+        summary.className='careforms-logic-lint-summary';
+        summary.setAttribute('role','alert');
+        summary.innerHTML='<div class="careforms-logic-lint-heading"><div><strong>Logic needs attention</strong><p></p></div><span class="careforms-logic-lint-count"></span></div><ul></ul>';
+        summary.querySelector('p').textContent=options.preview
+            ? 'Preview is paused until these logic errors are fixed.'
+            : 'You can keep editing, but these errors must be fixed before Preview or publish.';
+        summary.querySelector('.careforms-logic-lint-count').textContent=issues.length+' error'+(issues.length===1?'':'s');
+        issues.forEach(function(item){
+            var li=document.createElement('li'), button=document.createElement('button'); button.type='button';
+            var loc=validationLocation(item.path,state);
+            button.textContent=loc.label+': '+item.message;
+            button.addEventListener('click',function(){
+                if(options.onDesign) options.onDesign();
+                window.setTimeout(function(){
+                    var target=null, scope=options.body || body;
+                    if(loc.kind==='section'||loc.kind==='field') target=scope.querySelector('[data-section-index="'+loc.sectionIndex+'"]');
+                    if(loc.kind==='field'&&target) target=target.querySelector('[data-field-index="'+loc.fieldIndex+'"]') || target;
+                    if(target){ target.scrollIntoView({behavior:'smooth',block:'center'}); target.classList.add('careforms-logic-lint-error'); }
+                },0);
+            });
+            li.appendChild(button); summary.querySelector('ul').appendChild(li);
+        });
+        return summary;
+    }
+
     function designerState(definition) {
         var state = clone(definition);
         state.sections = Array.isArray(state.sections) ? state.sections : [];
@@ -525,6 +558,10 @@
         intro.innerHTML='<strong>Design mode</strong><span>Visual Form Designer — sections and fields flow automatically. No pixels or X/Y positioning are required.</span>';
         body.appendChild(intro);
 
+        var currentIssues=lintIssues(state);
+        var lintSummary=renderLogicIssues(currentIssues,state,body);
+        if(lintSummary) body.appendChild(lintSummary);
+
         var meta=document.createElement('div');
         meta.className='careforms-designer-meta';
         meta.innerHTML='<label>Form name<input type="text" data-name></label><label>Category<input type="text" data-category></label><label>Description<textarea rows="2" data-description></textarea></label>';
@@ -604,6 +641,7 @@
             (section.fields || []).forEach(function(field, fieldIndex) {
                 var row=document.createElement('div');
                 row.className='careforms-designer-field'; row.dataset.fieldIndex=String(fieldIndex);
+                if(currentIssues.some(function(item){return item.fieldId===field.id;})) row.classList.add('careforms-logic-lint-error');
                 var label=document.createElement('span');
                 label.textContent=field.label || field.id;
                 var type=document.createElement('small');
@@ -639,6 +677,7 @@
                 if(field.logic && field.logic.requiredWhen){ var requiredSummary=document.createElement('small'); requiredSummary.className='careforms-condition-summary'; requiredSummary.textContent='Required when '+window.CareForms.ConditionBuilder.ruleSummary(field.logic.requiredWhen,fieldsById(state)).replace(/^Shown when /,''); summary.appendChild(requiredSummary); }
                 row.appendChild(summary); row.appendChild(fieldActions); card.appendChild(row);
             });
+            if(currentIssues.some(function(item){return !item.fieldId && item.sectionId===section.id;})) card.classList.add('careforms-logic-lint-error');
             body.appendChild(card);
         });
     }
@@ -951,13 +990,19 @@
         footer.appendChild(feedback); footer.appendChild(apply); body.appendChild(footer);
     }
 
-    function renderPreview(state, body) {
+    function renderPreview(state, body, onDesign) {
         body.innerHTML='';
         if (!window.CareForms || !window.CareForms.FormRenderer) {
             body.innerHTML='<div class="careforms-empty-state"><h3>Preview unavailable</h3><p>The CareForms renderer could not be loaded.</p></div>';
             return;
         }
         var banner=document.createElement('div'); banner.className='careforms-designer-mode-banner is-preview'; banner.innerHTML='<strong>Preview mode</strong><span>End-user preview — editing controls are hidden. This is how the form will appear when completed.</span>'; body.appendChild(banner);
+        var issues=lintIssues(state);
+        if(issues.length){
+            var summary=renderLogicIssues(issues,state,body,{preview:true,onDesign:onDesign,body:body});
+            if(summary) body.appendChild(summary);
+            return;
+        }
         var shell=document.createElement('div'); shell.className='careforms-designer-preview-shell';
         var mount=document.createElement('div'); mount.className='careforms-designer-preview'; shell.appendChild(mount); body.appendChild(shell);
         window.CareForms.FormRenderer.render(state,mount,{values:{},readOnly:false,backLabel:'Back to designer'});
@@ -1012,14 +1057,19 @@
 
                 function switchMode(next) {
                     mode=next;
-                    Array.prototype.forEach.call(modes.children,function(child){ child.classList.toggle('active',child.dataset.mode===mode); });
+                    var count=lintIssues(state).length;
+                    Array.prototype.forEach.call(modes.children,function(child){
+                        child.classList.toggle('active',child.dataset.mode===mode);
+                        child.textContent=child.dataset.label+(child.dataset.mode==='preview' && count ? ' ('+count+')' : '');
+                    });
                     if (mode==='design') renderDesign(state,body);
                     if (mode==='markup') renderMarkup(state,body,function(next){ state=next; });
-                    if (mode==='preview') renderPreview(state,body);
+                    if (mode==='preview') renderPreview(state,body,function(){ switchMode('design'); });
                 }
                 [['design','Design'],['markup','CareFormsML'],['preview','Preview']].forEach(function(item) {
                     var b=button(item[1],item[0]===mode,function(){ switchMode(item[0]); });
                     b.dataset.mode=item[0];
+                    b.dataset.label=item[1];
                     modes.appendChild(b);
                 });
                 mount.appendChild(modes);

@@ -4,6 +4,7 @@ script('careforms', 'form-logic');
 script('careforms', 'cross-field-validation');
 script('careforms', 'calculation-engine');
 script('careforms', 'choice-option-dependency');
+script('careforms', 'form-logic-linter');
 script('careforms', 'form-renderer');
 script('careforms', 'form-condition-builder');
 script('careforms', 'page');
