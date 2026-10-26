@@ -222,6 +222,10 @@ button .careforms-action-icon { margin-right:6px; }
     object-fit: contain;
     object-position: left center;
 }
+.careforms-integrity-status{display:inline-flex;align-items:center;width:fit-content;margin:4px 0 0;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.careforms-integrity-status.is-valid{color:var(--color-success-text,var(--color-main-text));background:var(--color-success-hover,var(--color-background-dark))}
+.careforms-integrity-status.is-legacy-valid{color:var(--color-warning-text,var(--color-main-text));background:var(--color-warning-hover,var(--color-background-dark))}
+.careforms-integrity-status.is-invalid,.careforms-integrity-status.is-unavailable{color:var(--color-error-text,var(--color-main-text));background:var(--color-error-hover,var(--color-background-dark))}
 
 .careforms-field input:disabled,
 .careforms-field textarea:disabled {

@@ -67,7 +67,20 @@ Restrict direct database, filesystem, container-host and VM administrative acces
 
 CareForms currently implements an authenticated electronic signature rather than a PKI/certificate-based qualified digital signature.
 
-The application records the logged-in Nextcloud user identity, display name, signing time, signature representation, submission/form identifiers and an integrity hash. A returned submission invalidates the previous signature and requires a new signature after correction.
+The application records the logged-in Nextcloud user identity, display name,
+signing time, signature representation, submission/form identifiers and an
+integrity hash. Integrity format v2 binds the submitted data and signature to a
+canonical SHA-256 hash of the exact historical form-definition snapshot. Views
+verify that snapshot rather than substituting the currently published version.
+A returned submission clears all signature and integrity metadata and requires
+a new signature after correction.
+
+Existing pre-v2 signatures remain readable. They are reported as
+`legacy-valid` when their original data-only hash verifies, because the legacy
+format did not bind the signature image or definition hash. `invalid` means
+content or definition verification failed; `unavailable` means the exact
+historical definition snapshot cannot be retrieved; `unsigned` is expected for
+drafts and returned submissions.
 
 Organizations should confirm that this electronic-signature model satisfies their legal, clinical and policy requirements before relying on it as a regulated signature mechanism.
 

@@ -9,6 +9,7 @@ use OCA\CareForms\Db\PatientMapper;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
+use OCA\CareForms\Service\SubmissionIntegrityPresenter;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -25,6 +26,7 @@ class PatientController extends Controller
         private SubmissionMapper $submissions,
         private AccessService $accessService,
         private AuditService $auditService,
+        private SubmissionIntegrityPresenter $submissionPresenter,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -108,7 +110,7 @@ class PatientController extends Controller
         }
 
         $records = array_map(
-            static fn ($submission): array => $submission->jsonSerialize(),
+            fn ($submission): array => $this->submissionPresenter->serialize($submission),
             $this->submissions->findAllByPatient($id),
         );
         $this->auditService->log($userId, 'PATIENT_VIEW', 'patient', $id);

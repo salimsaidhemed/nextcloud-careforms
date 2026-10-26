@@ -71,7 +71,8 @@
             signedBy: submission.signedBy,
             signerName: submission.signerName,
             signedAt: submission.signedAt,
-            integrityHash: submission.integrityHash
+            integrityHash: submission.integrityHash,
+            integrity: submission.integrity
         };
     }
 
@@ -162,7 +163,9 @@
                 copy.innerHTML = '<strong></strong><span></span><small></small>';
                 copy.querySelector('strong').textContent = patientName;
                 copy.querySelector('span').textContent = formName(item.formId) + ' · Version ' + item.formVersion;
-                copy.querySelector('small').textContent = 'MR# ' + (patient.medicalRecordNumber || '—') + ' · Submitted by ' + (item.userId || '—') + ' · ' + (item.submittedAt ? new Date(item.submittedAt * 1000).toLocaleString() : '—');
+                var integrityStatus=item.integrity && item.integrity.status;
+                var integrityLabel=integrityStatus==='valid'?'Integrity verified':(integrityStatus==='legacy-valid'?'Legacy integrity verified':((integrityStatus==='invalid'||integrityStatus==='unavailable')?'Integrity failed':''));
+                copy.querySelector('small').textContent = 'MR# ' + (patient.medicalRecordNumber || '—') + ' · Submitted by ' + (item.userId || '—') + ' · ' + (item.submittedAt ? new Date(item.submittedAt * 1000).toLocaleString() : '—')+(integrityLabel?' · '+integrityLabel:'');
 
                 var status = document.createElement('span');
                 status.className = 'careforms-status careforms-status-' + item.status;

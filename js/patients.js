@@ -119,21 +119,28 @@
             button.className = 'careforms-patient-submission-item';
             button.innerHTML = '<span><strong></strong><small></small></span><span class="careforms-status"></span>';
             button.querySelector('strong').textContent = formDefinition ? formDefinition.name : submission.formId;
-            button.querySelector('small').textContent = 'Version ' + submission.formVersion + ' · ' + formatDate(submission.submittedAt || submission.updatedAt);
+            var integrityStatus=submission.integrity && submission.integrity.status;
+            var integrityLabel=integrityStatus==='valid'?'Integrity verified':(integrityStatus==='legacy-valid'?'Legacy integrity verified':((integrityStatus==='invalid'||integrityStatus==='unavailable')?'Integrity failed':''));
+            button.querySelector('small').textContent = 'Version ' + submission.formVersion + ' · ' + formatDate(submission.submittedAt || submission.updatedAt)+(integrityLabel?' · '+integrityLabel:'');
             var status = button.querySelector('.careforms-status');
             status.classList.add('careforms-status-' + submission.status);
             status.textContent = submission.status === 'submitted' ? 'Submitted' : 'Draft';
-            button.addEventListener('click', function () { renderPatientSubmission(submission, formDefinition, patient); });
+            button.addEventListener('click', function () {
+                request('/api/form-definitions/' + encodeURIComponent(submission.formId) + '/' + encodeURIComponent(submission.formVersion), {method:'GET'})
+                    .then(function (versionDefinition) { renderPatientSubmission(submission, versionDefinition, patient); })
+                    .catch(function (error) { renderPatientSubmission(submission, null, patient, error.message); });
+            });
             mount.appendChild(button);
         });
     }
 
-    function renderPatientSubmission(submission, formDefinition, patient) {
+    function renderPatientSubmission(submission, formDefinition, patient, definitionError) {
         var detail = document.getElementById('careforms-patient-detail');
         if (!formDefinition || !window.CareForms.FormRenderer) {
-            detail.innerHTML = '<button type="button" class="careforms-secondary-button" id="careforms-back-patient">Back to Patient</button><div class="careforms-empty-state"><h3>Form definition unavailable</h3><p>The stored submission is linked to a form definition that is not available in this build.</p></div>';
+            detail.innerHTML = '<button type="button" class="careforms-secondary-button" id="careforms-back-patient">Back to Patient</button><div class="careforms-empty-state"><h3>Form definition unavailable</h3><p></p></div>';
+            detail.querySelector('p').textContent=definitionError || 'The exact historical form definition is not available.';
         } else {
-            window.CareForms.FormRenderer.render(formDefinition, detail, {values:submission.data || {}, patient:patient, readOnly:true, backLabel:'Back to Patient'});
+            window.CareForms.FormRenderer.render(formDefinition, detail, {values:submission.data || {},patient:patient,signature:{signatureData:submission.signatureData,signedBy:submission.signedBy,signerName:submission.signerName,signedAt:submission.signedAt,integrityHash:submission.integrityHash,integrity:submission.integrity},readOnly:true,backLabel:'Back to Patient'});
             var back = detail.querySelector('[data-action="back-to-forms"]');
             if (back) {
                 back.removeAttribute('data-action');

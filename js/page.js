@@ -43,9 +43,16 @@
         return 'Draft';
     }
     function isSubmissionReadOnly(status) { return status === 'submitted' || status === 'approved'; }
+    function integrityLabel(submission){
+        var status=submission && submission.integrity && submission.integrity.status;
+        if(status==='valid') return 'Integrity verified';
+        if(status==='legacy-valid') return 'Legacy integrity verified';
+        if(status==='invalid'||status==='unavailable') return 'Integrity failed';
+        return '';
+    }
     function signatureInfo(submission) {
         if (!submission) return null;
-        return {signatureData:submission.signatureData,signedBy:submission.signedBy,signerName:submission.signerName,signedAt:submission.signedAt,integrityHash:submission.integrityHash};
+        return {signatureData:submission.signatureData,signedBy:submission.signedBy,signerName:submission.signerName,signedAt:submission.signedAt,integrityHash:submission.integrityHash,integrity:submission.integrity};
     }
 
     function loadFormDefinitions() {
@@ -226,7 +233,8 @@
                 var main=document.createElement('span'); main.className='careforms-submission-main';
                 var patient=findPatient(s.patientId); var patientName=patient ? patient.displayName : (s.data && s.data.patient_name ? s.data.patient_name : 'Legacy / unassigned patient');
                 main.innerHTML='<strong></strong><span></span>'; main.querySelector('strong').textContent=patientName;
-                main.querySelector('span').textContent=d.name+' v'+s.formVersion+' · Updated '+(s.updatedAt ? new Date(s.updatedAt*1000).toLocaleString() : '—');
+                var integrityText=integrityLabel(s);
+                main.querySelector('span').textContent=d.name+' v'+s.formVersion+' · Updated '+(s.updatedAt ? new Date(s.updatedAt*1000).toLocaleString() : '—')+(integrityText?' · '+integrityText:'');
                 var status=document.createElement('span'); status.className='careforms-status careforms-status-'+s.status; status.textContent=statusLabel(s.status);
                 item.appendChild(main); item.appendChild(status); item.addEventListener('click',function(){
                     loadDefinitionVersion(s.formId, s.formVersion)

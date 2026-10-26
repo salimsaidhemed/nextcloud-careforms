@@ -8,6 +8,7 @@ use OCA\CareForms\Db\PatientMapper;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
+use OCA\CareForms\Service\SubmissionIntegrityPresenter;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
@@ -24,6 +25,7 @@ class ReportController extends Controller
         private PatientMapper $patients,
         private AccessService $accessService,
         private AuditService $auditService,
+        private SubmissionIntegrityPresenter $submissionPresenter,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -139,7 +141,7 @@ class ReportController extends Controller
                 }
             }
 
-            $serialized = $submission->jsonSerialize();
+            $serialized = $this->submissionPresenter->serialize($submission);
             $serialized['userId'] = $submission->getUserId();
             $serialized['patient'] = $patient;
             $items[] = $serialized;

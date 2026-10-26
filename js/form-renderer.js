@@ -84,6 +84,17 @@
                 meta.textContent = 'Electronically signed by ' + (signature.signerName || signature.signedBy || 'unknown user') +
                     (signature.signedAt ? ' · ' + new Date(signature.signedAt * 1000).toLocaleString() : '');
                 wrapper.appendChild(meta);
+                if(signature.integrity){
+                    var integrity=document.createElement('p');
+                    var status=signature.integrity.status;
+                    integrity.className='careforms-integrity-status is-'+status;
+                    if(status==='valid') integrity.textContent='✓ Integrity verified';
+                    else if(status==='legacy-valid') integrity.textContent='✓ Legacy integrity verified';
+                    else if(status==='unsigned') integrity.textContent='Unsigned record';
+                    else integrity.textContent='⚠ Integrity verification failed';
+                    integrity.title=signature.integrity.message || '';
+                    wrapper.appendChild(integrity);
+                }
             } else {
                 var legacy = document.createElement('p');
                 legacy.className = 'careforms-muted';
