@@ -5,7 +5,7 @@
         if (!target) return;
 
         var clone = target.cloneNode(true);
-        clone.querySelectorAll('.careforms-print-button,[data-action="back-to-forms"],.careforms-form-actions,.careforms-section-nav,.careforms-review-actions').forEach(function (node) {
+        clone.querySelectorAll('.careforms-print-button,[data-action="back-to-forms"],.careforms-form-actions,.careforms-section-nav,.careforms-review-actions,.careforms-addendum-form,.careforms-change-request-form,.careforms-addendum-actions').forEach(function (node) {
             node.remove();
         });
 
@@ -62,6 +62,15 @@
             '.careforms-report-card,.careforms-report-panel,.careforms-report-group{border:1px solid #aaa;border-radius:6px;padding:12px;margin-bottom:12px;break-inside:avoid;page-break-inside:avoid;}\n' +
             '.careforms-report-columns{display:block;}\n' +
             '.careforms-report-pairs>div{display:flex;justify-content:space-between;gap:16px;padding:4px 0;border-bottom:1px solid #eee;}\n' +
+            '.careforms-addenda-panel{margin-top:18px;padding:14px;border:2px solid #555;border-radius:6px;}\n' +
+            '.careforms-addenda-panel:before{content:"AMENDMENT HISTORY — NOT PART OF THE ORIGINAL SIGNED PAYLOAD";display:block;margin-bottom:12px;padding:7px;border:1px solid #555;font-weight:700;text-align:center;}\n' +
+            '.careforms-history-list{display:grid;gap:10px;padding:0;}\n' +
+            '.careforms-history-event{padding:10px;border:1px solid #888;border-left:4px solid #555;border-radius:4px;break-inside:avoid;}\n' +
+            '.careforms-addendum-head{display:flex;justify-content:space-between;gap:10px;}\n' +
+            '.careforms-history-change{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:8px;padding:8px;border:1px solid #aaa;}\n' +
+            '.careforms-change-kind{font-weight:700;text-transform:uppercase;}\n' +
+            '.careforms-change-values{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;}\n' +
+            '.careforms-before{text-decoration:line-through;} .careforms-after{font-weight:700;}\n' +
             'img{max-width:100%;height:auto;}\n';
 
         printDocument.open();

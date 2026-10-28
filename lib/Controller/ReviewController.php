@@ -7,6 +7,7 @@ namespace OCA\CareForms\Controller;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
+use OCA\CareForms\Service\ChangeRequestService;
 use OCA\CareForms\Service\SubmissionIntegrityPresenter;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -23,6 +24,7 @@ class ReviewController extends Controller
         private SubmissionMapper $submissions,
         private AccessService $accessService,
         private AuditService $auditService,
+        private ChangeRequestService $changeRequests,
         private SubmissionIntegrityPresenter $submissionPresenter,
     ) {
         parent::__construct('careforms', $request);
@@ -72,7 +74,15 @@ class ReviewController extends Controller
             }
         }
 
-        $submission->setStatus($action === 'approve' ? 'approved' : 'returned');
+        if ($action === 'return') {
+            try { $this->changeRequests->create($submission, $userId, $note); }
+            catch (\InvalidArgumentException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_BAD_REQUEST); }
+            catch (\Throwable) { return new JSONResponse(['message' => 'Could not create the change request. Please try again.'], Http::STATUS_CONFLICT); }
+            $this->auditService->log($userId, 'SUBMISSION_REVIEW', 'submission', $id, $submission->getFormId(), 'success', ['decision' => 'return']);
+            return new JSONResponse($this->submissionPresenter->serialize($submission));
+        }
+
+        $submission->setStatus('approved');
         $submission->setReviewedBy($userId);
         $submission->setReviewedAt(time());
         $submission->setReviewNote($note !== '' ? $note : null);

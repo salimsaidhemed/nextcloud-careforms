@@ -99,9 +99,10 @@ button .careforms-action-icon { margin-right:6px; }
 .careforms-submission-main span { color: var(--color-text-maxcontrast); }
 .careforms-status { flex: 0 0 auto; padding: 5px 10px; border: 1px solid var(--color-border); border-radius: 999px; font-size: 12px; line-height: 1.4; font-weight: 600; background: var(--color-background-dark); color: var(--color-main-text); }
 .careforms-status-draft { background: var(--color-background-dark); }
-.careforms-status-submitted { border-color: var(--color-primary-element); background: var(--color-primary-element-light); color: var(--color-main-text); }
-.careforms-status-returned { border-color: var(--color-warning, #e6a700); background: var(--color-warning-hover, var(--color-background-dark)); color: var(--color-main-text); }
-.careforms-status-approved { border-color: var(--color-success, #2d7d46); background: var(--color-success-hover, var(--color-background-dark)); color: var(--color-main-text); }
+.careforms-status-submitted { border-color:#3578b8;background:#2563a6;color:#fff; }
+.careforms-status-returned { border-color:#d4a900;background:#f2c94c;color:#302400; }
+.careforms-status-approved { border-color:#369457;background:#287a43;color:#fff; }
+.careforms-status-immutable,.careforms-status-resolved{color:#fff;background:#287a43;border-color:#369457}.careforms-status-open,.careforms-status-responded{color:#302400;background:#f2c94c;border-color:#d4a900}
 
 @media (max-width: 800px) {
     #careforms-app { width: calc(100% - 20px); margin: 14px auto; }
@@ -231,7 +232,13 @@ button .careforms-action-icon { margin-right:6px; }
 .careforms-addendum-form h4{margin:0}.careforms-addendum-form>label,.careforms-addendum-change label{display:flex;flex-direction:column;gap:6px;font-weight:600}.careforms-addendum-change{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .careforms-addendum-card{margin-top:12px;padding:14px;border-left:4px solid var(--color-primary-element);border-radius:var(--border-radius);background:var(--color-background-hover)}
 .careforms-addendum-head{display:flex;justify-content:space-between;gap:12px}.careforms-addendum-card p{margin:7px 0}.careforms-addendum-card dl{display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:5px 12px}.careforms-addendum-card dt{font-weight:600}.careforms-addendum-card dd{margin:0}.careforms-addendum-actions{display:flex;gap:8px;margin-top:12px}
-@media(max-width:720px){.careforms-addendum-change{grid-template-columns:1fr}.careforms-addendum-actions{flex-direction:column}}
+.careforms-change-request-form{display:grid;gap:12px;margin-top:16px;padding:16px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-background-hover)}
+.careforms-change-request-form h4{margin:0}.careforms-change-request-form label{display:flex;flex-direction:column;gap:6px;font-weight:600}.careforms-history-list{position:relative;display:grid;gap:12px;margin-top:14px;padding-left:22px}.careforms-history-list:before{content:"";position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:var(--color-border)}
+.careforms-history-event{position:relative;padding:14px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-background-hover)}.careforms-history-event:before{content:"";position:absolute;left:-21px;top:18px;width:12px;height:12px;border:2px solid var(--color-main-background);border-radius:50%;background:var(--color-primary-element)}
+.careforms-history-original{border-left:4px solid #287a43}.careforms-history-change_request{border-left:4px solid #b7791f}.careforms-history-addendum{border-left:4px solid #2563a6}.careforms-history-review_decision{border-left:4px solid #6b46a1}.careforms-history-link{font-weight:600;color:var(--color-primary-element)}
+.careforms-history-change{display:grid;grid-template-columns:minmax(150px,1fr) 2fr;gap:12px;margin-top:10px;padding:10px;border-radius:var(--border-radius);border:1px solid var(--color-border)}.careforms-history-change>div:first-child{display:flex;flex-direction:column;gap:4px}.careforms-change-kind{width:fit-content;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase}.careforms-change-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}.careforms-before,.careforms-after{padding:7px;border-radius:var(--border-radius);overflow-wrap:anywhere}.careforms-before{background:var(--color-background-dark);text-decoration:line-through}.careforms-after{font-weight:700;background:var(--color-primary-element-light)}
+.careforms-history-change.is-added .careforms-change-kind{color:#fff;background:#287a43}.careforms-history-change.is-replaced .careforms-change-kind{color:#302400;background:#f2c94c}.careforms-history-change.is-unchanged .careforms-change-kind{color:var(--color-main-text);background:var(--color-background-dark)}
+@media(max-width:720px){.careforms-addendum-change,.careforms-history-change,.careforms-change-values{grid-template-columns:1fr}.careforms-addendum-actions{flex-direction:column}}
 
 .careforms-field input:disabled,
 .careforms-field textarea:disabled {

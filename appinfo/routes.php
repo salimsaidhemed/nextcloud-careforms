@@ -36,6 +36,8 @@ return [
         ['name' => 'submissionAddendum#submit', 'url' => '/api/addenda/{id}/submit', 'verb' => 'POST'],
         ['name' => 'submissionAddendum#review', 'url' => '/api/addenda/{id}/review', 'verb' => 'POST'],
         ['name' => 'submissionAddendum#pending', 'url' => '/api/review/addenda', 'verb' => 'GET'],
+        ['name' => 'submissionHistory#index', 'url' => '/api/submissions/{submissionId}/history', 'verb' => 'GET'],
+        ['name' => 'submissionHistory#createRequest', 'url' => '/api/submissions/{submissionId}/change-requests', 'verb' => 'POST'],
         ['name' => 'review#index', 'url' => '/api/review/submissions', 'verb' => 'GET'],
         ['name' => 'review#decide', 'url' => '/api/review/submissions/{id}', 'verb' => 'POST'],
     ],
