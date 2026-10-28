@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    var reviewUserId = null;
+
     function apiUrl(path) { return OC.generateUrl('/apps/careforms' + path); }
     function request(path, options) {
         options = options || {};
@@ -44,8 +46,11 @@
                 var status = document.createElement('span');
                 var integrityFailed=submission.integrity && submission.integrity.valid===false;
                 status.className = 'careforms-status '+(integrityFailed?'careforms-status-returned':'careforms-status-submitted');
-                var hasPendingAddendum=pendingAddenda.some(function(item){return Number(item.submission.id)===Number(submission.id);});
-                status.textContent = integrityFailed ? 'Integrity failed' : (hasPendingAddendum?'Addendum awaiting review':(submission.integrity && submission.integrity.status==='legacy-valid' ? 'Legacy verified' : 'Awaiting review'));
+                var submissionAddenda=pendingAddenda.filter(function(item){return Number(item.submission.id)===Number(submission.id);});
+                var hasPendingAddendum=submissionAddenda.length>0;
+                var hasReviewableAddendum=submissionAddenda.some(function(item){return item.canReview!==false;});
+                if(hasPendingAddendum&&!hasReviewableAddendum)status.className='careforms-status careforms-status-returned';
+                status.textContent = integrityFailed ? 'Integrity failed' : (hasReviewableAddendum?'Addendum awaiting review':(hasPendingAddendum?'Different reviewer required':(submission.integrity && submission.integrity.status==='legacy-valid' ? 'Legacy verified' : 'Awaiting review')));
                 item.appendChild(main); item.appendChild(status); item.addEventListener('click', function () {
                     request('/api/form-definitions/' + encodeURIComponent(submission.formId) + '/' + encodeURIComponent(submission.formVersion), {method:'GET'})
                         .then(function (versionDefinition) { renderReview(submission, versionDefinition, patient, mount); })
@@ -59,7 +64,7 @@
 
     function renderReview(submission, d, patient, mount) {
         window.CareForms.FormRenderer.render(d, mount, {values:submission.data || {},patient:patient || null,signature:signatureInfo(submission),readOnly:true,backLabel:'Back to Review Queue'});
-        if(window.CareForms.Addenda)window.CareForms.Addenda.render(submission,d,mount,{canCreate:true,canReview:true});
+        if(window.CareForms.Addenda)window.CareForms.Addenda.render(submission,d,mount,{canCreate:true,canReview:true,currentUserId:reviewUserId});
         if(submission.status!=='submitted')return;
         var box = document.createElement('section'); box.className = 'careforms-review-actions';
         box.innerHTML = '<h3>Supervisor Review</h3><p class="careforms-muted">Approve this signed submission, or request a correction. The original signed record remains immutable; corrections are supplied as addenda.</p><textarea rows="3" placeholder="Correction request (required when returning)"></textarea><div><button type="button" class="careforms-secondary-button" data-review="return">Request correction</button> <button type="button" class="careforms-primary-button" data-review="approve">Approve</button></div>';
@@ -83,6 +88,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         request('/api/access', {method:'GET'}).then(function (access) {
+            reviewUserId=access.userId||null;
             var canReview = Array.isArray(access.capabilities) && access.capabilities.indexOf('submission.review') !== -1;
             var tab = document.querySelector('.careforms-tab[data-view="review"]');
             if (tab) tab.hidden = !canReview; if (!canReview) return;

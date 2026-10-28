@@ -53,8 +53,12 @@ class SubmissionAddendumController extends Controller
             try { $submission = $this->submissions->findById($item->getSubmissionId()); }
             catch (DoesNotExistException | MultipleObjectsReturnedException) { continue; }
             if (!$this->access->canReviewForm($submission->getFormId(), $userId)) continue;
-            if ($item->getAuthorId() === $userId) continue;
-            $items[] = ['addendum' => $this->serialize($item, $submission), 'submission' => $this->submissionPresenter->serialize($submission)];
+            $items[] = [
+                'addendum' => $this->serialize($item, $submission),
+                'submission' => $this->submissionPresenter->serialize($submission),
+                'canReview' => $item->getAuthorId() !== $userId,
+                'blockedReason' => $item->getAuthorId() === $userId ? 'A different reviewer must review this addendum.' : null,
+            ];
         }
         return new JSONResponse($items);
     }
