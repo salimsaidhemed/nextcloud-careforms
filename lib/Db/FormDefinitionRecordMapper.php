@@ -35,7 +35,14 @@ class FormDefinitionRecordMapper extends QBMapper
         $qb->selectDistinct('form_id')
             ->from($this->getTableName())
             ->orderBy('form_id', 'ASC');
-        return array_values(array_map('strval', $qb->executeQuery()->fetchFirstColumn()));
+
+        $result = $qb->executeQuery();
+        $ids = [];
+        while (($formId = $result->fetchOne()) !== false) {
+            $ids[] = (string)$formId;
+        }
+        $result->closeCursor();
+        return $ids;
     }
 
     public function findLatestByForm(string $formId): ?FormDefinitionRecord
