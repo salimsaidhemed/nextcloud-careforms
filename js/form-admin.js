@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    var adminUserId='user';
+
     function apiUrl(path) { return OC.generateUrl('/apps/careforms' + path); }
     function request(path, options) {
         options = options || {};
@@ -34,7 +36,7 @@
         });
     }
 
-    function renderImportValidator(mount) {
+    function renderImportValidator(mount, categories) {
         var section = document.createElement('section');
         section.className = 'careforms-import-panel';
         section.innerHTML = '<div class="careforms-section-heading"><div><h3>Import form definition</h3><p class="careforms-muted">Validate a CareForms JSON definition before importing it. Validation never saves or publishes the form.</p></div></div><label class="careforms-file-drop"><span class="careforms-file-icon">⇧</span><strong>Choose a CareForms JSON file</strong><span class="careforms-muted">Drop a .json file here or click to browse</span><span class="careforms-file-name" data-file-name>No file selected</span><input type="file" accept=".json,application/json" data-json-file></label><div class="careforms-import-result"></div>';
@@ -80,6 +82,7 @@
                         (summary.conflictsExisting ? ' · Existing form ID' : '');
 
                     var actions = result.querySelector('.careforms-import-actions');
+                    var matchedCategory=categories.find(function(category){return String(category.label).toLowerCase()===String(summary.category||'').toLowerCase();});var categoryField=document.createElement('label');categoryField.className='careforms-category-assignment';categoryField.textContent='Assign category';var categoryChoice=categorySelect(categories,matchedCategory?matchedCategory.id:'uncategorized');categoryField.appendChild(categoryChoice);actions.appendChild(categoryField);
                     if (summary.conflictsExisting) {
                         if (summary.draftExists) {
                             var draftWarning = document.createElement('p');
@@ -100,7 +103,7 @@
                         actions.appendChild(actionButton('Import as Draft v' + summary.expectedVersion, '', function () {
                             return request('/api/forms/admin/import', {
                                 method:'POST',
-                                body:JSON.stringify({definition:definition})
+                                body:JSON.stringify({definition:definition,categoryId:categoryChoice.value})
                             }).then(function () {
                                 notify('Form version imported as draft.');
                                 render();
@@ -120,7 +123,7 @@
                     actions.appendChild(actionButton('Import Form', '', function () {
                         return request('/api/forms/admin/import', {
                             method:'POST',
-                            body:JSON.stringify({definition:definition})
+                            body:JSON.stringify({definition:definition,categoryId:categoryChoice.value})
                         }).then(function () {
                             notify('Form imported successfully.');
                             render();
@@ -161,20 +164,27 @@
         return button;
     }
 
-    function createFormDialog() {
-        var name=window.prompt('Form name','New Care Form');
-        if(!name || !name.trim()) return Promise.resolve();
-        var category=window.prompt('Category','General');
-        if(category===null) return Promise.resolve();
-        return request('/api/forms/admin/create',{
-            method:'POST',
-            body:JSON.stringify({name:name.trim(),category:(category || 'General').trim()})
-        }).then(function(payload){
-            notify('New draft form created.');
-            if(window.CareForms && window.CareForms.FormDesigner){
-                window.CareForms.FormDesigner.open(payload.definition.id, payload.draft.version);
-            } else render();
+    function categorySelect(categories, selected) {
+        var select=document.createElement('select');
+        categories.forEach(function(category){var option=document.createElement('option');option.value=category.id;option.textContent=category.label;option.selected=category.id===selected;select.appendChild(option);});
+        return select;
+    }
+
+    function createFormDialog(categories) {
+        return new Promise(function(resolve,reject){
+            var dialog=document.createElement('dialog');dialog.className='careforms-category-dialog';dialog.innerHTML='<form method="dialog"><h3>Create form</h3><label>Form name<input type="text" required value="New Care Form" data-name></label><label data-category-label>Category</label><div class="careforms-dialog-actions"><button type="button" class="careforms-secondary-button" data-cancel>Cancel</button><button type="submit" class="careforms-primary-button">Create form</button></div></form>';
+            var category=categorySelect(categories,'uncategorized');dialog.querySelector('[data-category-label]').appendChild(category);document.body.appendChild(dialog);
+            function finish(){dialog.remove();}
+            dialog.querySelector('[data-cancel]').addEventListener('click',function(){finish();resolve();});
+            dialog.querySelector('form').addEventListener('submit',function(event){event.preventDefault();var name=dialog.querySelector('[data-name]').value.trim();if(!name)return;dialog.querySelectorAll('button').forEach(function(button){button.disabled=true;});request('/api/forms/admin/create',{method:'POST',body:JSON.stringify({name:name,categoryId:category.value})}).then(function(payload){finish();notify('New draft form created.');resolve();if(window.CareForms&&window.CareForms.FormDesigner)window.CareForms.FormDesigner.open(payload.definition.id,payload.draft.version);else render();}).catch(function(error){finish();reject(error);});});
+            dialog.addEventListener('cancel',function(){finish();resolve();});dialog.showModal();dialog.querySelector('[data-name]').focus();dialog.querySelector('[data-name]').select();
         });
+    }
+
+    function categoryManager(mount,categories){
+        var panel=document.createElement('details');panel.className='careforms-category-manager';panel.innerHTML='<summary>Manage categories <span class="careforms-category-count"></span></summary><p class="careforms-muted">Category IDs remain stable when labels or order change.</p><div data-category-rows></div><form data-category-create><label>New category name<input type="text" required maxlength="128"></label><button type="submit" class="careforms-secondary-button">Add category</button></form>';panel.querySelector('.careforms-category-count').textContent=categories.length;
+        var rows=panel.querySelector('[data-category-rows]');categories.forEach(function(category){var row=document.createElement('div');row.className='careforms-category-admin-row';row.innerHTML='<code></code><input type="text" maxlength="128" aria-label="Category label"><input type="number" min="0" max="99990" step="10" aria-label="Sort order"><button type="button" class="careforms-secondary-button">Save</button>';row.querySelector('code').textContent=category.id;var labelInput=row.querySelector('input[type="text"]');labelInput.value=category.label;row.querySelector('input[type="number"]').value=category.sortOrder;var order=row.querySelector('input[type="number"]');if(category.id==='uncategorized'){order.disabled=true;labelInput.disabled=true;}row.querySelector('button').addEventListener('click',function(){var button=this;button.disabled=true;request('/api/forms/admin/categories/'+encodeURIComponent(category.id),{method:'PUT',body:JSON.stringify({label:labelInput.value,sortOrder:Number(order.value)})}).then(function(){notify('Category updated.');render();}).catch(function(error){notify(error.message);button.disabled=false;});});rows.appendChild(row);});
+        panel.querySelector('[data-category-create]').addEventListener('submit',function(event){event.preventDefault();var input=this.querySelector('input');var button=this.querySelector('button');button.disabled=true;request('/api/forms/admin/categories',{method:'POST',body:JSON.stringify({label:input.value})}).then(function(){notify('Category created.');render();}).catch(function(error){notify(error.message);button.disabled=false;});});mount.appendChild(panel);
     }
 
 
@@ -211,21 +221,25 @@
         if (!mount) return;
         mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div></div><p class="careforms-muted">Loading…</p>';
 
-        Promise.all([request('/api/forms/admin', {method:'GET'}),request('/api/forms/admin/groups',{method:'GET'})]).then(function (payload) {
-            var forms=payload[0], groups=payload[1];
+        request('/api/forms/admin', {method:'GET'}).then(function(forms){return Promise.all([Promise.resolve(forms),request('/api/forms/admin/groups',{method:'GET'}),request('/api/forms/admin/categories',{method:'GET'})]);}).then(function (payload) {
+            var forms=payload[0], groups=payload[1], categories=payload[2];
             var restoreUi = window.CareForms && window.CareForms.FormVersionRestore;
             mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div><div data-form-admin-actions></div></div>';
             var topActions=mount.querySelector('[data-form-admin-actions]');
-            topActions.appendChild(actionButton('+ Create form','',createFormDialog));
+            topActions.appendChild(actionButton('+ Create form','',function(){return createFormDialog(categories);}));
             var notice = document.createElement('div');
             notice.className = 'careforms-info-banner';
             notice.textContent = 'Only one version is published at a time. Publishing a draft automatically archives the previous published version. Existing submissions stay tied to the version they were created with.';
             mount.appendChild(notice);
-            renderImportValidator(mount);
+            categoryManager(mount,categories);
+            renderImportValidator(mount,categories);
 
             var list = document.createElement('div');
             list.className = 'careforms-admin-form-list';
-            forms.forEach(function (form) {
+            categories.forEach(function(category){
+                var categoryForms=forms.filter(function(form){return form.categoryId===category.id;});if(!categoryForms.length)return;
+                var categoryGroup=document.createElement('details');categoryGroup.className='careforms-admin-category-group careforms-category-group';var storageKey=window.CareForms.FormCategoryGroups.storageKey('admin',adminUserId,category.id);var stored=null;try{stored=window.localStorage.getItem(storageKey);}catch(error){}categoryGroup.open=stored===null?true:stored==='open';categoryGroup.innerHTML='<summary><span></span><span class="careforms-category-count"></span></summary><div class="careforms-admin-category-forms"></div>';categoryGroup.querySelector('summary span').textContent=category.label;categoryGroup.querySelector('.careforms-category-count').textContent=categoryForms.length+' form'+(categoryForms.length===1?'':'s');categoryGroup.addEventListener('toggle',function(){try{window.localStorage.setItem(storageKey,categoryGroup.open?'open':'closed');}catch(error){}});var categoryList=categoryGroup.querySelector('.careforms-admin-category-forms');
+            categoryForms.sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function (form) {
                 var row = document.createElement('div');
                 row.className = 'careforms-admin-form-row';
                 row.style.alignItems = 'flex-start';
@@ -278,6 +292,7 @@
 
                 var state = document.createElement('div');
                 state.className = 'careforms-admin-form-state';
+                var categoryEditor=document.createElement('label');categoryEditor.className='careforms-form-category-editor';categoryEditor.textContent='Category';var categoryChoice=categorySelect(categories,form.categoryId);categoryEditor.appendChild(categoryChoice);categoryChoice.addEventListener('change',function(){categoryChoice.disabled=true;request('/api/forms/admin/'+encodeURIComponent(form.id)+'/category',{method:'PUT',body:JSON.stringify({categoryId:categoryChoice.value})}).then(function(){notify('Form category updated.');render();}).catch(function(error){notify(error.message);categoryChoice.disabled=false;});});state.appendChild(categoryEditor);
                 var enabledBadge = document.createElement('span');
                 enabledBadge.className = 'careforms-form-state-badge ' + (form.enabled ? 'is-enabled' : 'is-disabled');
                 enabledBadge.textContent = form.enabled ? 'Enabled' : 'Disabled';
@@ -292,7 +307,9 @@
                     }));
                 }
 
-                row.appendChild(details); row.appendChild(state); list.appendChild(row);
+                row.appendChild(details); row.appendChild(state); categoryList.appendChild(row);
+            });
+                list.appendChild(categoryGroup);
             });
             mount.appendChild(list);
         }).catch(function (error) {
@@ -306,7 +323,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         var tab = document.querySelector('.careforms-tab[data-view="form-admin"]');
         if (!tab) return;
-        request('/api/access', {method:'GET'}).then(function (access) { tab.hidden = !access.canManageForms; }).catch(function () { tab.hidden = true; });
+        request('/api/access', {method:'GET'}).then(function (access) { adminUserId=access.userId||'user';tab.hidden = !access.canManageForms; }).catch(function () { tab.hidden = true; });
         tab.addEventListener('click', render);
     });
 }());

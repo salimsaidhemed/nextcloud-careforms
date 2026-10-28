@@ -564,12 +564,11 @@
 
         var meta=document.createElement('div');
         meta.className='careforms-designer-meta';
-        meta.innerHTML='<label>Form name<input type="text" data-name></label><label>Category<input type="text" data-category></label><label>Description<textarea rows="2" data-description></textarea></label>';
+        meta.innerHTML='<label>Form name<input type="text" data-name></label><label>Category snapshot<input type="text" data-category readonly><small>Manage the current catalog category in Form Administration.</small></label><label>Description<textarea rows="2" data-description></textarea></label>';
         meta.querySelector('[data-name]').value=state.name || '';
         meta.querySelector('[data-category]').value=state.category || '';
         meta.querySelector('[data-description]').value=state.description || '';
         meta.querySelector('[data-name]').addEventListener('input',function(){ state.name=this.value; });
-        meta.querySelector('[data-category]').addEventListener('input',function(){ state.category=this.value; });
         meta.querySelector('[data-description]').addEventListener('input',function(){ state.description=this.value; });
         body.appendChild(meta);
 

@@ -7,6 +7,7 @@ namespace OCA\CareForms\Controller;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
 use OCA\CareForms\Service\FormVersionService;
+use OCA\CareForms\Service\FormCategoryService;
 use OCA\CareForms\Service\FormDefinitionService;
 use OCA\CareForms\Service\FormSchemaValidator;
 use OCP\AppFramework\Controller;
@@ -24,6 +25,7 @@ class FormAdminController extends Controller
         private AccessService $accessService,
         private AuditService $auditService,
         private FormVersionService $formVersions,
+        private FormCategoryService $categories,
         private FormDefinitionService $definitions,
         private FormSchemaValidator $schemaValidator,
         private IGroupManager $groupManager,
@@ -43,12 +45,15 @@ class FormAdminController extends Controller
             $formId = (string)$candidate['id'];
             $publishedVersion = $this->formVersions->publishedVersion($formId);
             $definition = $this->definitions->getVersion($formId, $publishedVersion);
+            $category = $this->categories->forForm($formId, is_string($definition['category'] ?? null) ? $definition['category'] : null);
             $versions = array_map(static fn ($version): array => $version->jsonSerialize(), $this->formVersions->versions($formId));
             $draft = $this->formVersions->draft($formId);
             $forms[] = [
                 'id' => $formId,
                 'name' => (string)$definition['name'],
-                'category' => (string)$definition['category'],
+                'category' => $category->getLabel(),
+                'categoryId' => $category->getCategoryKey(),
+                'categoryOrder' => $category->getSortOrder(),
                 'enabled' => $this->accessService->isFormEnabled($formId),
                 'publishedVersion' => $publishedVersion,
                 'nextVersion' => $this->formVersions->nextVersion($formId),
@@ -130,7 +135,7 @@ class FormAdminController extends Controller
     }
 
     #[NoAdminRequired]
-    public function importDefinition(array $definition): JSONResponse
+    public function importDefinition(array $definition, ?string $categoryId = null): JSONResponse
     {
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
@@ -145,6 +150,8 @@ class FormAdminController extends Controller
 
         $formId = (string)$definition['id'];
         $existing = $this->definitions->exists($formId);
+        try { $selectedCategory = $categoryId !== null && $categoryId !== '' ? $this->categories->get($categoryId) : null; }
+        catch (\InvalidArgumentException $e) { return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_BAD_REQUEST); }
 
         try {
             if (!$existing) {
@@ -207,6 +214,9 @@ class FormAdminController extends Controller
             ],
         );
 
+        if ($selectedCategory !== null) $this->categories->assign($formId, $selectedCategory->getCategoryKey());
+        else $this->categories->forForm($formId, is_string($definition['category'] ?? null) ? $definition['category'] : null);
+
         return new JSONResponse([
             'definition' => $imported,
             'enabled' => $this->accessService->isFormEnabled($formId),
@@ -216,7 +226,7 @@ class FormAdminController extends Controller
     }
 
     #[NoAdminRequired]
-    public function createForm(string $name, string $category = 'General', string $description = ''): JSONResponse
+    public function createForm(string $name, ?string $categoryId = null, string $description = ''): JSONResponse
     {
         $userId = $this->requireManager();
         if ($userId instanceof JSONResponse) return $userId;
@@ -229,11 +239,17 @@ class FormAdminController extends Controller
         $suffix = 2;
         while ($this->definitions->exists($formId)) $formId = $base . '-' . $suffix++;
 
+        try {
+            $category = $this->categories->get($categoryId !== null && $categoryId !== '' ? $categoryId : FormCategoryService::UNCATEGORIZED);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
         $definition = [
             'schemaVersion' => FormSchemaValidator::DEFAULT_SCHEMA_VERSION,
             'id' => $formId,
             'name' => trim($name),
-            'category' => trim($category) !== '' ? trim($category) : 'General',
+            'category' => $category->getLabel(),
             'description' => trim($description),
             'version' => 1,
             'sections' => [[
@@ -255,6 +271,7 @@ class FormAdminController extends Controller
             $draft = $this->formVersions->createInitialDraft($formId, $userId);
             $definition['version'] = $draft->getVersionNumber();
             $created = $this->definitions->importNew($definition, $userId);
+            $this->categories->assign($formId, $category->getCategoryKey());
         } catch (\Throwable $e) {
             return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }

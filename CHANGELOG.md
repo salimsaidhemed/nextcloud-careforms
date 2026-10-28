@@ -1,5 +1,18 @@
 # CareForms Changelog
 
+## [0.7.0] - Unreleased
+
+### Added
+- Stable category identities with independently editable labels and ordering.
+- Category management and per-form assignment in Form Administration.
+- Category selection during form creation and JSON import.
+- Keyboard-accessible collapsible category groups with form counts.
+- Per-user expanded/collapsed state remembered in the browser.
+
+### Changed
+- User category counts are calculated only after form permissions are applied.
+- Existing category labels are migrated lazily without changing historical form definitions.
+
 ## [0.6.0] - Unreleased
 
 ### Added
