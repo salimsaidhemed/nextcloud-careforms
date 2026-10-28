@@ -6,6 +6,8 @@
     var activePatient = null;
     var accessState = null;
     var patientCache = [];
+    var formListState = {page:1,pageSize:25,search:'',pagination:null};
+    var formPageRequestSequence = 0;
 
     function apiUrl(path) { return OC.generateUrl('/apps/careforms' + path); }
     function notify(message) { if (OC.Notification && OC.Notification.showTemporary) OC.Notification.showTemporary(message); else window.alert(message); }
@@ -55,19 +57,21 @@
         return {signatureData:submission.signatureData,signedBy:submission.signedBy,signerName:submission.signerName,signedAt:submission.signedAt,integrityHash:submission.integrityHash,integrity:submission.integrity};
     }
 
-    function loadFormDefinitions() {
-        return request('/api/form-definitions', {method:'GET'}).then(function (items) {
+    function loadFormDefinitions(page, pageSize, search) {
+        var query=window.CareForms.ListPagination.query(page||1,pageSize||25,search||'');
+        return request('/api/form-definitions?'+query, {method:'GET'}).then(function (payload) {
+            var result=window.CareForms.ListPagination.payload(payload),items=result.items;
             window.CareForms.formDefinitions = window.CareForms.formDefinitions || {};
-            (Array.isArray(items) ? items : []).forEach(function (definition) {
+            items.forEach(function (definition) {
                 window.CareForms.formDefinitions[definition.id] = definition;
             });
-            return items;
+            return result;
         });
     }
 
     function loadPatients() {
         if (patientCache.length) return Promise.resolve(patientCache);
-        return request('/api/patients', {method:'GET'}).then(function (patients) { patientCache = patients; return patients; });
+        return request('/api/patients?page=1&pageSize=100', {method:'GET'}).then(function (payload) { var result=window.CareForms.ListPagination.payload(payload);patientCache=result.items;return patientCache; });
     }
 
     function applyAccessToNavigation() {
@@ -109,13 +113,22 @@
         activePatient = null;
         var mount = document.getElementById('careforms-forms-browser');
         if (!mount) return;
-        mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Forms</h2><p class="careforms-muted">Select a form, then choose the patient for this submission.</p></div></div>';
-        var allowed = definitions().filter(function (d) { return canUseForm(d.id); });
-        if (!allowed.length) { mount.innerHTML += '<div class="careforms-empty-state"><h3>No forms assigned</h3><p>Your CareForms role does not currently provide access to a form.</p></div>'; return; }
+        mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Forms</h2><p class="careforms-muted">Select a form, then choose the patient for this submission.</p></div></div><div class="careforms-list-toolbar"><input type="search" placeholder="Search forms" aria-label="Search forms"><span class="careforms-muted">Search by name, ID or category</span></div><div data-form-page><p class="careforms-muted">Loading forms…</p></div><div data-form-pagination></div>';
+        var search=mount.querySelector('input[type="search"]');search.value=formListState.search;search.addEventListener('input',window.CareForms.ListPagination.debounce(function(){formListState.search=search.value.trim();formListState.page=1;loadFormPage(mount);},250));
+        loadFormPage(mount);
+    }
+
+    function loadFormPage(mount) {
+        var content=mount.querySelector('[data-form-page]');content.innerHTML='<p class="careforms-muted">Loading forms…</p>';
+        var sequence=++formPageRequestSequence;
+        loadFormDefinitions(formListState.page,formListState.pageSize,formListState.search).then(function(result){
+        if(sequence!==formPageRequestSequence)return;
+        formListState.pagination=result.pagination;content.innerHTML='';var allowed=result.items.filter(function (d) { return canUseForm(d.id); });
+        if (!allowed.length) { content.innerHTML = '<div class="careforms-empty-state"><h3>No forms found</h3><p>Try another search or ask an administrator to assign a form.</p></div>'; }
         window.CareForms.FormCategoryGroups.group(allowed).forEach(function (category) {
             var section = document.createElement('details'); section.className = 'careforms-form-category careforms-category-group';
             var storageKey=window.CareForms.FormCategoryGroups.storageKey('forms',accessState&&accessState.userId,category.id);var stored=null;try{stored=window.localStorage.getItem(storageKey);}catch(error){}section.open=stored===null?true:stored==='open';
-            var title = document.createElement('summary');title.innerHTML='<span></span><span class="careforms-category-count"></span>';title.querySelector('span').textContent=category.label;title.querySelector('.careforms-category-count').textContent=category.forms.length+' form'+(category.forms.length===1?'':'s');section.appendChild(title);
+            var title = document.createElement('summary');title.innerHTML='<span></span><span class="careforms-category-count"></span>';title.querySelector('span').textContent=category.label;title.querySelector('.careforms-category-count').textContent=category.forms.length+' on this page';section.appendChild(title);
             section.addEventListener('toggle',function(){try{window.localStorage.setItem(storageKey,section.open?'open':'closed');}catch(error){}});
             var grid = document.createElement('div'); grid.className = 'careforms-form-card-grid';
             category.forms.forEach(function (definition) {
@@ -128,30 +141,35 @@
                 card.addEventListener('click', function () { choosePatientForForm(definition, mount); });
                 grid.appendChild(card);
             });
-            section.appendChild(grid); mount.appendChild(section);
+            section.appendChild(grid); content.appendChild(section);
         });
+        window.CareForms.ListPagination.render(mount.querySelector('[data-form-pagination]'),result.pagination,'form',function(page){formListState.page=page;loadFormPage(mount);},function(size){formListState.pageSize=size;formListState.page=1;loadFormPage(mount);});
+        }).catch(function(error){if(sequence!==formPageRequestSequence)return;content.innerHTML='<div class="careforms-empty-state"><h3>Could not load forms</h3><p></p></div>';content.querySelector('p').textContent=error.message;});
     }
 
     function choosePatientForForm(definition, mount) {
         if (!canUseForm(definition.id)) { notify('You do not have permission to use this form.'); return; }
-        mount.innerHTML = '<div class="careforms-form-header"><button type="button" class="careforms-secondary-button" data-action="back-to-forms">Back to Forms</button><div><h2>Select Patient</h2><p class="careforms-muted"></p></div></div><div class="careforms-patient-picker"><input type="search" placeholder="Search by patient name or MR#" aria-label="Search patients"><div class="careforms-patient-picker-list"><p class="careforms-muted">Loading patients…</p></div></div>';
+        mount.innerHTML = '<div class="careforms-form-header"><button type="button" class="careforms-secondary-button" data-action="back-to-forms">Back to Forms</button><div><h2>Select Patient</h2><p class="careforms-muted"></p></div></div><div class="careforms-patient-picker"><input type="search" placeholder="Search by patient name or MR#" aria-label="Search patients"><div class="careforms-patient-picker-list"><p class="careforms-muted">Loading patients…</p></div><div data-patient-picker-pagination></div></div>';
         mount.querySelector('.careforms-muted').textContent = 'Starting ' + definition.name + ' · Version ' + definition.version;
         var input = mount.querySelector('input[type="search"]'); var list = mount.querySelector('.careforms-patient-picker-list');
-        loadPatients().then(function (patients) {
-            function renderList() {
-                var term = input.value.trim().toLowerCase();
-                var filtered = patients.filter(function (patient) { return !term || patient.displayName.toLowerCase().indexOf(term) !== -1 || patient.medicalRecordNumber.toLowerCase().indexOf(term) !== -1; });
+        var pickerState={page:1,pageSize:10,search:'',pagination:null};
+        function loadPickerPage() {
+            list.innerHTML='<p class="careforms-muted">Loading patients…</p>';
+            var query=window.CareForms.ListPagination.query(pickerState.page,pickerState.pageSize,pickerState.search);
+            request('/api/patients?'+query,{method:'GET'}).then(function(payload){var result=window.CareForms.ListPagination.payload(payload),patients=result.items;pickerState.pagination=result.pagination;
                 list.innerHTML = '';
-                if (!filtered.length) { list.innerHTML = '<div class="careforms-empty-state"><h3>No patients found</h3><p>Try another name or MR#.</p></div>'; return; }
-                filtered.forEach(function (patient) {
+                if (!patients.length) { list.innerHTML = '<div class="careforms-empty-state"><h3>No patients found</h3><p>Try another name or MR#.</p></div>'; }
+                patients.forEach(function (patient) {
+                    if(!patientCache.some(function(item){return Number(item.id)===Number(patient.id);}))patientCache.push(patient);
                     var button = document.createElement('button'); button.type = 'button'; button.className = 'careforms-patient-choice'; button.innerHTML = '<strong></strong><span></span>';
                     button.querySelector('strong').textContent = patient.displayName;
                     button.querySelector('span').textContent = 'MR# ' + patient.medicalRecordNumber + (patient.dateOfBirth ? ' · DOB ' + patient.dateOfBirth : '');
                     button.addEventListener('click', function () { openNewForm(definition, mount, patient); }); list.appendChild(button);
                 });
-            }
-            input.addEventListener('input', renderList); renderList();
-        }).catch(function (error) { list.innerHTML = '<div class="careforms-empty-state"><h3>Could not load patients</h3><p></p></div>'; list.querySelector('p').textContent = error.message; });
+                window.CareForms.ListPagination.render(mount.querySelector('[data-patient-picker-pagination]'),result.pagination,'patient',function(page){pickerState.page=page;loadPickerPage();},function(size){pickerState.pageSize=size;pickerState.page=1;loadPickerPage();});
+            }).catch(function (error) { list.innerHTML = '<div class="careforms-empty-state"><h3>Could not load patients</h3><p></p></div>'; list.querySelector('p').textContent = error.message; });
+        }
+        input.addEventListener('input',window.CareForms.ListPagination.debounce(function(){pickerState.search=input.value.trim();pickerState.page=1;loadPickerPage();},250));loadPickerPage();
     }
 
     function patientValues(patient) {
@@ -229,7 +247,7 @@
             if(!submissions.length){ mount.innerHTML+='<div class="careforms-empty-state"><h3>No assigned work yet</h3><p>Start a permitted form and save it as a draft. It will appear here.</p></div>'; return; }
             var list=document.createElement('div'); list.className='careforms-submission-list';
             submissions.forEach(function(s){
-                var d=getDefinition(s.formId); if(!d || !canUseForm(s.formId)) return;
+                var d=getDefinition(s.formId) || {id:s.formId,name:s.formId}; if(!canUseForm(s.formId)) return;
                 var item=document.createElement('button'); item.type='button'; item.className='careforms-submission-item';
                 var main=document.createElement('span'); main.className='careforms-submission-main';
                 var patient=findPatient(s.patientId); var patientName=patient ? patient.displayName : (s.data && s.data.patient_name ? s.data.patient_name : 'Legacy / unassigned patient');

@@ -26,7 +26,7 @@ final class FormDefinitionService
      */
     public function all(): array
     {
-        $ids = array_unique(array_merge(array_keys(self::DEFINITIONS), $this->dynamicFormIds()));
+        $ids = $this->formIds();
         $definitions = [];
 
         foreach ($ids as $formId) {
@@ -34,6 +34,14 @@ final class FormDefinitionService
         }
 
         return $definitions;
+    }
+
+    /** @return list<string> */
+    public function formIds(): array
+    {
+        $ids = array_values(array_unique(array_merge(array_keys(self::DEFINITIONS), $this->dynamicFormIds())));
+        sort($ids, SORT_STRING);
+        return $ids;
     }
 
     /**
@@ -231,12 +239,7 @@ final class FormDefinitionService
     /** @return list<string> */
     public function dynamicFormIds(): array
     {
-        $ids = [];
-        foreach ($this->records->findAllRecords() as $record) {
-            $ids[$record->getFormId()] = true;
-        }
-
-        return array_keys($ids);
+        return $this->records->findDistinctFormIds();
     }
 
     /**

@@ -1,5 +1,16 @@
 # CareForms Changelog
 
+## [0.8.0] - Unreleased
+
+### Added
+- Server-backed patient and form pagination with bounded page sizes and consistent metadata.
+- Accessible previous/next and page-size controls for patient, form, and Form Administration listings.
+- Server-side patient and form search that resets to the first page when filters change.
+
+### Changed
+- Patient and form list endpoints now return `{items, pagination}` instead of unbounded arrays.
+- Form authorization enumerates stable form IDs without loading every form definition.
+
 ## [0.7.0] - Unreleased
 
 ### Added
