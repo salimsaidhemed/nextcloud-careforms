@@ -28,6 +28,16 @@ class FormDefinitionRecordMapper extends QBMapper
         return $this->findEntities($qb);
     }
 
+    /** @return list<string> */
+    public function findDistinctFormIds(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->selectDistinct('form_id')
+            ->from($this->getTableName())
+            ->orderBy('form_id', 'ASC');
+        return array_values(array_map('strval', $qb->executeQuery()->fetchFirstColumn()));
+    }
+
     public function findLatestByForm(string $formId): ?FormDefinitionRecord
     {
         $qb = $this->db->getQueryBuilder();

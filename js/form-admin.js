@@ -2,6 +2,8 @@
     'use strict';
 
     var adminUserId='user';
+    var adminListState={page:1,pageSize:25,search:''};
+    var adminRequestSequence=0;
 
     function apiUrl(path) { return OC.generateUrl('/apps/careforms' + path); }
     function request(path, options) {
@@ -219,10 +221,13 @@
     function render() {
         var mount = document.getElementById('careforms-form-admin-browser');
         if (!mount) return;
+        var sequence=++adminRequestSequence;
         mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div></div><p class="careforms-muted">Loading…</p>';
 
-        request('/api/forms/admin', {method:'GET'}).then(function(forms){return Promise.all([Promise.resolve(forms),request('/api/forms/admin/groups',{method:'GET'}),request('/api/forms/admin/categories',{method:'GET'})]);}).then(function (payload) {
-            var forms=payload[0], groups=payload[1], categories=payload[2];
+        var listQuery=window.CareForms.ListPagination.query(adminListState.page,adminListState.pageSize,adminListState.search);
+        request('/api/forms/admin?'+listQuery, {method:'GET'}).then(function(forms){return Promise.all([Promise.resolve(forms),request('/api/forms/admin/groups',{method:'GET'}),request('/api/forms/admin/categories',{method:'GET'})]);}).then(function (payload) {
+            if(sequence!==adminRequestSequence)return;
+            var formResult=window.CareForms.ListPagination.payload(payload[0]),forms=formResult.items, groups=payload[1], categories=payload[2];
             var restoreUi = window.CareForms && window.CareForms.FormVersionRestore;
             mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Form Administration</h2><p class="careforms-muted">Manage form availability and the Draft → Published → Archived version lifecycle.</p></div><div data-form-admin-actions></div></div>';
             var topActions=mount.querySelector('[data-form-admin-actions]');
@@ -234,11 +239,13 @@
             categoryManager(mount,categories);
             renderImportValidator(mount,categories);
 
+            var toolbar=document.createElement('div');toolbar.className='careforms-list-toolbar';toolbar.innerHTML='<input type="search" placeholder="Search forms" aria-label="Search forms"><span class="careforms-muted">Search by name, ID or category</span>';var search=toolbar.querySelector('input');search.value=adminListState.search;search.addEventListener('input',window.CareForms.ListPagination.debounce(function(){adminListState.search=search.value.trim();adminListState.page=1;render();},250));mount.appendChild(toolbar);
+
             var list = document.createElement('div');
             list.className = 'careforms-admin-form-list';
             categories.forEach(function(category){
                 var categoryForms=forms.filter(function(form){return form.categoryId===category.id;});if(!categoryForms.length)return;
-                var categoryGroup=document.createElement('details');categoryGroup.className='careforms-admin-category-group careforms-category-group';var storageKey=window.CareForms.FormCategoryGroups.storageKey('admin',adminUserId,category.id);var stored=null;try{stored=window.localStorage.getItem(storageKey);}catch(error){}categoryGroup.open=stored===null?true:stored==='open';categoryGroup.innerHTML='<summary><span></span><span class="careforms-category-count"></span></summary><div class="careforms-admin-category-forms"></div>';categoryGroup.querySelector('summary span').textContent=category.label;categoryGroup.querySelector('.careforms-category-count').textContent=categoryForms.length+' form'+(categoryForms.length===1?'':'s');categoryGroup.addEventListener('toggle',function(){try{window.localStorage.setItem(storageKey,categoryGroup.open?'open':'closed');}catch(error){}});var categoryList=categoryGroup.querySelector('.careforms-admin-category-forms');
+                var categoryGroup=document.createElement('details');categoryGroup.className='careforms-admin-category-group careforms-category-group';var storageKey=window.CareForms.FormCategoryGroups.storageKey('admin',adminUserId,category.id);var stored=null;try{stored=window.localStorage.getItem(storageKey);}catch(error){}categoryGroup.open=stored===null?true:stored==='open';categoryGroup.innerHTML='<summary><span></span><span class="careforms-category-count"></span></summary><div class="careforms-admin-category-forms"></div>';categoryGroup.querySelector('summary span').textContent=category.label;categoryGroup.querySelector('.careforms-category-count').textContent=categoryForms.length+' on this page';categoryGroup.addEventListener('toggle',function(){try{window.localStorage.setItem(storageKey,categoryGroup.open?'open':'closed');}catch(error){}});var categoryList=categoryGroup.querySelector('.careforms-admin-category-forms');
             categoryForms.sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function (form) {
                 var row = document.createElement('div');
                 row.className = 'careforms-admin-form-row';
@@ -312,7 +319,9 @@
                 list.appendChild(categoryGroup);
             });
             mount.appendChild(list);
+            var pagination=document.createElement('div');mount.appendChild(pagination);window.CareForms.ListPagination.render(pagination,formResult.pagination,'form',function(page){adminListState.page=page;render();},function(size){adminListState.pageSize=size;adminListState.page=1;render();});
         }).catch(function (error) {
+            if(sequence!==adminRequestSequence)return;
             mount.innerHTML = '<div class="careforms-empty-state"><h3>Could not load form administration</h3><p></p></div>';
             mount.querySelector('p').textContent = error.message;
         });

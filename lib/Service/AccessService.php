@@ -87,8 +87,7 @@ class AccessService
         $canFill = false;
         $canReview = false;
         $canReport = false;
-        foreach ($this->definitions->all() as $definition) {
-            $formId = (string)$definition['id'];
+        foreach ($this->definitions->formIds() as $formId) {
             $canFill = $canFill || $this->canFillForm($formId, $userId);
             $canReview = $canReview || $this->canReviewForm($formId, $userId);
             $canReport = $canReport || $this->canReportOnForm($formId, $userId);
@@ -243,8 +242,7 @@ class AccessService
         if ($userId === null) return [];
 
         $forms = [];
-        foreach ($this->definitions->all() as $definition) {
-            $formId = (string)$definition['id'];
+        foreach ($this->definitions->formIds() as $formId) {
             if ($this->canFillForm($formId, $userId)) $forms[] = $formId;
         }
         return array_values(array_unique($forms));

@@ -8,6 +8,7 @@ use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\FormDefinitionService;
 use OCA\CareForms\Service\FormCategoryService;
 use OCA\CareForms\Service\FormVersionService;
+use OCA\CareForms\Service\PaginationService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -22,12 +23,13 @@ final class FormDefinitionController extends Controller
         private FormDefinitionService $definitions,
         private FormCategoryService $categories,
         private FormVersionService $formVersions,
+        private PaginationService $pagination,
     ) {
         parent::__construct('careforms', $request);
     }
 
     #[NoAdminRequired]
-    public function index(): JSONResponse
+    public function index(int $page = 1, int $pageSize = PaginationService::DEFAULT_PAGE_SIZE, string $search = ''): JSONResponse
     {
         $userId = $this->accessService->currentUserId();
 
@@ -35,8 +37,27 @@ final class FormDefinitionController extends Controller
             return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
         }
 
+        $formIds = $this->accessService->allowedForms($userId);
+        sort($formIds, SORT_STRING);
+        $search = mb_strtolower(mb_substr(trim($search), 0, 128));
+        if ($search !== '') {
+            $formIds = array_values(array_filter($formIds, function (string $formId) use ($search): bool {
+                if (str_contains(mb_strtolower($formId), $search)) return true;
+                try {
+                    $definition = $this->definitions->getVersion($formId, $this->formVersions->publishedVersion($formId));
+                    $category = $this->categories->forForm($formId, is_string($definition['category'] ?? null) ? $definition['category'] : null);
+                    return str_contains(mb_strtolower((string)($definition['name'] ?? '')), $search)
+                        || str_contains(mb_strtolower($category->getLabel()), $search);
+                } catch (\Throwable) {
+                    return false;
+                }
+            }));
+        }
+
+        $paging = $this->pagination->normalize($page, $pageSize);
+        $total = count($formIds);
         $result = [];
-        foreach ($this->accessService->allowedForms($userId) as $formId) {
+        foreach (array_slice($formIds, $paging['offset'], $paging['pageSize']) as $formId) {
             try {
                 $publishedVersion = $this->formVersions->publishedVersion($formId);
                 $result[] = $this->categories->decorate($this->definitions->getVersion($formId, $publishedVersion));
@@ -45,7 +66,7 @@ final class FormDefinitionController extends Controller
             }
         }
 
-        return new JSONResponse($result);
+        return new JSONResponse($this->pagination->response($result, $paging['page'], $paging['pageSize'], $total));
     }
 
     #[NoAdminRequired]

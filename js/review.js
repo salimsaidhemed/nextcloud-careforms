@@ -29,16 +29,16 @@
         var mount = document.getElementById('careforms-review-browser');
         if (!mount) return;
         mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Review Queue</h2><p class="careforms-muted">Submitted forms awaiting supervisor review.</p></div></div><p class="careforms-muted">Loading…</p>';
-        Promise.all([request('/api/review/submissions', {method:'GET'}),request('/api/patients', {method:'GET'}).catch(function () { return []; }),request('/api/review/addenda',{method:'GET'})]).then(function (results) {
+        Promise.all([request('/api/review/submissions', {method:'GET'}),request('/api/patients?page=1&pageSize=100', {method:'GET'}).catch(function () { return {items:[]}; }),request('/api/review/addenda',{method:'GET'})]).then(function (results) {
             var submissions = results[0], pendingAddenda=results[2] || [];
             pendingAddenda.forEach(function(item){if(!submissions.some(function(submission){return Number(submission.id)===Number(item.submission.id);}))submissions.push(item.submission);});
-            var patients = results[1]; var patientMap = {};
+            var patients = window.CareForms.ListPagination.payload(results[1]).items; var patientMap = {};
             patients.forEach(function (p) { patientMap[p.id] = p; });
             mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Review Queue</h2><p class="careforms-muted">Submitted forms awaiting supervisor review.</p></div></div>';
             if (!submissions.length) { mount.innerHTML += '<div class="careforms-empty-state"><h3>Nothing waiting for review</h3><p>Newly submitted forms will appear here.</p></div>'; return; }
             var list = document.createElement('div'); list.className = 'careforms-submission-list'; var rendered = 0;
             submissions.forEach(function (submission) {
-                var d = definition(submission.formId, submission.formVersion); if (!d) return; rendered += 1;
+                var d = definition(submission.formId, submission.formVersion) || {id:submission.formId,name:submission.formId,version:submission.formVersion}; rendered += 1;
                 var patient = patientMap[submission.patientId]; var item = document.createElement('button'); item.type = 'button'; item.className = 'careforms-submission-item';
                 var main = document.createElement('span'); main.className = 'careforms-submission-main'; main.innerHTML = '<strong></strong><span></span>';
                 main.querySelector('strong').textContent = patient ? patient.displayName : 'Patient #' + submission.patientId;

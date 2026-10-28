@@ -8,6 +8,7 @@ script('careforms', 'form-logic-linter');
 script('careforms', 'form-renderer');
 script('careforms', 'form-condition-builder');
 script('careforms', 'addenda');
+script('careforms', 'list-pagination');
 script('careforms', 'form-category-groups');
 script('careforms', 'page');
 script('careforms', 'patients');

@@ -9,6 +9,7 @@ use OCA\CareForms\Db\PatientMapper;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AuditService;
+use OCA\CareForms\Service\PaginationService;
 use OCA\CareForms\Service\SubmissionIntegrityPresenter;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -27,12 +28,13 @@ class PatientController extends Controller
         private AccessService $accessService,
         private AuditService $auditService,
         private SubmissionIntegrityPresenter $submissionPresenter,
+        private PaginationService $pagination,
     ) {
         parent::__construct('careforms', $request);
     }
 
     #[NoAdminRequired]
-    public function index(): JSONResponse
+    public function index(int $page = 1, int $pageSize = PaginationService::DEFAULT_PAGE_SIZE, string $search = ''): JSONResponse
     {
         $userId = $this->accessService->currentUserId();
         if ($userId === null) {
@@ -42,9 +44,17 @@ class PatientController extends Controller
             return new JSONResponse(['message' => 'You do not have permission to view patients.'], Http::STATUS_FORBIDDEN);
         }
 
-        return new JSONResponse(array_map(
+        $paging = $this->pagination->normalize($page, $pageSize);
+        $search = mb_substr(trim($search), 0, 128);
+        $items = array_map(
             static fn (Patient $patient): array => $patient->jsonSerialize(),
-            $this->patients->findAllActive(),
+            $this->patients->findActivePage($search, $paging['pageSize'], $paging['offset']),
+        );
+        return new JSONResponse($this->pagination->response(
+            $items,
+            $paging['page'],
+            $paging['pageSize'],
+            $this->patients->countActive($search),
         ));
     }
 

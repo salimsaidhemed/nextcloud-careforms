@@ -22,22 +22,32 @@
     var accessState = null;
     var patients = [];
     var selectedPatientId = null;
+    var patientState = {page:1,pageSize:25,search:'',pagination:null};
+    var patientRequestSequence = 0;
 
     function renderPatients() {
         var mount = document.getElementById('careforms-patients-browser');
         if (!mount) return;
-        mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Patients</h2><p class="careforms-muted">Search the patient registry and review the patient\'s CareForms history.</p></div></div><div class="careforms-patient-master"><aside class="careforms-patient-list-pane"><div class="careforms-patient-list-tools"><input type="search" id="careforms-patient-search" placeholder="Search name or MR#" aria-label="Search patients"><button type="button" id="careforms-add-patient" hidden>Add Patient</button></div><div id="careforms-patient-list"><p class="careforms-muted">Loading patients…</p></div></aside><section class="careforms-patient-detail-pane" id="careforms-patient-detail"><div class="careforms-empty-state"><h3>Select a patient</h3><p>Choose a patient to view their form history.</p></div></section></div>';
+        mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Patients</h2><p class="careforms-muted">Search the patient registry and review the patient\'s CareForms history.</p></div></div><div class="careforms-patient-master"><aside class="careforms-patient-list-pane"><div class="careforms-patient-list-tools"><input type="search" id="careforms-patient-search" placeholder="Search name or MR#" aria-label="Search patients"><button type="button" id="careforms-add-patient" hidden>Add Patient</button></div><div id="careforms-patient-list"><p class="careforms-muted">Loading patients…</p></div><div id="careforms-patient-pagination"></div></aside><section class="careforms-patient-detail-pane" id="careforms-patient-detail"><div class="careforms-empty-state"><h3>Select a patient</h3><p>Choose a patient to view their form history.</p></div></section></div>';
 
         var addButton = document.getElementById('careforms-add-patient');
         addButton.hidden = !accessState || !accessState.canManagePatients;
         addButton.addEventListener('click', renderAddPatient);
-        document.getElementById('careforms-patient-search').addEventListener('input', renderPatientList);
+        var search=document.getElementById('careforms-patient-search');search.value=patientState.search;
+        search.addEventListener('input',window.CareForms.ListPagination.debounce(function(){patientState.search=search.value.trim();patientState.page=1;loadPatientPage();},250));
+        loadPatientPage();
+    }
 
-        request('/api/patients', {method:'GET'}).then(function (items) {
-            patients = items;
-            renderPatientList();
-            if (selectedPatientId && patients.some(function (p) { return Number(p.id) === Number(selectedPatientId); })) showPatient(selectedPatientId);
+    function loadPatientPage() {
+        var list=document.getElementById('careforms-patient-list');if(!list)return;
+        var sequence=++patientRequestSequence;
+        list.innerHTML='<p class="careforms-muted">Loading patients…</p>';
+        var query=window.CareForms.ListPagination.query(patientState.page,patientState.pageSize,patientState.search);
+        request('/api/patients?'+query, {method:'GET'}).then(function (payload) {
+            if(sequence!==patientRequestSequence)return;
+            var result=window.CareForms.ListPagination.payload(payload);patients=result.items;patientState.pagination=result.pagination;renderPatientList();
         }).catch(function (error) {
+            if(sequence!==patientRequestSequence)return;
             document.getElementById('careforms-patient-list').innerHTML = '<div class="careforms-empty-state"><h3>Could not load patients</h3><p></p></div>';
             document.getElementById('careforms-patient-list').querySelector('p').textContent = error.message;
         });
@@ -45,18 +55,12 @@
 
     function renderPatientList() {
         var list = document.getElementById('careforms-patient-list');
-        var search = document.getElementById('careforms-patient-search');
-        if (!list || !search) return;
-        var term = search.value.trim().toLowerCase();
-        var filtered = patients.filter(function (patient) {
-            return !term || patient.displayName.toLowerCase().indexOf(term) !== -1 || patient.medicalRecordNumber.toLowerCase().indexOf(term) !== -1;
-        });
+        if (!list) return;
         list.innerHTML = '';
-        if (!filtered.length) {
+        if (!patients.length) {
             list.innerHTML = '<div class="careforms-empty-state"><h3>No patients found</h3><p>Try another name or MR#.</p></div>';
-            return;
         }
-        filtered.forEach(function (patient) {
+        patients.forEach(function (patient) {
             var button = document.createElement('button');
             button.type = 'button';
             button.className = 'careforms-patient-list-item' + (Number(patient.id) === Number(selectedPatientId) ? ' active' : '');
@@ -66,6 +70,7 @@
             button.addEventListener('click', function () { selectedPatientId = patient.id; renderPatientList(); showPatient(patient.id); });
             list.appendChild(button);
         });
+        window.CareForms.ListPagination.render(document.getElementById('careforms-patient-pagination'),patientState.pagination,'patient',function(page){patientState.page=page;loadPatientPage();},function(size){patientState.pageSize=size;patientState.page=1;loadPatientPage();});
     }
 
     function renderAddPatient() {
@@ -77,10 +82,10 @@
             event.preventDefault();
             var data = Object.fromEntries(new FormData(form).entries());
             request('/api/patients', {method:'POST', body:JSON.stringify(data)}).then(function (patient) {
-                patients.push(patient);
-                patients.sort(function (a,b) { return a.displayName.localeCompare(b.displayName); });
                 selectedPatientId = patient.id;
-                renderPatientList();
+                patientState.page=1;patientState.search='';
+                var search=document.getElementById('careforms-patient-search');if(search)search.value='';
+                loadPatientPage();
                 showPatient(patient.id);
             }).catch(function (error) {
                 if (OC.Notification && OC.Notification.showTemporary) OC.Notification.showTemporary(error.message);
