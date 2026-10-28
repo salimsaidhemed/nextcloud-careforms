@@ -7,10 +7,13 @@ namespace OCA\CareForms\Controller;
 use OCA\CareForms\Db\Submission;
 use OCA\CareForms\Db\SubmissionAddendum;
 use OCA\CareForms\Db\SubmissionAddendumMapper;
+use OCA\CareForms\Db\SubmissionChangeRequest;
+use OCA\CareForms\Db\SubmissionChangeRequestMapper;
 use OCA\CareForms\Db\SubmissionMapper;
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\AddendumIntegrityService;
 use OCA\CareForms\Service\AuditService;
+use OCA\CareForms\Service\ChangeRequestService;
 use OCA\CareForms\Service\FormDefinitionService;
 use OCA\CareForms\Service\SubmissionDataValidator;
 use OCA\CareForms\Service\SubmissionIntegrityPresenter;
@@ -28,11 +31,13 @@ class SubmissionAddendumController extends Controller
         IRequest $request,
         private SubmissionMapper $submissions,
         private SubmissionAddendumMapper $addenda,
+        private SubmissionChangeRequestMapper $requests,
         private AccessService $access,
         private AuditService $audit,
         private FormDefinitionService $definitions,
         private SubmissionDataValidator $validator,
         private AddendumIntegrityService $integrity,
+        private ChangeRequestService $changeRequests,
         private SubmissionIntegrityPresenter $submissionPresenter,
     ) {
         parent::__construct('careforms', $request);
@@ -48,8 +53,12 @@ class SubmissionAddendumController extends Controller
             try { $submission = $this->submissions->findById($item->getSubmissionId()); }
             catch (DoesNotExistException | MultipleObjectsReturnedException) { continue; }
             if (!$this->access->canReviewForm($submission->getFormId(), $userId)) continue;
-            if ($item->getAuthorId() === $userId) continue;
-            $items[] = ['addendum' => $this->serialize($item, $submission), 'submission' => $this->submissionPresenter->serialize($submission)];
+            $items[] = [
+                'addendum' => $this->serialize($item, $submission),
+                'submission' => $this->submissionPresenter->serialize($submission),
+                'canReview' => $item->getAuthorId() !== $userId,
+                'blockedReason' => $item->getAuthorId() === $userId ? 'A different reviewer must review this addendum.' : null,
+            ];
         }
         return new JSONResponse($items);
     }
@@ -66,7 +75,7 @@ class SubmissionAddendumController extends Controller
     }
 
     #[NoAdminRequired]
-    public function create(int $submissionId, string $reason, string $note = '', array $changes = []): JSONResponse
+    public function create(int $submissionId, string $reason, string $note = '', array $changes = [], ?int $changeRequestId = null): JSONResponse
     {
         $submission = $this->authorizedSubmission($submissionId, true);
         if ($submission instanceof JSONResponse) return $submission;
@@ -75,10 +84,13 @@ class SubmissionAddendumController extends Controller
         }
         $payload = $this->payload($submission, $reason, $note, $changes);
         if ($payload instanceof JSONResponse) return $payload;
+        $changeRequest = $this->linkedRequest($changeRequestId, $submissionId);
+        if ($changeRequest instanceof JSONResponse) return $changeRequest;
         $now = time();
         $item = new SubmissionAddendum();
         $item->setSubmissionId($submissionId);
         $item->setSequenceNumber($this->addenda->nextSequence($submissionId));
+        $item->setChangeRequestId($changeRequest?->getId());
         $item->setAuthorId((string)$this->access->currentUserId());
         $item->setReason(trim($reason));
         $item->setData($payload);
@@ -133,6 +145,10 @@ class SubmissionAddendumController extends Controller
         $item->setUpdatedAt($now);
         $item->setIntegrityHash($this->integrity->hash($this->integrityMaterial($item, $submission)));
         $saved = $this->addenda->update($item);
+        if ($item->getChangeRequestId() !== null) {
+            $request = $this->linkedRequest($item->getChangeRequestId(), (int)$submission->getId(), false);
+            if ($request instanceof SubmissionChangeRequest) $this->changeRequests->markResponded($request, (int)$saved->getId(), $now, $userId, $submission->getFormId());
+        }
         $this->audit->log($userId, 'ADDENDUM_SUBMIT', 'addendum', $id, $submission->getFormId(), 'success', ['submissionId' => $submission->getId()]);
         return new JSONResponse($this->serialize($saved, $submission));
     }
@@ -169,7 +185,15 @@ class SubmissionAddendumController extends Controller
         $item->setReviewNote($note !== '' ? $note : null);
         $item->setUpdatedAt($reviewedAt);
         $saved = $this->addenda->update($item);
-        if ($action === 'approve' && $submission->getStatus() === 'returned') {
+        if ($item->getChangeRequestId() !== null) {
+            $request = $this->linkedRequest($item->getChangeRequestId(), (int)$submission->getId(), false);
+            if ($request instanceof SubmissionChangeRequest) $this->changeRequests->completeResponse($request, $action === 'approve', $reviewedAt, $userId, $submission->getFormId());
+        }
+        $hasOutstandingRequest = false;
+        foreach ($this->requests->findBySubmission((int)$submission->getId()) as $request) {
+            if ($request->getStatus() !== 'resolved') { $hasOutstandingRequest = true; break; }
+        }
+        if ($action === 'approve' && $submission->getStatus() === 'returned' && !$hasOutstandingRequest) {
             $previousReviewNote = trim((string)$submission->getReviewNote());
             $approvalNote = 'Approved through addendum #' . $item->getSequenceNumber() . '.';
             if ($previousReviewNote !== '') $approvalNote .= ' Previous correction request: ' . $previousReviewNote;
@@ -201,6 +225,16 @@ class SubmissionAddendumController extends Controller
     {
         try { return $this->addenda->findById($id); }
         catch (DoesNotExistException | MultipleObjectsReturnedException) { return new JSONResponse(['message' => 'Addendum not found.'], Http::STATUS_NOT_FOUND); }
+    }
+
+    private function linkedRequest(?int $id, int $submissionId, bool $requireOpen = true): SubmissionChangeRequest|JSONResponse|null
+    {
+        if ($id === null) return null;
+        try { $request = $this->requests->findById($id); }
+        catch (DoesNotExistException | MultipleObjectsReturnedException) { return new JSONResponse(['message' => 'The selected change request was not found.'], Http::STATUS_NOT_FOUND); }
+        if ($request->getSubmissionId() !== $submissionId) return new JSONResponse(['message' => 'The selected change request belongs to another submission.'], Http::STATUS_BAD_REQUEST);
+        if ($requireOpen && $request->getStatus() !== 'open') return new JSONResponse(['message' => 'The selected change request already has a response.'], Http::STATUS_CONFLICT);
+        return $request;
     }
 
     private function payload(Submission $submission, string $reason, string $note, array $changes, ?int $excludeId = null): string|JSONResponse
@@ -264,7 +298,7 @@ class SubmissionAddendumController extends Controller
     /** @return array<string, mixed> */
     private function integrityMaterial(SubmissionAddendum $item, Submission $submission): array
     {
-        return [
+        $material = [
             'submissionId' => $submission->getId(),
             'submissionIntegrityHash' => $submission->getIntegrityHash(),
             'sequenceNumber' => $item->getSequenceNumber(),
@@ -274,6 +308,8 @@ class SubmissionAddendumController extends Controller
             'createdAt' => $item->getCreatedAt(),
             'submittedAt' => $item->getSubmittedAt(),
         ];
+        if ($item->getChangeRequestId() !== null) $material['changeRequestId'] = $item->getChangeRequestId();
+        return $material;
     }
 
     /** @return array<string, mixed> */

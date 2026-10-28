@@ -88,6 +88,13 @@ decision, audit events, and SHA-256 integrity hash. Only draft addenda may be
 edited. Once submitted, an addendum is append-only; a rejected or superseded
 addendum remains part of the history and a new addendum must be created.
 
+Reviewer change requests are stored as separate durable records with their own
+author, instructions, sequence, lifecycle, linked response addendum, and audit
+events. The record-history view compares each structured correction with the
+immediately preceding effective view and labels values as added, replaced, or
+unchanged. Printed histories include an explicit notice that amendments are
+not part of the original signed payload.
+
 Existing pre-v2 signatures remain readable. They are reported as
 `legacy-valid` when their original data-only hash verifies, because the legacy
 format did not bind the signature image or definition hash. `invalid` means

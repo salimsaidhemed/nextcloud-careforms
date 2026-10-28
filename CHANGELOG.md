@@ -1,5 +1,17 @@
 # CareForms Changelog
 
+## [0.6.0] - Unreleased
+
+### Added
+- Durable reviewer change requests linked to immutable submissions.
+- Chronological record history covering the original signature, requests, addenda, and review decisions.
+- Accessible added/replaced/unchanged comparisons against the preceding effective record.
+- Print-safe amendment history that remains visually separate from the original signed payload.
+
+### Changed
+- Returning an original submission now creates a traceable change request.
+- Addenda can explicitly answer an open change request and resolve it after approval.
+
 ## [0.5.0] - Unreleased
 
 ### Added

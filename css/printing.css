@@ -45,7 +45,22 @@
     .careforms-print-target [data-action="back-to-forms"],
     .careforms-print-target .careforms-form-actions,
     .careforms-print-target .careforms-section-nav,
-    .careforms-print-target .careforms-review-actions { display: none !important; }
+    .careforms-print-target .careforms-review-actions,
+    .careforms-print-target .careforms-addendum-form,
+    .careforms-print-target .careforms-change-request-form,
+    .careforms-print-target .careforms-addendum-actions { display: none !important; }
+
+    .careforms-print-target .careforms-addenda-panel { border: 2px solid #555 !important; }
+    .careforms-print-target .careforms-addenda-panel::before {
+        content: "AMENDMENT HISTORY — NOT PART OF THE ORIGINAL SIGNED PAYLOAD";
+        display: block;
+        padding: 7px;
+        margin-bottom: 12px;
+        border: 1px solid #555;
+        color: #000;
+        font-weight: 700;
+        text-align: center;
+    }
 
     .careforms-print-target .careforms-form-layout { display: block !important; }
 

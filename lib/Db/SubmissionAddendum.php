@@ -11,6 +11,7 @@ class SubmissionAddendum extends Entity implements JsonSerializable
 {
     protected int $submissionId = 0;
     protected int $sequenceNumber = 0;
+    protected ?int $changeRequestId = null;
     protected string $authorId = '';
     protected string $reason = '';
     protected string $data = '{}';
@@ -25,7 +26,7 @@ class SubmissionAddendum extends Entity implements JsonSerializable
 
     public function __construct()
     {
-        foreach (['id', 'submissionId', 'sequenceNumber', 'createdAt', 'updatedAt', 'submittedAt', 'reviewedAt'] as $property) {
+        foreach (['id', 'submissionId', 'sequenceNumber', 'changeRequestId', 'createdAt', 'updatedAt', 'submittedAt', 'reviewedAt'] as $property) {
             $this->addType($property, 'integer');
         }
     }
@@ -37,6 +38,7 @@ class SubmissionAddendum extends Entity implements JsonSerializable
             'id' => $this->getId(),
             'submissionId' => $this->submissionId,
             'sequenceNumber' => $this->sequenceNumber,
+            'changeRequestId' => $this->changeRequestId,
             'authorId' => $this->authorId,
             'reason' => $this->reason,
             'data' => is_array($decoded) ? $decoded : [],

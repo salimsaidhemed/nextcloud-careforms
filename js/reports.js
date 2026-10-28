@@ -206,6 +206,7 @@
                     readOnly: true,
                     backLabel: 'Back to report results'
                 });
+                if(window.CareForms.Addenda)window.CareForms.Addenda.render(submission,definition,preview,{canCreate:false,canReview:false});
 
                 var meta = document.createElement('div');
                 meta.className = 'careforms-report-preview-meta';
