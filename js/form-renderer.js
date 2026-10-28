@@ -89,10 +89,13 @@
                     var status=signature.integrity.status;
                     integrity.className='careforms-integrity-status is-'+status;
                     if(status==='valid') integrity.textContent='✓ Integrity verified';
-                    else if(status==='legacy-valid') integrity.textContent='✓ Legacy integrity verified';
+                    else if(status==='legacy-valid'){
+                        integrity.textContent='✓ Legacy verification passed';
+                        integrity.title='Verified using the older integrity format. The exact form definition and signature metadata were not included in that format.';
+                    }
                     else if(status==='unsigned') integrity.textContent='Unsigned record';
                     else integrity.textContent='⚠ Integrity verification failed';
-                    integrity.title=signature.integrity.message || '';
+                    if(signature.integrity.message) integrity.title=signature.integrity.message;
                     wrapper.appendChild(integrity);
                 }
             } else {

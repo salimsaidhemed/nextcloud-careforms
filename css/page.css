@@ -222,10 +222,10 @@ button .careforms-action-icon { margin-right:6px; }
     object-fit: contain;
     object-position: left center;
 }
-.careforms-integrity-status{display:inline-flex;align-items:center;width:fit-content;margin:4px 0 0;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700}
-.careforms-integrity-status.is-valid{color:var(--color-success-text,var(--color-main-text));background:var(--color-success-hover,var(--color-background-dark))}
-.careforms-integrity-status.is-legacy-valid{color:var(--color-warning-text,var(--color-main-text));background:var(--color-warning-hover,var(--color-background-dark))}
-.careforms-integrity-status.is-invalid,.careforms-integrity-status.is-unavailable{color:var(--color-error-text,var(--color-main-text));background:var(--color-error-hover,var(--color-background-dark))}
+.careforms-integrity-status{display:inline-flex;align-items:center;width:fit-content;margin:4px 0 0;padding:4px 9px;border:1px solid transparent;border-radius:999px;font-size:12px;font-weight:700;line-height:1.35}
+.careforms-integrity-status.is-valid{color:#fff;background:#287a43;border-color:#369457}
+.careforms-integrity-status.is-legacy-valid{color:#302400;background:#f2c94c;border-color:#d4a900}
+.careforms-integrity-status.is-invalid,.careforms-integrity-status.is-unavailable{color:#fff;background:#b42318;border-color:#d04437}
 .careforms-addenda-panel{margin-top:18px;padding:18px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-main-background)}
 .careforms-addendum-form{display:grid;gap:12px;margin-top:16px;padding:16px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-background-hover)}
 .careforms-addendum-form h4{margin:0}.careforms-addendum-form>label,.careforms-addendum-change label{display:flex;flex-direction:column;gap:6px;font-weight:600}.careforms-addendum-change{display:grid;grid-template-columns:1fr 1fr;gap:12px}
