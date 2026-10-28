@@ -7,6 +7,7 @@ script('careforms', 'choice-option-dependency');
 script('careforms', 'form-logic-linter');
 script('careforms', 'form-renderer');
 script('careforms', 'form-condition-builder');
+script('careforms', 'addenda');
 script('careforms', 'page');
 script('careforms', 'patients');
 script('careforms', 'reports');
