@@ -6,6 +6,7 @@ namespace OCA\CareForms\Controller;
 
 use OCA\CareForms\Service\AccessService;
 use OCA\CareForms\Service\FormDefinitionService;
+use OCA\CareForms\Service\FormCategoryService;
 use OCA\CareForms\Service\FormVersionService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -19,6 +20,7 @@ final class FormDefinitionController extends Controller
         IRequest $request,
         private AccessService $accessService,
         private FormDefinitionService $definitions,
+        private FormCategoryService $categories,
         private FormVersionService $formVersions,
     ) {
         parent::__construct('careforms', $request);
@@ -37,7 +39,7 @@ final class FormDefinitionController extends Controller
         foreach ($this->accessService->allowedForms($userId) as $formId) {
             try {
                 $publishedVersion = $this->formVersions->publishedVersion($formId);
-                $result[] = $this->definitions->getVersion($formId, $publishedVersion);
+                $result[] = $this->categories->decorate($this->definitions->getVersion($formId, $publishedVersion));
             } catch (\Throwable) {
                 continue;
             }

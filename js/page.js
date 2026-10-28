@@ -112,13 +112,13 @@
         mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Forms</h2><p class="careforms-muted">Select a form, then choose the patient for this submission.</p></div></div>';
         var allowed = definitions().filter(function (d) { return canUseForm(d.id); });
         if (!allowed.length) { mount.innerHTML += '<div class="careforms-empty-state"><h3>No forms assigned</h3><p>Your CareForms role does not currently provide access to a form.</p></div>'; return; }
-        var categories = {};
-        allowed.forEach(function (d) { (categories[d.category] = categories[d.category] || []).push(d); });
-        Object.keys(categories).sort().forEach(function (categoryName) {
-            var section = document.createElement('section'); section.className = 'careforms-form-category';
-            var title = document.createElement('h3'); title.textContent = categoryName; section.appendChild(title);
+        window.CareForms.FormCategoryGroups.group(allowed).forEach(function (category) {
+            var section = document.createElement('details'); section.className = 'careforms-form-category careforms-category-group';
+            var storageKey=window.CareForms.FormCategoryGroups.storageKey('forms',accessState&&accessState.userId,category.id);var stored=null;try{stored=window.localStorage.getItem(storageKey);}catch(error){}section.open=stored===null?true:stored==='open';
+            var title = document.createElement('summary');title.innerHTML='<span></span><span class="careforms-category-count"></span>';title.querySelector('span').textContent=category.label;title.querySelector('.careforms-category-count').textContent=category.forms.length+' form'+(category.forms.length===1?'':'s');section.appendChild(title);
+            section.addEventListener('toggle',function(){try{window.localStorage.setItem(storageKey,section.open?'open':'closed');}catch(error){}});
             var grid = document.createElement('div'); grid.className = 'careforms-form-card-grid';
-            categories[categoryName].forEach(function (definition) {
+            category.forms.forEach(function (definition) {
                 var card = document.createElement('button'); card.type='button'; card.className='careforms-form-card';
                 var icon = document.createElement('span'); icon.className='careforms-form-card-icon'; icon.textContent='▤'; icon.setAttribute('aria-hidden','true');
                 var body = document.createElement('span'); body.className='careforms-form-card-body';
