@@ -1,5 +1,23 @@
 # CareForms Changelog
 
+## [0.5.0] - Unreleased
+
+### Added
+- Append-only addenda linked to finalized submissions.
+- Addendum draft, submission, integrity, review, approval, and return lifecycle.
+- Structured narrative and field-correction payloads validated against the captured form version.
+- Addendum author, sequence, reason, timestamps, review metadata, and audit events.
+
+### Changed
+- Once a submission has been signed, its original payload and signature remain immutable in every workflow state.
+- Returning a submission now requests an addendum instead of reopening and overwriting the signed record.
+- Approving a corrective addendum completes a returned submission without replacing its signed payload.
+- My Work and Review views display addenda separately from the original signed form.
+
+### Compatibility
+- Nextcloud 31
+- Existing submissions remain readable and do not require data migration.
+
 ## [0.4.0] - 2026-10-26
 
 ### Added

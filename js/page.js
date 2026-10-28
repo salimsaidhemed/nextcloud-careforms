@@ -42,7 +42,7 @@
         if (status === 'approved') return 'Approved';
         return 'Draft';
     }
-    function isSubmissionReadOnly(status) { return status === 'submitted' || status === 'approved'; }
+    function isSubmissionReadOnly(status) { return status !== 'draft'; }
     function integrityLabel(submission){
         var status=submission && submission.integrity && submission.integrity.status;
         if(status==='valid') return 'Integrity verified';
@@ -215,6 +215,7 @@
         activeSubmission=submission; activePatient=findPatient(submission.patientId);
         var renderDefinition = Object.assign({}, definition, {version: Number(submission.formVersion) || definition.version});
         window.CareForms.FormRenderer.render(renderDefinition,mount,{values:submission.data||{},patient:activePatient,signature:signatureInfo(submission),readOnly:isSubmissionReadOnly(submission.status),backLabel:'Back to My Work',onSaveDraft:function(data,b){saveDraft(renderDefinition,data,b,mount);},onSubmit:function(data,b,sig){submitForm(renderDefinition,data,b,mount,sig);}});
+        if(window.CareForms.Addenda)window.CareForms.Addenda.render(submission,renderDefinition,mount,{canCreate:submission.status!=='draft'});
     }
 
     function renderMyWork() {

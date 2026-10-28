@@ -27,8 +27,10 @@
         var mount = document.getElementById('careforms-review-browser');
         if (!mount) return;
         mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Review Queue</h2><p class="careforms-muted">Submitted forms awaiting supervisor review.</p></div></div><p class="careforms-muted">Loading…</p>';
-        Promise.all([request('/api/review/submissions', {method:'GET'}),request('/api/patients', {method:'GET'}).catch(function () { return []; })]).then(function (results) {
-            var submissions = results[0]; var patients = results[1]; var patientMap = {};
+        Promise.all([request('/api/review/submissions', {method:'GET'}),request('/api/patients', {method:'GET'}).catch(function () { return []; }),request('/api/review/addenda',{method:'GET'})]).then(function (results) {
+            var submissions = results[0], pendingAddenda=results[2] || [];
+            pendingAddenda.forEach(function(item){if(!submissions.some(function(submission){return Number(submission.id)===Number(item.submission.id);}))submissions.push(item.submission);});
+            var patients = results[1]; var patientMap = {};
             patients.forEach(function (p) { patientMap[p.id] = p; });
             mount.innerHTML = '<div class="careforms-section-heading"><div><h2>Review Queue</h2><p class="careforms-muted">Submitted forms awaiting supervisor review.</p></div></div>';
             if (!submissions.length) { mount.innerHTML += '<div class="careforms-empty-state"><h3>Nothing waiting for review</h3><p>Newly submitted forms will appear here.</p></div>'; return; }
@@ -42,7 +44,8 @@
                 var status = document.createElement('span');
                 var integrityFailed=submission.integrity && submission.integrity.valid===false;
                 status.className = 'careforms-status '+(integrityFailed?'careforms-status-returned':'careforms-status-submitted');
-                status.textContent = integrityFailed ? 'Integrity failed' : (submission.integrity && submission.integrity.status==='legacy-valid' ? 'Legacy verified' : 'Awaiting review');
+                var hasPendingAddendum=pendingAddenda.some(function(item){return Number(item.submission.id)===Number(submission.id);});
+                status.textContent = integrityFailed ? 'Integrity failed' : (hasPendingAddendum?'Addendum awaiting review':(submission.integrity && submission.integrity.status==='legacy-valid' ? 'Legacy verified' : 'Awaiting review'));
                 item.appendChild(main); item.appendChild(status); item.addEventListener('click', function () {
                     request('/api/form-definitions/' + encodeURIComponent(submission.formId) + '/' + encodeURIComponent(submission.formVersion), {method:'GET'})
                         .then(function (versionDefinition) { renderReview(submission, versionDefinition, patient, mount); })
@@ -56,8 +59,10 @@
 
     function renderReview(submission, d, patient, mount) {
         window.CareForms.FormRenderer.render(d, mount, {values:submission.data || {},patient:patient || null,signature:signatureInfo(submission),readOnly:true,backLabel:'Back to Review Queue'});
+        if(window.CareForms.Addenda)window.CareForms.Addenda.render(submission,d,mount,{canCreate:true,canReview:true});
+        if(submission.status!=='submitted')return;
         var box = document.createElement('section'); box.className = 'careforms-review-actions';
-        box.innerHTML = '<h3>Supervisor Review</h3><p class="careforms-muted">Approve this signed submission, or return it with a correction note. Returning it invalidates the current signature and requires the submitter to sign again.</p><textarea rows="3" placeholder="Correction note (required when returning)"></textarea><div><button type="button" class="careforms-secondary-button" data-review="return">Return for correction</button> <button type="button" class="careforms-primary-button" data-review="approve">Approve</button></div>';
+        box.innerHTML = '<h3>Supervisor Review</h3><p class="careforms-muted">Approve this signed submission, or request a correction. The original signed record remains immutable; corrections are supplied as addenda.</p><textarea rows="3" placeholder="Correction request (required when returning)"></textarea><div><button type="button" class="careforms-secondary-button" data-review="return">Request correction</button> <button type="button" class="careforms-primary-button" data-review="approve">Approve</button></div>';
         mount.appendChild(box);
         if(submission.integrity && submission.integrity.valid===false){
             var warning=document.createElement('p'); warning.className='careforms-info-banner'; warning.textContent=submission.integrity.message || 'Integrity verification failed. Return this submission for correction.';
@@ -71,7 +76,7 @@
             if (action === 'return' && !note) { notify('Enter a correction note before returning the submission.'); return; }
             box.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
             request('/api/review/submissions/' + submission.id, {method:'POST', body:JSON.stringify({action:action,note:note})})
-                .then(function () { notify(action === 'approve' ? 'Submission approved.' : 'Submission returned for correction. Signature invalidated.'); renderQueue(); })
+                .then(function () { notify(action === 'approve' ? 'Submission approved.' : 'Correction requested. The original signed record remains unchanged.'); renderQueue(); })
                 .catch(function (error) { notify(error.message); box.querySelectorAll('button').forEach(function (b) { b.disabled = false; }); });
         }
     }

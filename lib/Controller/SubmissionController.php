@@ -111,7 +111,7 @@ class SubmissionController extends Controller
         $submission = $this->findOwnedSubmission($id);
         if ($submission instanceof JSONResponse) return $submission;
         $userId = $this->getUserId();
-        if (!in_array($submission->getStatus(), ['draft', 'returned'], true)) {
+        if ($submission->getStatus() !== 'draft') {
             if ($userId !== null) $this->auditService->log($userId, 'SUBMISSION_UPDATE', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'read_only_status']);
             return new JSONResponse(['message' => 'This form is read-only in its current workflow state.'], Http::STATUS_CONFLICT);
         }
@@ -130,7 +130,7 @@ class SubmissionController extends Controller
         $user = $this->userSession->getUser();
         $userId = $user?->getUID();
         if ($userId === null) return new JSONResponse(['message' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
-        if (!in_array($submission->getStatus(), ['draft', 'returned'], true)) {
+        if ($submission->getStatus() !== 'draft') {
             $this->auditService->log($userId, 'SUBMISSION_SUBMIT', 'submission', $id, $submission->getFormId(), 'denied', ['reason' => 'already_submitted']);
             return new JSONResponse(['message' => 'This form cannot be submitted in its current workflow state.'], Http::STATUS_CONFLICT);
         }

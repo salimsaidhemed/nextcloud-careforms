@@ -72,15 +72,28 @@ signing time, signature representation, submission/form identifiers and an
 integrity hash. Integrity format v2 binds the submitted data and signature to a
 canonical SHA-256 hash of the exact historical form-definition snapshot. Views
 verify that snapshot rather than substituting the currently published version.
-A returned submission clears all signature and integrity metadata and requires
-a new signature after correction.
+A returned submission retains its original signature and integrity metadata;
+the requested correction is recorded separately as an addendum.
+
+## Immutable records and addenda
+
+After first submission, the original payload, signature, timestamps, captured
+form version, and integrity metadata are never overwritten. A reviewer may
+request a correction, but the returned workflow state does not reopen the
+signed payload. Authorized users respond with a separate addendum.
+
+Addenda use their own monotonically increasing sequence number, author,
+reason, structured narrative/field changes, lifecycle timestamps, review
+decision, audit events, and SHA-256 integrity hash. Only draft addenda may be
+edited. Once submitted, an addendum is append-only; a rejected or superseded
+addendum remains part of the history and a new addendum must be created.
 
 Existing pre-v2 signatures remain readable. They are reported as
 `legacy-valid` when their original data-only hash verifies, because the legacy
 format did not bind the signature image or definition hash. `invalid` means
 content or definition verification failed; `unavailable` means the exact
 historical definition snapshot cannot be retrieved; `unsigned` is expected for
-drafts and returned submissions.
+drafts that have not yet been finalized.
 
 Organizations should confirm that this electronic-signature model satisfies their legal, clinical and policy requirements before relying on it as a regulated signature mechanism.
 

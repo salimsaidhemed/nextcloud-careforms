@@ -226,6 +226,12 @@ button .careforms-action-icon { margin-right:6px; }
 .careforms-integrity-status.is-valid{color:var(--color-success-text,var(--color-main-text));background:var(--color-success-hover,var(--color-background-dark))}
 .careforms-integrity-status.is-legacy-valid{color:var(--color-warning-text,var(--color-main-text));background:var(--color-warning-hover,var(--color-background-dark))}
 .careforms-integrity-status.is-invalid,.careforms-integrity-status.is-unavailable{color:var(--color-error-text,var(--color-main-text));background:var(--color-error-hover,var(--color-background-dark))}
+.careforms-addenda-panel{margin-top:18px;padding:18px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-main-background)}
+.careforms-addendum-form{display:grid;gap:12px;margin-top:16px;padding:16px;border:1px solid var(--color-border);border-radius:var(--border-radius-large);background:var(--color-background-hover)}
+.careforms-addendum-form h4{margin:0}.careforms-addendum-form>label,.careforms-addendum-change label{display:flex;flex-direction:column;gap:6px;font-weight:600}.careforms-addendum-change{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.careforms-addendum-card{margin-top:12px;padding:14px;border-left:4px solid var(--color-primary-element);border-radius:var(--border-radius);background:var(--color-background-hover)}
+.careforms-addendum-head{display:flex;justify-content:space-between;gap:12px}.careforms-addendum-card p{margin:7px 0}.careforms-addendum-card dl{display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:5px 12px}.careforms-addendum-card dt{font-weight:600}.careforms-addendum-card dd{margin:0}.careforms-addendum-actions{display:flex;gap:8px;margin-top:12px}
+@media(max-width:720px){.careforms-addendum-change{grid-template-columns:1fr}.careforms-addendum-actions{flex-direction:column}}
 
 .careforms-field input:disabled,
 .careforms-field textarea:disabled {
