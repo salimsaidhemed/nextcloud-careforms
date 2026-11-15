@@ -20,6 +20,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\IUserManager;
 
 class SubmissionHistoryController extends Controller
 {
@@ -33,6 +34,7 @@ class SubmissionHistoryController extends Controller
         private ChangeRequestService $changeRequests,
         private FormDefinitionService $definitions,
         private RecordHistoryPresenter $presenter,
+        private IUserManager $userManager,
     ) {
         parent::__construct('careforms', $request);
     }
@@ -111,6 +113,26 @@ class SubmissionHistoryController extends Controller
                 'note' => $submission->getReviewNote(),
             ];
         }
+        // Resolve names for presentation only; never rewrite the immutable
+        // actor IDs stored on signed submissions, requests, or addenda.
+        $actorNames = [];
+        foreach ($events as &$event) {
+            $actorId = $event['actorId'] ?? null;
+            if (!is_string($actorId) || $actorId === '') {
+                $event['actorName'] = 'Unknown';
+                continue;
+            }
+            if (!array_key_exists($actorId, $actorNames)) {
+                $user = $this->userManager->get($actorId);
+                $displayName = $user?->getDisplayName();
+                $actorNames[$actorId] = is_string($displayName) && trim($displayName) !== ''
+                    ? $displayName
+                    : $actorId;
+            }
+            $event['actorName'] = $actorNames[$actorId];
+        }
+        unset($event);
+
         usort($events, static fn (array $a, array $b): int => (($a['timestamp'] ?? 0) <=> ($b['timestamp'] ?? 0)) ?: strcmp($a['type'], $b['type']));
         $this->audit->log((string)$this->access->currentUserId(), 'SUBMISSION_HISTORY_VIEW', 'submission', $submissionId, $submission->getFormId());
         return new JSONResponse([

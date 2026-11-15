@@ -55,7 +55,7 @@
         function eventCard(event){
             var card=document.createElement('article');card.className='careforms-history-event careforms-history-'+event.type;
             var head=document.createElement('div');head.className='careforms-addendum-head';var title=document.createElement('strong');title.textContent=event.title;var status=document.createElement('span');status.className='careforms-status careforms-status-'+event.status;status.textContent=event.status;head.appendChild(title);head.appendChild(status);card.appendChild(head);
-            var meta=document.createElement('small');meta.className='careforms-muted';meta.textContent='By '+(event.actorId||'Unknown')+' · '+timestamp(event.timestamp);card.appendChild(meta);
+            var meta=document.createElement('small');meta.className='careforms-muted';meta.textContent='By '+(event.actorName||event.actorId||'Unknown')+' · '+timestamp(event.timestamp);card.appendChild(meta);
             if(event.type==='original'){var original=document.createElement('p');original.textContent='Original signed payload — unchanged';card.appendChild(original);}
             if(event.request){var instructions=document.createElement('p');instructions.textContent=event.request.instructions;card.appendChild(instructions);}
             if(event.addendum){
